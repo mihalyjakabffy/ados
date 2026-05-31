@@ -61,7 +61,15 @@ try:
         Text,
         func,
     )
-    from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+    import os as _os
+    from sqlalchemy.types import JSON
+    # Use JSONB on PostgreSQL for GIN index support; fall back to JSON on SQLite
+    _db_url = _os.environ.get("DATABASE_URL", "sqlite")
+    if "postgresql" in _db_url or "postgres" in _db_url:
+        from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+    else:
+        JSONB = JSON  # type: ignore[assignment,misc]
+        from sqlalchemy import Uuid as PG_UUID  # type: ignore[assignment]
     from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
     _SQLA_AVAILABLE = True
