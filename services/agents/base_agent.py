@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -145,6 +146,38 @@ class BaseAgent(ABC):
         return self._client
 
     # ------------------------------------------------------------------
+    # Intent sanitisation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _sanitize_intent(intent: str) -> str:
+        """
+        Sanitize user_intent before inserting into LLM prompt.
+        - Truncate to 500 chars
+        - Remove common injection patterns
+        - Strip leading/trailing whitespace
+        """
+        if not intent:
+            return ""
+        # Truncate
+        intent = intent[:500]
+        # Remove injection patterns (case-insensitive)
+        _INJECTION_PATTERNS = [
+            r"ignore\s+(all\s+)?(previous|above|prior)\s+instructions?",
+            r"system\s*:?\s*override",
+            r"you\s+are\s+now\s+(in\s+)?(unrestricted|jailbreak|developer|DAN)",
+            r"forget\s+(all\s+)?(previous|your)\s+(instructions?|training)",
+            r"disregard\s+(all\s+)?(previous|prior)\s+instructions?",
+            r"new\s+instruction[s:]",
+            r"---+\s*(system|prompt|instruction)",
+            r"\[INST\]|\[\/INST\]|<\|im_start\|>|<\|im_end\|>",
+            r"act\s+as\s+(if\s+you\s+are|a\s+)",
+        ]
+        for pattern in _INJECTION_PATTERNS:
+            intent = re.sub(pattern, "[FILTERED]", intent, flags=re.IGNORECASE)
+        return intent.strip()
+
+    # ------------------------------------------------------------------
     # JSON parsing helper
     # ------------------------------------------------------------------
 
@@ -171,14 +204,24 @@ class BaseAgent(ABC):
             except json.JSONDecodeError:
                 pass
 
-        # Last resort: find the first { ... } block
+        # Last resort: find the FIRST properly matched { ... } block using bracket counting
         start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except json.JSONDecodeError:
-                pass
+        if start != -1:
+            depth = 0
+            end = -1
+            for i, ch in enumerate(text[start:], start=start):
+                if ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            if end != -1:
+                try:
+                    return json.loads(text[start : end + 1])
+                except json.JSONDecodeError:
+                    pass
 
         raise AgentError(
             f"Could not extract valid JSON from LLM response:\n{text[:500]}"
