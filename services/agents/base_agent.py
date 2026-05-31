@@ -1,17 +1,17 @@
 """
 services/agents/base_agent.py
 
-BaseAgent — shared LLM client, prompt-caching, and rule-based fallback.
+BaseAgent — shared LLM client and rule-based fallback.
 
-All agents subclass this.  The Anthropic client is initialised lazily on
+All agents subclass this.  The Gemini client is initialised lazily on
 first use so the module imports cleanly without an API key.  If the key is
-absent (or the `anthropic` package is not installed), every agent falls back
-to deterministic rule-based logic — the pipeline degrades gracefully rather
-than raising at startup.
+absent (or the `google-generativeai` package is not installed), every agent
+falls back to deterministic rule-based logic — the pipeline degrades
+gracefully rather than raising at startup.
 
 Environment variables:
-    ANTHROPIC_API_KEY   — API key (required for LLM mode)
-    AGENT_MODEL         — Claude model ID (default: claude-haiku-4-5-20251001)
+    GEMINI_API_KEY      — API key (required for LLM mode)
+    AGENT_MODEL         — Gemini model ID (default: gemini-2.0-flash-lite)
     AGENT_MAX_TOKENS    — max tokens per agent call (default: 1024)
     AGENT_LLM_ENABLED   — set to "false" to force rule-based mode even with a key
 """
@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "gemini-2.0-flash-lite"
 _DEFAULT_MAX_TOKENS = 1024
 _LLM_ENABLED = os.environ.get("AGENT_LLM_ENABLED", "true").lower() != "false"
 
@@ -92,9 +92,9 @@ class BaseAgent(ABC):
             logger.debug("%s: LLM disabled — using rule-based fallback", self.__class__.__name__)
             return self._run_rules(state)
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            logger.debug("%s: no ANTHROPIC_API_KEY — using rule-based fallback", self.__class__.__name__)
+            logger.debug("%s: no GEMINI_API_KEY — using rule-based fallback", self.__class__.__name__)
             return self._run_rules(state)
 
         try:
@@ -111,26 +111,12 @@ class BaseAgent(ABC):
     # ------------------------------------------------------------------
 
     def _run_llm(self, state: Any) -> Any:
-        client = self._get_client()
+        model = self._get_client()
         user_message = self._build_user_message(state)
 
-        response = client.messages.create(
-            model=self._model,
-            max_tokens=self._max_tokens,
-            system=[
-                {
-                    "type": "text",
-                    "text": self.system_prompt,
-                    # Prompt caching: the system prompt is long and stable —
-                    # mark it as cacheable so repeated calls within 5 min
-                    # are served from cache (saves tokens + latency).
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            messages=[{"role": "user", "content": user_message}],
-        )
+        response = model.generate_content(user_message)
+        raw = response.text
 
-        raw = response.content[0].text
         logger.debug(
             "%s LLM response (%d chars): %s…",
             self.__class__.__name__, len(raw), raw[:200],
@@ -138,17 +124,24 @@ class BaseAgent(ABC):
         return self._parse_llm_response(raw, state)
 
     def _get_client(self) -> Any:
+        """Return a configured Gemini GenerativeModel (cached after first call)."""
         if self._client is not None:
             return self._client
         try:
-            import anthropic
+            import google.generativeai as genai
         except ImportError as exc:
             raise AgentError(
-                "The `anthropic` package is not installed. "
-                "Run: pip install anthropic"
+                "The `google-generativeai` package is not installed. "
+                "Run: pip install google-generativeai"
             ) from exc
 
-        self._client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        api_key = os.environ.get("GEMINI_API_KEY")
+        genai.configure(api_key=api_key)
+        self._client = genai.GenerativeModel(
+            model_name=self._model,
+            system_instruction=self.system_prompt,
+            generation_config={"max_output_tokens": self._max_tokens},
+        )
         return self._client
 
     # ------------------------------------------------------------------
