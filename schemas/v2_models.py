@@ -658,6 +658,47 @@ if _SQLA_AVAILABLE:
     )
 
 
+class DesignStateConstraintORM(Base):
+    """
+    A soft constraint attached to a DesignState by CONSTRUMIND.
+
+    These are NOT stored inside the ``design_states`` sub-state JSON — they are
+    an independent, append-only feed written by the REVELATION-side consumer of
+    CONSTRUMIND's ``constraint.signal`` Redis channel.  A ``BLOCK``-severity
+    active constraint gates render dispatch.
+
+    ``design_state_id`` is a plain indexed UUID (no hard FK): signals may arrive
+    for a state before/after its row exists, and the two services are
+    deliberately decoupled.
+    """
+
+    __tablename__ = "design_state_constraints"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    design_state_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=False, index=True
+    )
+    signal_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[str] = mapped_column(String(8), nullable=False, default="INFO")
+    title: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    remediation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_pillar: Mapped[str] = mapped_column(String(8), nullable=False, default="CIF")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    acknowledged_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_dsc_state_active_severity", "design_state_id", "is_active", "severity"),
+    )
+
+
 # Backward-compat alias used by api/routers/v2_projects.py
 LockLevel = StateLockLevel
 
@@ -684,4 +725,5 @@ __all__ = [
     "BIMSourceORM",
     "DesignStateORM",
     "UserORM",
+    "DesignStateConstraintORM",
 ]
