@@ -373,6 +373,13 @@ class BIMSourceMetadata(BaseModel):
     storey_count: int = 0
     space_count: int = 0
     element_count: int = 0
+    # Quantities aggregated from IFC base quantities (feed the compliance rules).
+    gross_floor_area_m2: Optional[float] = Field(
+        default=None, description="Σ IfcSpace floor areas (or storey GFA fallback)."
+    )
+    window_wall_ratio: Optional[float] = Field(
+        default=None, description="Σ window area ÷ Σ external wall area."
+    )
 
 
 class BIMSource(BaseModel):
