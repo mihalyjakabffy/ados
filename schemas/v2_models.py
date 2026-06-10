@@ -380,6 +380,9 @@ class BIMSourceMetadata(BaseModel):
     window_wall_ratio: Optional[float] = Field(
         default=None, description="Σ window area ÷ Σ external wall area."
     )
+    extractor_version: Optional[str] = Field(
+        default=None, description="IfcSemanticExtractor version that produced this."
+    )
 
 
 class BIMSource(BaseModel):
