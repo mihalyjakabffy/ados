@@ -68,7 +68,8 @@ shall be removed at the next revision.
 | 2 | Information Architecture | [`ADOS-V2-Information-Architecture.md`](ADOS-V2-Information-Architecture.md) | Hierarchy, sequence, navigation, lifecycle |
 | 3 | Visual Language | [`ADOS-V3-Visual-Language.md`](ADOS-V3-Visual-Language.md) | Typography, grid, scale, contrast, composition |
 | 4 | Drawing Language | [`ADOS-V4-Drawing-Language.md`](ADOS-V4-Drawing-Language.md) | Line hierarchy, annotation, symbols, hatch |
-| 5 | Document Types | [`ADOS-V5-Document-Types.md`](ADOS-V5-Document-Types.md) | Definition of every document, with checklists |
+| 5A | Document Types — Drawings | [`ADOS-V5-Document-Types.md`](ADOS-V5-Document-Types.md) | Chapters 5.0–5.18: every drawing type, with checklists |
+| 5B | Document Types — Documents | [`ADOS-V5B-Document-Types.md`](ADOS-V5B-Document-Types.md) | Chapters 5.19–5.34: schedules, specification, packages, records |
 | 6 | BIM Standards | [`ADOS-V6-BIM-Standards.md`](ADOS-V6-BIM-Standards.md) | Archicad, Revit, IFC, naming, publishing |
 | 7 | AI Generation Specification | [`ADOS-V7-AI-Generation.md`](ADOS-V7-AI-Generation.md) | Deterministic machine-executable rules |
 | 8 | Quality Assurance | [`ADOS-V8-Quality-Assurance.md`](ADOS-V8-Quality-Assurance.md) | Metrics, thresholds, audit procedure |
