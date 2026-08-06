@@ -958,7 +958,93 @@ record and shall be maintained at every stage).
 
 ---
 
-## 2.13 Summary of Volume 2
+## 2.13 The common data environment
+
+### 2.13.1 Why the storage structure is part of the standard
+
+**Problem.** A documentation system with correct containers, statuses and revisions still fails if
+the place where those containers live does not enforce the distinction between work in progress,
+shared information and published information.
+
+**Rationale (R).** Every control in `ADOS-2.6` — status, supersession, issue records — depends on
+there being exactly one location where a recipient looks and exactly one thing they find there. That
+is a property of the storage structure, not of the documents.
+
+### ADOS-2.13.010 — CDE state areas ⚠
+
+**Purpose.** Make the permitted use of a container a property of *where it is*, not only of what it
+says.
+
+**Decision.** The common data environment shall have four state areas, and a container shall exist in
+exactly one of them:
+
+| Area | Contains | Access | Corresponding status |
+|---|---|---|---|
+| **Work in progress** | Containers under development by their originator | Originator only | `S0` |
+| **Shared** | Containers released for coordination, information, review or approval | Project team | `S1`–`S4` |
+| **Published** | Containers authorised for use | Team and supply chain | `A`, `B` |
+| **Archive** | Every superseded revision, immutably | Read-only, retained | any, historic |
+
+Transition between areas is a controlled act with a recorded approver. A container shall not appear
+in two areas.
+
+**Implementation.** Movement to *Published* triggers the supersession operation of `ADOS-2.6.070`
+in the same transaction: the previous revision moves to *Archive* and is no longer in *Published*.
+
+**Exceptions.** None.
+
+**Validation.** `V-2.13.010`: each container appears in exactly one area; area membership matches
+status; the *Published* area contains exactly one revision of each live container.
+
+**Common mistakes.** A "current" folder containing three revisions of the same drawing; work in
+progress shared informally by email, which places an uncontrolled copy outside every area.
+
+### ADOS-2.13.020 — Distribution is by reference ⚠
+
+**Decision.** Containers shall be distributed by reference to the published location, with an issue
+record, not by attaching copies. Where a copy must be transmitted (a recipient with no CDE access),
+the transmission shall be recorded in the issue record and the copy shall be a complete package, not
+an individual container.
+
+**Rationale.** An attached copy has no supersession mechanism. It remains valid-looking on the
+recipient's disk indefinitely. Distributing individual containers additionally breaks the
+`read_with` relationships of `ADOS-2.8.020`.
+
+**Validation.** `V-2.13.020`: every distribution event has an issue record; individual-container
+transmissions = 0.
+
+### ADOS-2.13.030 — Access and confidentiality
+
+**Decision.** Access to each area shall be role-based, and the roles shall match the responsibility
+roles of `ADOS-8.10.010`. Confidentiality classification, where a project requires it, shall be a
+container attribute and shall appear in the title block and in the file metadata.
+
+**Validation.** `V-2.13.030`: role definitions exist; classification present where declared.
+
+### ADOS-2.13.040 — Immutability of the archive ⚠
+
+**Decision.** Archived containers shall be immutable. A correction to an archived container is a new
+revision published through the normal route, never an edit in place.
+
+**Rationale.** The archive is evidence (`ADOS-0.2.4`). An editable archive is not evidence.
+
+**Validation.** `V-2.13.040`: archive checksums stable across audits; modified archive objects = 0.
+
+### ADOS-2.13.050 — Folder structure
+
+**Decision.** Within each area, containers shall be organised by originator, then by container type,
+and shall be located by the register (`ADOS-5.2`) rather than by browsing. Folder depth shall not
+exceed four levels below the area root (`ADOS-0.3.040`).
+
+**Rationale.** Folder structure is a weak navigation instrument: it supports one hierarchy, while
+readers arrive with several different questions. The register is the navigation instrument; the
+folder structure exists only to keep the store tractable.
+
+**Validation.** `V-2.13.050`: depth ≤ 4; every container's location derivable from its identifier.
+
+---
+
+## 2.14 Summary of Volume 2
 
 1. The set is a typed graph of Containers, Views, Regions, Annotations, References and Facts.
 2. Every fact class has exactly one authoritative carrier; everything else references it.
@@ -972,6 +1058,8 @@ record and shall be maintained at every stage).
    superseded information is removed, not merely marked.
 7. Variation is absorbed by overlays that may only add or tighten.
 8. Package completeness by stage is defined as a table, not a judgement.
+9. The common data environment has four state areas; a container is in exactly one, and its area
+   matches its status.
 
 ---
 

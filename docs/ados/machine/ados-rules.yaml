@@ -19,7 +19,7 @@
 
 edition: "1.0"
 generated_from: specification volumes 0-8 and appendix
-rule_count: 440
+rule_count: 476
 severity_default_for_unmarked: S3
 levels: [shall, should, may]
 principles:
@@ -473,6 +473,105 @@ rules:
     principles: [P7, P8]
     evidence: C
     validation: V-1.11.010
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.12.010
+    name: "Optimise for consumption, not production"
+    volume: "1 — Design Philosophy"
+    chapter: "1.12"
+    level: shall
+    severity: S3
+    principles: [P1, P7]
+    evidence: R
+    validation: V-1.12.010
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.12.020
+    name: "Front-load into templates"
+    volume: "1 — Design Philosophy"
+    chapter: "1.12"
+    level: shall
+    severity: S3
+    principles: [P1, P7]
+    evidence: R
+    validation: V-1.12.020
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.12.030
+    name: "The cost of a sheet"
+    volume: "1 — Design Philosophy"
+    chapter: "1.12"
+    level: shall
+    severity: S3
+    principles: [P1, P7]
+    evidence: R
+    validation: V-1.12.030
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.13.010
+    name: "Defined reader classes"
+    volume: "1 — Design Philosophy"
+    chapter: "1.13"
+    level: shall
+    severity: S1
+    principles: [P4, P6]
+    evidence: C
+    validation: V-1.13.010
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.13.020
+    name: "The machine is a reader"
+    volume: "1 — Design Philosophy"
+    chapter: "1.13"
+    level: shall
+    severity: S1
+    principles: [P4, P6]
+    evidence: C
+    validation: V-1.13.020
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.13.030
+    name: "Design for the worst-placed reader"
+    volume: "1 — Design Philosophy"
+    chapter: "1.13"
+    level: shall
+    severity: S3
+    principles: [P4, P6]
+    evidence: C
+    validation: V-1.13.030
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.14.010
+    name: "The seven failure modes"
+    volume: "1 — Design Philosophy"
+    chapter: "1.14"
+    level: shall
+    severity: S1
+    principles: [P7, P9]
+    evidence: R
+    validation: V-1.14.010
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.14.020
+    name: "Failure mode drives remedy class"
+    volume: "1 — Design Philosophy"
+    chapter: "1.14"
+    level: shall
+    severity: S3
+    principles: [P7, P9]
+    evidence: R
+    validation: V-1.14.020
+    classes: [A, B]
+    source: ADOS-V1-Design-Philosophy.md
+  - id: ADOS-1.14.030
+    name: "Failure-mode frequency is a practice metric"
+    volume: "1 — Design Philosophy"
+    chapter: "1.14"
+    level: shall
+    severity: S3
+    principles: [P7, P9]
+    evidence: R
+    validation: V-1.14.030
     classes: [A, B]
     source: ADOS-V1-Design-Philosophy.md
   - id: ADOS-2.1.010
@@ -979,6 +1078,61 @@ rules:
     principles: [P9]
     evidence: R
     validation: V-2.12.010
+    classes: [A, B]
+    source: ADOS-V2-Information-Architecture.md
+  - id: ADOS-2.13.010
+    name: "CDE state areas"
+    volume: "2 — Information Architecture"
+    chapter: "2.13"
+    level: shall
+    severity: S1
+    principles: [P2, P5, P9]
+    evidence: R
+    validation: V-2.13.010
+    classes: [A, B, C]
+    source: ADOS-V2-Information-Architecture.md
+  - id: ADOS-2.13.020
+    name: "Distribution is by reference"
+    volume: "2 — Information Architecture"
+    chapter: "2.13"
+    level: shall
+    severity: S1
+    principles: [P2, P5, P9]
+    evidence: R
+    validation: V-2.13.020
+    classes: [A, B]
+    source: ADOS-V2-Information-Architecture.md
+  - id: ADOS-2.13.030
+    name: "Access and confidentiality"
+    volume: "2 — Information Architecture"
+    chapter: "2.13"
+    level: shall
+    severity: S3
+    principles: [P2, P5, P9]
+    evidence: R
+    validation: V-2.13.030
+    classes: [A, B]
+    source: ADOS-V2-Information-Architecture.md
+  - id: ADOS-2.13.040
+    name: "Immutability of the archive"
+    volume: "2 — Information Architecture"
+    chapter: "2.13"
+    level: shall
+    severity: S1
+    principles: [P2, P5, P9]
+    evidence: R
+    validation: V-2.13.040
+    classes: [A, B]
+    source: ADOS-V2-Information-Architecture.md
+  - id: ADOS-2.13.050
+    name: "Folder structure"
+    volume: "2 — Information Architecture"
+    chapter: "2.13"
+    level: shall
+    severity: S3
+    principles: [P2, P5, P9]
+    evidence: R
+    validation: V-2.13.050
     classes: [A, B]
     source: ADOS-V2-Information-Architecture.md
   - id: ADOS-3.1.010
@@ -2565,6 +2719,182 @@ rules:
     validation: V-4.12.020
     classes: [A, B]
     source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.13.010
+    name: "Stair plan representation"
+    volume: "4 — Drawing Language"
+    chapter: "4.13"
+    level: shall
+    severity: S1
+    principles: [P6, P9]
+    evidence: R
+    validation: V-4.13.010
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.13.020
+    name: "Stair dimensional annotation"
+    volume: "4 — Drawing Language"
+    chapter: "4.13"
+    level: shall
+    severity: S1
+    principles: [P6, P9]
+    evidence: R
+    validation: V-4.13.020
+    classes: [A, B, C]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.13.030
+    name: "Headroom"
+    volume: "4 — Drawing Language"
+    chapter: "4.13"
+    level: shall
+    severity: S1
+    principles: [P6, P9]
+    evidence: R
+    validation: V-4.13.030
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.13.040
+    name: "Ramps"
+    volume: "4 — Drawing Language"
+    chapter: "4.13"
+    level: shall
+    severity: S3
+    principles: [P6, P9]
+    evidence: R
+    validation: V-4.13.040
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.13.050
+    name: "Level changes and thresholds"
+    volume: "4 — Drawing Language"
+    chapter: "4.13"
+    level: shall
+    severity: S3
+    principles: [P6, P9]
+    evidence: R
+    validation: V-4.13.050
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.14.010
+    name: "Curve setting-out"
+    volume: "4 — Drawing Language"
+    chapter: "4.14"
+    level: shall
+    severity: S1
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.14.010
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.14.020
+    name: "Coordinate tables"
+    volume: "4 — Drawing Language"
+    chapter: "4.14"
+    level: shall
+    severity: S3
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.14.020
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.14.030
+    name: "Sloped surfaces"
+    volume: "4 — Drawing Language"
+    chapter: "4.14"
+    level: shall
+    severity: S1
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.14.030
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.14.040
+    name: "Non-orthogonal grids"
+    volume: "4 — Drawing Language"
+    chapter: "4.14"
+    level: shall
+    severity: S3
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.14.040
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.14.050
+    name: "Faceting of curved elements"
+    volume: "4 — Drawing Language"
+    chapter: "4.14"
+    level: shall
+    severity: S3
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.14.050
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.15.010
+    name: "Ownership determines representation"
+    volume: "4 — Drawing Language"
+    chapter: "4.15"
+    level: shall
+    severity: S1
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.15.010
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.15.020
+    name: "Service zone reservations"
+    volume: "4 — Drawing Language"
+    chapter: "4.15"
+    level: shall
+    severity: S1
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.15.020
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.15.030
+    name: "Builder's work openings"
+    volume: "4 — Drawing Language"
+    chapter: "4.15"
+    level: shall
+    severity: S3
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.15.030
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.15.040
+    name: "Coordination status annotation"
+    volume: "4 — Drawing Language"
+    chapter: "4.15"
+    level: shall
+    severity: S3
+    principles: [P2, P9]
+    evidence: R
+    validation: V-4.15.040
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.16.010
+    name: "The default symbol set"
+    volume: "4 — Drawing Language"
+    chapter: "4.16"
+    level: shall
+    severity: S1
+    principles: [P1, P5]
+    evidence: C
+    validation: V-4.16.010
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
+  - id: ADOS-4.16.020
+    name: "Symbol modification prohibited"
+    volume: "4 — Drawing Language"
+    chapter: "4.16"
+    level: shall
+    severity: S3
+    principles: [P1, P5]
+    evidence: C
+    validation: V-4.16.020
+    classes: [A, B]
+    source: ADOS-V4-Drawing-Language.md
   - id: ADOS-5.0.010
     name: "Type registry"
     volume: "5 — Document Types"
@@ -3995,6 +4325,72 @@ rules:
     validation: V-6.12.030
     classes: [A, B]
     source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.010
+    name: "Single model authority"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S1
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.010
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.020
+    name: "Model division"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S1
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.020
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.030
+    name: "Ownership and editing"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S1
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.030
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.040
+    name: "Synchronisation discipline"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S3
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.040
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.050
+    name: "Reference model currency"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S1
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.050
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
+  - id: ADOS-6.14.060
+    name: "Federation cadence"
+    volume: "6 — BIM Standards"
+    chapter: "6.14"
+    level: shall
+    severity: S3
+    principles: [P2, P5]
+    evidence: R
+    validation: V-6.14.060
+    classes: [A, B]
+    source: ADOS-V6-BIM-Standards.md
   - id: ADOS-7.1.010
     name: "The five normative artefacts"
     volume: "7 — AI Generation"
@@ -4480,7 +4876,7 @@ rules:
     classes: [A, B]
     source: ADOS-V8-Quality-Assurance.md
   - id: ADOS-8.2.060
-    name: "Note text complexity"
+    name: "Note text complexity (M1.8)"
     volume: "8 — Quality Assurance"
     chapter: "8.2"
     level: shall
@@ -4568,7 +4964,7 @@ rules:
     classes: [A, B]
     source: ADOS-V8-Quality-Assurance.md
   - id: ADOS-8.4.030
-    name: "Noise measurement"
+    name: "Noise measurement (M4.19)"
     volume: "8 — Quality Assurance"
     chapter: "8.4"
     level: shall
@@ -4590,7 +4986,7 @@ rules:
     classes: [A, B]
     source: ADOS-V8-Quality-Assurance.md
   - id: ADOS-8.4.050
-    name: "Duplicate value scan"
+    name: "Duplicate value scan (M4.20, M4.21)"
     volume: "8 — Quality Assurance"
     chapter: "8.4"
     level: shall
@@ -4601,7 +4997,7 @@ rules:
     classes: [A, B]
     source: ADOS-V8-Quality-Assurance.md
   - id: ADOS-8.4.060
-    name: "Stale derived content"
+    name: "Stale derived content (M4.22)"
     volume: "8 — Quality Assurance"
     chapter: "8.4"
     level: shall
@@ -4678,7 +5074,7 @@ rules:
     classes: [A, B]
     source: ADOS-V8-Quality-Assurance.md
   - id: ADOS-8.7.020
-    name: "Photograph robustness (safety-critical documents)"
+    name: "Photograph robustness, safety-critical documents (M7.12)"
     volume: "8 — Quality Assurance"
     chapter: "8.7"
     level: shall

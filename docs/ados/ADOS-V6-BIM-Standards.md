@@ -832,7 +832,75 @@ immediately identifiable as non-conforming.
 
 ---
 
-## 6.14 Summary of Volume 6
+## 6.14 Worksharing
+
+### ADOS-6.14.010 — Single model authority ⚠
+
+**Decision.** Each element class shall be authored in exactly one model. Elements shall not be
+duplicated between the models of one discipline, nor copied from another discipline's model
+(`ADOS-6.8.040`).
+
+**Rationale.** A duplicated element produces double quantities, spurious clashes, and two versions
+of the truth that diverge on the first change.
+
+**Validation.** `V-6.14.010`: cross-model duplicate detection by geometry and classification;
+duplicates = 0.
+
+### ADOS-6.14.020 — Model division ⚠
+
+**Decision.** Where a project is divided into several models, the division shall be by *spatial zone*
+or by *discipline*, never by drawing package or by team member. The division shall be declared and
+shall be stable for the life of the project.
+
+**Rationale.** A division by package binds the model structure to the documentation structure, which
+changes; a division by team member binds it to the organisation, which changes faster. A spatial
+division is a property of the building and is stable.
+
+**Validation.** `V-6.14.020`: model division declared; changes to the division recorded as a project
+event with an impact assessment.
+
+### ADOS-6.14.030 — Ownership and editing ⚠
+
+**Decision.** Every element shall have an owning model and an owning role. Editing an element outside
+its ownership is prohibited. Where a change is needed, it shall be requested from the owner.
+
+**Validation.** `V-6.14.030`: change logs show no edits outside ownership.
+
+### ADOS-6.14.040 — Synchronisation discipline
+
+**Decision.** Contributors shall synchronise with the central model at least daily and before any
+issue. Local-only work older than one working day is a risk and shall be reported.
+
+**Rationale.** The cost of a synchronisation conflict grows with the divergence period, and the
+resolution of a large conflict is a manual merge — exactly the operation the derived workflow exists
+to eliminate.
+
+**Validation.** `V-6.14.040`: synchronisation log shows no contributor with local-only work exceeding
+one working day during active production.
+
+### ADOS-6.14.050 — Reference model currency ⚠
+
+**Decision.** Every reference (linked) model shall record the version and date of the linked file,
+and the record shall appear on any drawing that shows content from it.
+
+**Rationale.** A drawing coordinated against a six-week-old structural model is not coordinated, and
+nothing on the drawing says so.
+
+**Validation.** `V-6.14.050`: linked model versions recorded; drawings showing linked content carry
+the version and date; links older than the declared currency period reported.
+
+### ADOS-6.14.060 — Federation cadence
+
+**Decision.** The federated model shall be assembled and clash-tested at a declared cadence, at least
+at every shared issue, and the results shall be recorded as BCF issues (`ADOS-6.8.050`) with owners
+and due dates.
+
+**Validation.** `V-6.14.060`: federation events recorded at the declared cadence; open issue age
+trended.
+
+---
+
+## 6.15 Summary of Volume 6
 
 1. Documentation is derived from the model; 2-D content is permitted only in five enumerated classes.
 2. The abstract entity model maps to concrete tool objects, with stable GUIDs across the life of the
@@ -848,6 +916,8 @@ immediately identifiable as non-conforming.
 9. Publication is a single automated operation producing files, metadata, issue record and
    supersession in one run.
 10. Twelve model health checks block issue.
+11. Worksharing has one authority per element, a stable spatial or discipline division, enforced
+    ownership, daily synchronisation and recorded reference-model currency.
 
 ---
 

@@ -84,6 +84,8 @@ Machine-readable artefacts (normative, see `ADOS-7.1`):
 | Sheet schema | [`machine/ados-sheet-schema.json`](machine/ados-sheet-schema.json) | JSON Schema for a sheet definition |
 | Naming grammar | [`machine/ados-naming.ebnf`](machine/ados-naming.ebnf) | EBNF for identifiers |
 | Validation profile | [`machine/ados-validation.yaml`](machine/ados-validation.yaml) | QA metrics and thresholds |
+| Reference IR instance | [`machine/ados-ir-example.json`](machine/ados-ir-example.json) | A schema-valid worked package (informative) |
+| Self-check | [`machine/check_ados.py`](machine/check_ados.py) | Validates the specification against its own rules |
 
 ---
 

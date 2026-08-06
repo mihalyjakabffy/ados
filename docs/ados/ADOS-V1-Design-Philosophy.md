@@ -833,4 +833,263 @@ following procedure:
 
 ---
 
+## 1.12 The economics of documentation
+
+### 1.12.1 Why the economics belong in a design standard
+
+**Problem.** Documentation effort is unbounded and its return is invisible. A practice cannot decide
+how much to spend on a drawing set without a model of what the spending buys, so the decision is made
+by deadline pressure instead — which systematically underinvests in exactly the activities with the
+highest return.
+
+**Rationale (R).** Documentation has three cost pools and one benefit pool:
+
+```
+C_produce    effort to author the information
+C_verify     effort to check it
+C_consume    reader time, multiplied by every reader and every reading
+C_fail       cost of defects that escape (§0.1.2)
+
+B            avoided C_fail  +  avoided C_consume
+```
+
+`C_produce` is paid once, by the author. `C_consume` is paid many times, by everyone else.
+`C_fail` is paid by whoever is downstream when the defect surfaces, at 100–5 000× the desk cost.
+
+The whole of ADOS follows from the ratio between these pools. A rule that costs the author ten
+minutes and saves each of forty readers thirty seconds has already paid for itself twice over on
+first reading, before any defect is considered.
+
+### ADOS-1.12.010 — Optimise for consumption, not production
+
+**Purpose.** Set the objective function for every trade-off in the system.
+
+**Background.** A documentation set is written once and read hundreds of times, by dozens of parties,
+over decades. Production time is a single-instance cost; consumption time is a multiplied cost.
+
+**Problem.** Practices optimise the visible cost — the hours booked to producing the drawing — and
+ignore the invisible cost, which is larger by an order of magnitude and falls on other people.
+
+**Decision.** Where a choice trades author effort against reader effort, reader effort shall govern.
+Where a choice trades production time against defect probability, defect probability shall govern.
+
+**Implementation.** This rule is the reason for: mandatory reciprocal references (author cost, reader
+benefit); mandatory legends on every sheet (author cost, reader benefit); the density remedy order
+that forbids shrinking text (author convenience denied); generated registers and schedules (author
+cost front-loaded into templates, reader benefit permanent).
+
+**Exceptions.**
+1. Where the reader population is one person for one hour — an internal working print at `S0` — the
+   rule does not apply. This is why `S0` is exempt from the gates (`ADOS-8.10.060`).
+
+**Validation.** `V-1.12.010`: trade-off decisions recorded in the Deviation Register state which side
+of this rule they fall on.
+
+**Examples.** *Conforming:* spending an hour building a reusable key plan so that 200 sheets each
+save a reader five seconds. *Non-conforming:* omitting the key plan because "the reader can work it
+out".
+
+**Common mistakes.** Measuring documentation productivity in sheets per week, which rewards
+production speed and penalises everything in this specification.
+
+**Automation notes.** Automation changes the arithmetic decisively: it drives `C_produce` toward zero
+for anything expressible as a rule, which makes reader-optimising choices free. This is the strongest
+argument for Volume 7 and it is an economic argument, not a technical one.
+
+### 1.12.2 Where effort pays: the return table
+
+*Informative.* Approximate return on one hour of effort, ordered. The ordering is stable across
+project types; the magnitudes are not.
+
+| Activity | One hour buys | Return class |
+|---|---|---|
+| Recording concealed work before covering (`ADOS-5.33.020`) | Avoids an opening-up exercise costing days | Extreme |
+| Closing a dimension chain (`ADOS-4.5.030`) | Converts an undetectable error into a visible contradiction | Extreme |
+| Building a template correctly, once | Applies to every sheet of every project thereafter | Extreme |
+| Writing the scope statement (`ADOS-0.3.090`) | Avoids a pricing assumption and a variation | Very high |
+| Reciprocal references (`ADOS-2.4.030`) | Makes change impact computable | Very high |
+| Verifying a library detail (`ADOS-5.16.040`) | Avoids a correct detail applied to the wrong condition | Very high |
+| Automated validation run | Finds defects at 1× that would surface at 100–1 000× | Very high |
+| Resolving a hold before issue | Avoids a tender query or an RFI | High |
+| Improving a drawing's composition | Marginal reading-speed gain | Low |
+| Adding detail beyond the level of information need | Nothing; it is never drawn | Zero or negative |
+
+### ADOS-1.12.020 — Front-load into templates
+
+**Decision.** Effort that can be spent once at practice level shall not be spent repeatedly at
+project level. Where a project team is solving a problem that every project has, the solution shall
+be moved into the practice overlay, the template or the validation configuration.
+
+**Rationale.** A template decision is amortised across every future project. A project decision is
+paid again next time, by someone who does not know it was already made.
+
+**Validation.** `V-1.12.020`: recurring project-level deviations for the same rule across three
+projects trigger a change request (`ADOS-0.7.2`).
+
+### ADOS-1.12.030 — The cost of a sheet
+
+**Decision.** A sheet's total cost shall be understood as production plus verification plus the
+navigation cost it imposes on every reader of the set. Sheet count shall not be reduced below the
+density floor (`ADOS-3.7.050`) nor increased above the ceiling (`ADOS-3.7.010`); both directions
+raise total cost.
+
+**Rationale (A).** Too few sheets: density failures, search cost, error. Too many sheets: navigation
+cost, printing cost, more places for a fact to be wrong. The optimum is the band the density limits
+already define, which is why those limits are two-sided.
+
+**Validation.** `V-1.12.030`: fill ratio within band on every sheet.
+
+---
+
+## 1.13 The reader model
+
+### 1.13.1 Why an explicit reader model
+
+**Problem.** "The reader" is not one person. A rule that serves one reader can obstruct another, and
+without an explicit model those conflicts are resolved by whoever is loudest rather than by the
+document's purpose.
+
+**Rationale (C, R).** Volume 5 assigns users per document type. This chapter defines the users
+themselves — their task, their environment, their time budget and their failure mode — so that the
+Volume 5 assignments mean something and so that a generator can reason about them.
+
+### ADOS-1.13.010 — Defined reader classes ⚠
+
+**Purpose.** Make "who is this for?" answerable, and make content that serves nobody detectable.
+
+**Decision.** Every document's users shall be drawn from the following closed set. Each class carries
+its dominant task, environment, time budget and characteristic failure.
+
+| Class | Dominant task | Environment | Budget | Characteristic failure |
+|---|---|---|---|---|
+| **Setting-out engineer** | Extract absolute positions | Site, outdoors, instrument in hand | Minutes | Ambiguous reference face; open chain |
+| **Trade supervisor** | Find the one fact for today's work | Site cabin, folded print, poor light | 60 s | Cannot find the sheet; symbol unresolvable |
+| **Subcontractor estimator** | Establish scope and quantity | Office, time-boxed tender period | Hours | Undeclared exclusion priced as included |
+| **Coordinating consultant** | Check interface against own model | Office, two documents side by side | Minutes | Interface ownership unstated |
+| **Approving authority** | Verify compliance against a code | Office, checking a specific clause | Minutes | Compliance quantity not stated on the drawing |
+| **Client** | Understand what is proposed and decide | Meeting, non-technical | Minutes | Technical register; no decision requested |
+| **Fabricator** | Extract manufacturing information | Workshop, from a schedule or detail | Minutes | Tolerance and reference face unstated |
+| **Site inspector** | Compare built work to requirement | Site, mobile device | Seconds per item | Requirement not citable |
+| **Facilities manager** | Locate and identify an asset | Years later, from the handover set | Minutes | Asset identifier does not match the model |
+| **Future designer** | Understand what exists and why | Decades later, from the archive | Hours | No provenance; no decision record |
+| **Machine** | Parse, validate, transform | Pipeline | Milliseconds | Content not structured or not extractable |
+
+**Implementation.** Each document type in Volume 5 lists its users from this set with the question
+each brings. Content that serves no listed user is noise (`ADOS-8.4.030`).
+
+**Exceptions.** None. A new reader class shall be added by the extension procedure
+(`ADOS-1.11.010`), not assumed.
+
+**Validation.** `V-1.13.010`: every document type's user list ⊆ this set; every listed user has a
+stated question; every required content item maps to at least one user.
+
+**Common mistakes.** Designing for the reviewer, who is the least representative reader: they have
+context, time, a large screen and the author available.
+
+### ADOS-1.13.020 — The machine is a reader ⚠
+
+**Decision.** The machine reader class shall be served on every issued document: text extractable,
+structure declared, metadata populated, identifiers parseable (`ADOS-0.4.080`, `ADOS-6.11.040`).
+
+**Rationale.** Every automated check, every search, every asset-data import and every future
+migration depends on the document being machine-readable. Serving this reader costs nothing at
+production time and is impossible to retrofit at scale.
+
+**Validation.** `V-1.13.020`: M8.6 (text extraction) = 1.00; M6.5 (identifier grammar) = 1.00.
+
+### ADOS-1.13.030 — Design for the worst-placed reader
+
+**Decision.** Where reader classes conflict, the document shall be designed for the class with the
+tightest time budget and the most adverse environment among its listed users.
+
+**Rationale.** The reader with sixty seconds in poor light is the binding constraint. A document that
+works for them works for everyone else; the converse is false.
+
+**Validation.** `V-1.13.030`: the document type's user list identifies the binding class; the
+orientation and search budgets applied are that class's.
+
+---
+
+## 1.14 Failure taxonomy
+
+### 1.14.1 Why classify failures
+
+**Problem.** Without a taxonomy, every documentation failure looks unique, so nothing is learned and
+the same defect recurs on the next project.
+
+**Rationale (R).** Documentation fails in a small number of ways. Naming them makes them countable,
+makes the rule that prevents each of them identifiable, and turns post-project review from anecdote
+into measurement (`ADOS-8.9.040`).
+
+### ADOS-1.14.010 — The seven failure modes ⚠
+
+**Purpose.** Provide the classification used by RFI cause analysis, audit findings and rule admission.
+
+**Decision.** Every documentation failure shall be classified into exactly one of the following
+modes. The taxonomy is closed; a failure that fits none is a candidate for a new rule
+(`ADOS-1.11.010`).
+
+| # | Mode | Definition | Detected by | Prevented by |
+|---|---|---|---|---|
+| **F1** | **Omission** | Information a defined user needs is absent, and its absence is not stated | M4 completeness | `ADOS-0.3.090`, Volume 5 required content |
+| **F2** | **Ambiguity** | The information permits two readings, one of which is wrong | Human check; banned-phrase scan | `ADOS-4.8.040`, `ADOS-4.5.060`, `ADOS-0.4.030` |
+| **F3** | **Contradiction** | Two documents state different values for one fact | M4.20 duplicate scan | `ADOS-0.3.020`, `ADOS-2.2.010` |
+| **F4** | **Illegibility** | The information is present but cannot be resolved by the reader | M1 readability | `ADOS-3.4.010`, `ADOS-4.1.010`, `ADOS-3.2.040` |
+| **F5** | **Staleness** | The information was correct and is no longer | M4.22 stale derived content | `ADOS-6.7.050`, `ADOS-2.6.070`, `ADOS-6.14.050` |
+| **F6** | **Misplacement** | The information exists but not where the reader looks | M6 navigation | `ADOS-2.3.010`, `ADOS-2.5.030`, `ADOS-2.4.030` |
+| **F7** | **Misrepresentation** | The information asserts more certainty or resolution than exists | Provenance and hold checks | `ADOS-0.4.020`, `ADOS-0.4.040`, `ADOS-4.5.080` |
+
+**Implementation.** The classification is a required field on every RFI classified as a documentation
+defect (`ADOS-5.25.030`), on every audit finding (`ADOS-8.10.070`) and on every change instruction
+whose cause is *error* (`ADOS-5.26.010`).
+
+**Exceptions.** None.
+
+**Validation.** `V-1.14.010`: every recorded documentation defect carries exactly one mode; unmapped
+defects raise a change request.
+
+**Examples.** *F1:* a ceiling plan with no services and no exclusion note. *F3:* `FD30S` on the
+schedule against a 60-minute wall type. *F5:* a plan showing a riser at its pre-RFI size. *F7:* an
+assumed existing wall thickness shown as a survey dimension.
+
+**Common mistakes.** Classifying everything as F2 (ambiguity). Most site queries are F1 or F6, both
+of which have structural remedies; F2 usually indicates that the underlying failure was not analysed.
+
+**Automation notes.** Six of the seven modes have an automated detector. F2 does not, and this is the
+principal reason human checking remains mandatory (`ADOS-7.10.030`).
+
+### ADOS-1.14.020 — Failure mode drives remedy class
+
+**Decision.** The remedy for a recorded failure shall be selected by mode, not improvised:
+
+| Mode | Remedy class |
+|---|---|
+| F1 Omission | Add the content, or add the exclusion statement. Then check whether the document type's required content list was incomplete. |
+| F2 Ambiguity | Replace the ambiguous statement with a measurable one. Add the phrase to the banned list if it recurs. |
+| F3 Contradiction | Remove the duplicate. Assign the fact class a carrier if it lacked one. |
+| F4 Illegibility | Fix the size or weight, and check the nominated issue size declaration. Never fix by asking readers to zoom. |
+| F5 Staleness | Restore the derivation. Remove the override. Check the supersession mechanism. |
+| F6 Misplacement | Move the content to the correct level or container. Add the reference. |
+| F7 Misrepresentation | Add the provenance, the hold or the tolerance. Withdraw the false precision. |
+
+**Rationale.** Each mode has a structural cause and therefore a structural remedy. Treating a symptom
+(adding a note to explain an ambiguous drawing) leaves the cause in place.
+
+**Validation.** `V-1.14.020`: recorded remedies match the mode's remedy class; mismatches reviewed at
+audit.
+
+### ADOS-1.14.030 — Failure-mode frequency is a practice metric
+
+**Decision.** The distribution of failure modes shall be computed per project and trended across
+projects. A mode whose share is rising indicates a systematic weakness in the corresponding rule
+group.
+
+**Rationale.** The absolute defect count depends on project complexity and is hard to compare. The
+*distribution* is comparable and diagnostic: a practice whose failures are 60 % F6 has a navigation
+problem, not a drafting problem, and should invest accordingly.
+
+**Validation.** `V-1.14.030`: distribution computed per project; trend reviewed annually by the DSO.
+
+---
+
 *Continue to [Volume 2 — Information Architecture](ADOS-V2-Information-Architecture.md).*

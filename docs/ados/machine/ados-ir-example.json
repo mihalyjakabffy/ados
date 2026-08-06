@@ -1,0 +1,542 @@
+{
+  "$comment": "ADOS 1.0 — reference IR instance. A minimal but complete and schema-valid package containing one GA plan sheet with one view, demonstrating every required structure: zoning, tiers, dimension chain closure, tags, reciprocal references, provenance and encoding table. Validates against ados-sheet-schema.json. All lengths are micrometres; coordinates are sheet space with origin at the frame's lower-left. See ADOS-7.3 and ADOS-A.14.",
+  "edition": "1.0",
+  "package": {
+    "package_id": "2317-PKG-0007",
+    "purpose": "Construction issue, level 02 general arrangement",
+    "status": "A1",
+    "project": {
+      "code": "2317",
+      "name": "RIVERSIDE WORKSHOPS",
+      "jurisdiction": "HU",
+      "units": "mm",
+      "language": "en-GB",
+      "decimal_separator": ".",
+      "datum": "Project datum +0.000 = 118.450 EOV Baltic",
+      "coordinate_system": "EOV (EPSG:23700)"
+    },
+    "set": {
+      "originator_code": "JKA",
+      "nominated_issue_size": "A1",
+      "authored_size": "A1",
+      "conformance_class": "B",
+      "edition": "1.0",
+      "overlays": ["HU-2026", "JKA-PRACTICE-3"]
+    },
+    "issue": {
+      "date": "2026-03-14",
+      "medium": "CDE published area",
+      "recipients": ["MAIN-CONTRACTOR", "CLIENT", "STRUCTURAL", "SERVICES"],
+      "supersedes": ["2317-JKA-ZZ-02-DR-A-3104@C02"]
+    },
+    "generator": {
+      "name": "ados-generate",
+      "version": "1.0.0",
+      "artefact_versions": {
+        "ados-tokens.json": "1.0",
+        "ados-rules.yaml": "1.0",
+        "ados-validation.yaml": "1.0"
+      },
+      "model_version": "2026-03-13T18:04:11Z",
+      "model_hash": "sha256:1f0a9c2e7b4d6a8f3c5e1d9b7a4f2c8e6d0b3a5f7c9e1d2b4a6f8c0e3d5b7a9f"
+    },
+    "encoding_table": [
+      { "channel": "line_weight", "state": "W3", "meaning": "cut by the view cut plane", "criticality": "cost", "rule": "ADOS-4.1.020" },
+      { "channel": "line_weight", "state": "W2", "meaning": "seen in front of the cut plane", "criticality": "efficiency", "rule": "ADOS-4.1.020" },
+      { "channel": "line_weight", "state": "W1", "meaning": "beyond, hidden or reference", "criticality": "efficiency", "rule": "ADOS-4.1.020" },
+      { "channel": "line_type", "state": "L-DASH", "meaning": "above the cut plane", "criticality": "efficiency", "rule": "ADOS-4.1.050" },
+      { "channel": "line_type", "state": "L-CENT", "meaning": "setting-out grid", "criticality": "cost", "rule": "ADOS-4.4.020" },
+      { "channel": "tone", "state": "T3", "meaning": "cut structural material", "criticality": "cost", "rule": "ADOS-4.10.050" },
+      { "channel": "tone", "state": "T1", "meaning": "background / other discipline", "criticality": "efficiency", "rule": "ADOS-3.8.050" },
+      { "channel": "enclosure", "state": "bubble-14", "meaning": "reference marker", "criticality": "cost", "rule": "ADOS-4.7.020" },
+      { "channel": "text_size", "state": "t3", "meaning": "view title", "criticality": "efficiency", "rule": "ADOS-3.4.030" },
+      { "channel": "text_size", "state": "t2", "meaning": "body annotation", "criticality": "efficiency", "rule": "ADOS-3.4.030" }
+    ],
+    "containers": [
+      {
+        "container_id": "2317-JKA-ZZ-02-DR-A-3104",
+        "short_id": "A3.104",
+        "title": "LEVEL 02 GENERAL ARRANGEMENT PLAN",
+        "type": "GA-P",
+        "status": "A1",
+        "revision": "C03",
+        "sheet": { "size": "A1", "orientation": "landscape", "zoning_template": "large_format" },
+        "parties": { "author": "K. Varga", "checker": "M. Tóth", "approver": "A. Nagy" },
+        "revisions": [
+          {
+            "code": "C03",
+            "date": "2026-03-14",
+            "description": "Core doors D-1108 and D-1109 relocated 300 east at grid C/4",
+            "author": "K. Varga",
+            "checker": "M. Tóth",
+            "affected_regions": ["Z-DRAW"]
+          },
+          {
+            "code": "C02",
+            "date": "2026-02-02",
+            "description": "Riser R-02 enlarged to 900 x 1200 at grid D/3 per RFI-0142",
+            "author": "K. Varga",
+            "checker": "M. Tóth",
+            "affected_regions": ["Z-DRAW"]
+          },
+          {
+            "code": "C01",
+            "date": "2026-01-09",
+            "description": "First construction issue at grid A-F / 1-6, level 02",
+            "author": "K. Varga",
+            "checker": "M. Tóth",
+            "affected_regions": ["Z-DRAW"]
+          }
+        ],
+        "scope_statement": "Level 02 general arrangement: partition setting-out, room identity, door and window marks, wall types. Services and structure by others, shown as background only.",
+        "read_with": [
+          "2317-JKA-ZZ-02-DR-A-3204",
+          "2317-JKA-ZZ-ZZ-SC-A-8010",
+          "2317-JKA-ZZ-ZZ-SC-A-8020",
+          "2317-JKA-ZZ-ZZ-DR-A-6010"
+        ],
+        "provenance": [
+          {
+            "item": "detail-callout DT-014 source geometry",
+            "origin": "library",
+            "version": "JKA-STD-034 v3",
+            "approved_by": "M. Tóth",
+            "approved_date": "2026-01-05"
+          }
+        ],
+        "regions": [
+          {
+            "region_id": "Z-DRAW",
+            "bounds": { "x": 20000, "y": 15000, "w": 621000, "h": 559000 },
+            "views": [
+              {
+                "view_id": "P1",
+                "view_type": "plan",
+                "level": "L2",
+                "scale_denominator": 100,
+                "origin": { "x": 40000, "y": 120000 },
+                "extent": { "w": 420000, "h": 380000 },
+                "north_vector_mdeg": 0,
+                "cut_plane_height": 1200000,
+                "view_range": { "below": 0, "above": 2400000 },
+                "detail_level": "medium",
+                "location_reference": "Level 02, grids A-F / 1-6",
+                "title": {
+                  "text": "LEVEL 02 GENERAL ARRANGEMENT PLAN",
+                  "size_token": "t3",
+                  "scale_label": "1:100"
+                },
+                "geometry": [
+                  {
+                    "kind": "stroke",
+                    "path": [
+                      { "x": 60000, "y": 150000 },
+                      { "x": 460000, "y": 150000 },
+                      { "x": 460000, "y": 430000 },
+                      { "x": 60000, "y": 430000 },
+                      { "x": 60000, "y": 150000 }
+                    ],
+                    "closed": true,
+                    "tier": "W3",
+                    "width_um": 700,
+                    "line_type": "L-CONT",
+                    "pattern_phase_um": 0,
+                    "tone": "T0",
+                    "depth_class": "cut",
+                    "source_guid": "2xY7Qk3sD8ufA1vBcNzL0m"
+                  },
+                  {
+                    "kind": "fill",
+                    "boundary": [[
+                      { "x": 60000, "y": 150000 },
+                      { "x": 63000, "y": 150000 },
+                      { "x": 63000, "y": 430000 },
+                      { "x": 60000, "y": 430000 }
+                    ]],
+                    "tone": "T3",
+                    "hatch": null,
+                    "source_guid": "2xY7Qk3sD8ufA1vBcNzL0m"
+                  },
+                  {
+                    "kind": "stroke",
+                    "path": [ { "x": 50000, "y": 150000 }, { "x": 470000, "y": 150000 } ],
+                    "closed": false,
+                    "tier": "W1",
+                    "width_um": 180,
+                    "line_type": "L-CENT",
+                    "pattern_phase_um": 0,
+                    "tone": "T0",
+                    "depth_class": "apparatus",
+                    "source_guid": "GRID-1-0000000000000001"
+                  },
+                  {
+                    "kind": "stroke",
+                    "path": [ { "x": 200000, "y": 300000 }, { "x": 320000, "y": 300000 } ],
+                    "closed": false,
+                    "tier": "W1",
+                    "width_um": 180,
+                    "line_type": "L-DASH",
+                    "pattern_phase_um": 0,
+                    "tone": "T0",
+                    "depth_class": "beyond",
+                    "source_guid": "9pQ2Lm5tR7wXe4YbVzJ1n0"
+                  },
+                  {
+                    "kind": "symbol",
+                    "symbol_id": "SY-NORTH",
+                    "placement": { "x": 440000, "y": 470000 },
+                    "rotation_mdeg": 0,
+                    "size_um": 15000,
+                    "source_guid": "NORTH-000000000000001"
+                  }
+                ],
+                "annotations": [
+                  {
+                    "anno_id": "A-0001",
+                    "class": "tag",
+                    "anchor": { "x": 150000, "y": 280000 },
+                    "placement": { "x": 150000, "y": 280000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "2.14  WORKSHOP 2",
+                    "source_ref": { "kind": "room", "target": "RM-214" },
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "room_tags",
+                    "leader": null,
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "A-0002",
+                    "class": "tag",
+                    "anchor": { "x": 232000, "y": 152000 },
+                    "placement": { "x": 240000, "y": 140000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "D-1108",
+                    "source_ref": { "kind": "element_mark", "target": "D-1108" },
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "door_tags",
+                    "leader": {
+                      "terminator": "dot",
+                      "angle_mdeg": 45000,
+                      "length_um": 14000,
+                      "landing_um": 3000
+                    },
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "A-0003",
+                    "class": "tag",
+                    "anchor": { "x": 61500, "y": 290000 },
+                    "placement": { "x": 75000, "y": 290000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "WT-01",
+                    "source_ref": { "kind": "type_code", "target": "WT-01" },
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "wall_type_tags",
+                    "leader": {
+                      "terminator": "arrow",
+                      "angle_mdeg": 30000,
+                      "length_um": 14000,
+                      "landing_um": 3000
+                    },
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "A-0004",
+                    "class": "level",
+                    "anchor": { "x": 160000, "y": 260000 },
+                    "placement": { "x": 160000, "y": 255000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "FFL +7.200",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "levels",
+                    "leader": null,
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "A-0010",
+                    "class": "dimension",
+                    "anchor": { "x": 60000, "y": 140000 },
+                    "placement": { "x": 130000, "y": 141000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "14000",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "dim_chain_1_south",
+                    "leader": null,
+                    "dimension": {
+                      "chain_id": "CH-S-1",
+                      "chain_level": 1,
+                      "from_ref": { "guid": "2xY7Qk3sD8ufA1vBcNzL0m", "face": "structural" },
+                      "to_ref": { "guid": "7bK4Wn8yT2qZr5MdXcF3v1", "face": "structural" },
+                      "value_um": 14000000,
+                      "displayed_value": "14000",
+                      "prefix": "",
+                      "suffix": "",
+                      "terminator": "oblique"
+                    }
+                  },
+                  {
+                    "anno_id": "A-0011",
+                    "class": "dimension",
+                    "anchor": { "x": 200000, "y": 140000 },
+                    "placement": { "x": 270000, "y": 141000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "26000",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "dim_chain_1_south",
+                    "leader": null,
+                    "dimension": {
+                      "chain_id": "CH-S-1",
+                      "chain_level": 1,
+                      "from_ref": { "guid": "7bK4Wn8yT2qZr5MdXcF3v1", "face": "structural" },
+                      "to_ref": { "guid": "4hR9Vp1xC6nJt3QeBmZ8w2", "face": "structural" },
+                      "value_um": 26000000,
+                      "displayed_value": "26000",
+                      "prefix": "",
+                      "suffix": "",
+                      "terminator": "oblique"
+                    }
+                  },
+                  {
+                    "anno_id": "A-0012",
+                    "class": "dimension",
+                    "anchor": { "x": 60000, "y": 120000 },
+                    "placement": { "x": 260000, "y": 121000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "40000",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": true,
+                    "collision_group": "dim_chain_3_south",
+                    "leader": null,
+                    "dimension": {
+                      "chain_id": "CH-S-3",
+                      "chain_level": 3,
+                      "from_ref": { "guid": "2xY7Qk3sD8ufA1vBcNzL0m", "face": "structural" },
+                      "to_ref": { "guid": "4hR9Vp1xC6nJt3QeBmZ8w2", "face": "structural" },
+                      "value_um": 40000000,
+                      "displayed_value": "40000",
+                      "prefix": "",
+                      "suffix": "",
+                      "terminator": "oblique"
+                    }
+                  },
+                  {
+                    "anno_id": "A-0020",
+                    "class": "marker",
+                    "anchor": { "x": 310000, "y": 200000 },
+                    "placement": { "x": 330000, "y": 200000, "rotation_mdeg": 0 },
+                    "size_token": "t3",
+                    "cap_height_um": 3500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "D3 / 2317-JKA-ZZ-XX-DR-A-7014",
+                    "source_ref": { "kind": "callout_detail", "target": "2317-JKA-ZZ-XX-DR-A-7014/D3" },
+                    "clear_zone_um": 1750,
+                    "mask": true,
+                    "collision_group": "markers",
+                    "leader": null,
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "A-0030",
+                    "class": "grid_label",
+                    "anchor": { "x": 50000, "y": 150000 },
+                    "placement": { "x": 45000, "y": 150000, "rotation_mdeg": 0 },
+                    "size_token": "t3",
+                    "cap_height_um": 3500,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "1",
+                    "source_ref": null,
+                    "clear_zone_um": 1750,
+                    "mask": true,
+                    "collision_group": "grid",
+                    "leader": null,
+                    "dimension": null
+                  }
+                ]
+              }
+            ],
+            "blocks": []
+          },
+          {
+            "region_id": "Z-NOTES",
+            "bounds": { "x": 651000, "y": 75000, "w": 180000, "h": 429000 },
+            "views": [],
+            "blocks": [
+              {
+                "block_id": "B-SCOPE",
+                "kind": "scope",
+                "bounds": { "x": 651000, "y": 470000, "w": 180000, "h": 34000 },
+                "annotations": [
+                  {
+                    "anno_id": "N-0001",
+                    "class": "text",
+                    "anchor": { "x": 651000, "y": 500000 },
+                    "placement": { "x": 651000, "y": 500000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "sentence",
+                    "content": "Scope of this sheet: level 02 partition setting-out, room identity, door and window marks, wall types. Services and structure by others, shown as background only.",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": false,
+                    "collision_group": "notes",
+                    "leader": null,
+                    "dimension": null
+                  }
+                ]
+              },
+              {
+                "block_id": "B-READWITH",
+                "kind": "read_with",
+                "bounds": { "x": 651000, "y": 430000, "w": 180000, "h": 35000 },
+                "annotations": [
+                  {
+                    "anno_id": "N-0002",
+                    "class": "text",
+                    "anchor": { "x": 651000, "y": 460000 },
+                    "placement": { "x": 651000, "y": 460000, "rotation_mdeg": 0 },
+                    "size_token": "t2",
+                    "cap_height_um": 2500,
+                    "weight": "regular",
+                    "case": "sentence",
+                    "content": "Read with: A3.204 reflected ceiling plan; A8.010 door schedule; A8.020 room schedule; A6.010 wall types.",
+                    "source_ref": null,
+                    "clear_zone_um": 1250,
+                    "mask": false,
+                    "collision_group": "notes",
+                    "leader": null,
+                    "dimension": null
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "region_id": "Z-TITLE",
+            "bounds": { "x": 651000, "y": 15000, "w": 180000, "h": 90000 },
+            "views": [],
+            "blocks": [
+              {
+                "block_id": "B-TITLE",
+                "kind": "title_block",
+                "bounds": { "x": 651000, "y": 15000, "w": 180000, "h": 90000 },
+                "annotations": [
+                  {
+                    "anno_id": "T-0001",
+                    "class": "text",
+                    "anchor": { "x": 745000, "y": 85000 },
+                    "placement": { "x": 745000, "y": 85000, "rotation_mdeg": 0 },
+                    "size_token": "t5",
+                    "cap_height_um": 7000,
+                    "weight": "bold",
+                    "case": "upper",
+                    "content": "A3.104",
+                    "source_ref": null,
+                    "clear_zone_um": 3500,
+                    "mask": false,
+                    "collision_group": "title",
+                    "leader": null,
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "T-0002",
+                    "class": "text",
+                    "anchor": { "x": 655000, "y": 65000 },
+                    "placement": { "x": 655000, "y": 65000, "rotation_mdeg": 0 },
+                    "size_token": "t4",
+                    "cap_height_um": 5000,
+                    "weight": "regular",
+                    "case": "upper",
+                    "content": "LEVEL 02 GENERAL ARRANGEMENT PLAN",
+                    "source_ref": null,
+                    "clear_zone_um": 2500,
+                    "mask": false,
+                    "collision_group": "title",
+                    "leader": null,
+                    "dimension": null
+                  },
+                  {
+                    "anno_id": "T-0003",
+                    "class": "text",
+                    "anchor": { "x": 655000, "y": 25000 },
+                    "placement": { "x": 655000, "y": 25000, "rotation_mdeg": 0 },
+                    "size_token": "t1",
+                    "cap_height_um": 1800,
+                    "weight": "regular",
+                    "case": "sentence",
+                    "content": "Conforms to ADOS 1.0 Class B. Do not scale from this drawing. Work to figured dimensions only. Report discrepancies to the originator before proceeding.",
+                    "source_ref": null,
+                    "clear_zone_um": 1000,
+                    "mask": false,
+                    "collision_group": "title",
+                    "leader": null,
+                    "dimension": null,
+                    "secondary": true
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references_out": [
+          {
+            "ref_id": "R-0001",
+            "kind": "callout_detail",
+            "source": { "container_id": "2317-JKA-ZZ-02-DR-A-3104", "view_id": "P1", "anno_id": "A-0020" },
+            "target": { "container_id": "2317-JKA-ZZ-XX-DR-A-7014", "view_id": "D3" },
+            "reciprocal_of": "R-7014-IN-0003"
+          },
+          {
+            "ref_id": "R-0002",
+            "kind": "read_with",
+            "source": { "container_id": "2317-JKA-ZZ-02-DR-A-3104" },
+            "target": { "container_id": "2317-JKA-ZZ-ZZ-SC-A-8010" },
+            "reciprocal_of": "R-8010-IN-0001"
+          }
+        ],
+        "references_in": [
+          {
+            "ref_id": "R-3104-IN-0001",
+            "kind": "callout_section",
+            "source": { "container_id": "2317-JKA-ZZ-ZZ-DR-A-4010", "view_id": "S1" },
+            "target": { "container_id": "2317-JKA-ZZ-02-DR-A-3104", "view_id": "P1" },
+            "reciprocal_of": "R-4010-OUT-0004"
+          }
+        ]
+      }
+    ]
+  }
+}

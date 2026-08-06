@@ -7,6 +7,7 @@
   "required": ["edition", "package"],
   "additionalProperties": false,
   "properties": {
+    "$comment": { "type": "string", "description": "Non-normative annotation on the instance; ignored by the renderer." },
     "edition": { "const": "1.0" },
     "package": { "$ref": "#/$defs/Package" }
   },

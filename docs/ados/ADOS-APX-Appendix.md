@@ -766,62 +766,65 @@ evidence class, validation ID, dependencies, and conformance classes.
 
 ### A.12.2 Severity 1 rules (⚠)
 
-The following 262 rules are Severity 1: their violation blocks every issue. This list is generated
+The following 280 rules are Severity 1: their violation blocks every issue. This list is generated
 from `machine/ados-rules.yaml`.
 
 `ADOS-0.3.010` · `ADOS-0.3.020` · `ADOS-0.3.050` · `ADOS-0.3.070` · `ADOS-0.7.010` ·
-`ADOS-0.7.030` · `ADOS-1.9.010` · `ADOS-2.1.010` · `ADOS-2.2.010` · `ADOS-2.2.030` ·
-`ADOS-2.3.010` · `ADOS-2.4.010` · `ADOS-2.4.030` · `ADOS-2.4.040` · `ADOS-2.5.010` ·
-`ADOS-2.5.020` · `ADOS-2.5.030` · `ADOS-2.5.070` · `ADOS-2.6.010` · `ADOS-2.6.020` ·
-`ADOS-2.6.030` · `ADOS-2.6.050` · `ADOS-2.6.060` · `ADOS-2.6.070` · `ADOS-2.7.010` ·
-`ADOS-2.8.010` · `ADOS-2.10.010` · `ADOS-2.12.010` · `ADOS-3.1.010` · `ADOS-3.1.020` ·
-`ADOS-3.1.050` · `ADOS-3.2.010` · `ADOS-3.2.040` · `ADOS-3.3.010` · `ADOS-3.3.020` ·
-`ADOS-3.3.030` · `ADOS-3.3.070` · `ADOS-3.4.010` · `ADOS-3.4.020` · `ADOS-3.4.030` ·
-`ADOS-3.4.070` · `ADOS-3.4.080` · `ADOS-3.5.020` · `ADOS-3.6.020` · `ADOS-3.7.010` ·
-`ADOS-3.7.020` · `ADOS-3.7.030` · `ADOS-3.7.040` · `ADOS-3.8.010` · `ADOS-3.8.040` ·
-`ADOS-3.9.010` · `ADOS-3.9.020` · `ADOS-3.9.040` · `ADOS-3.9.060` · `ADOS-3.10.010` ·
-`ADOS-3.11.020` · `ADOS-3.12.010` · `ADOS-3.12.040` · `ADOS-4.1.010` · `ADOS-4.1.020` ·
-`ADOS-4.1.050` · `ADOS-4.2.010` · `ADOS-4.2.020` · `ADOS-4.2.030` · `ADOS-4.2.040` ·
-`ADOS-4.3.010` · `ADOS-4.3.020` · `ADOS-4.3.030` · `ADOS-4.5.010` · `ADOS-4.5.020` ·
-`ADOS-4.5.030` · `ADOS-4.5.060` · `ADOS-4.6.010` · `ADOS-4.6.020` · `ADOS-4.6.030` ·
-`ADOS-4.7.010` · `ADOS-4.7.020` · `ADOS-4.8.010` · `ADOS-4.8.040` · `ADOS-4.8.060` ·
-`ADOS-4.9.010` · `ADOS-4.10.020` · `ADOS-4.10.030` · `ADOS-4.10.040` · `ADOS-4.11.020` ·
-`ADOS-4.12.010` · `ADOS-4.12.020` · `ADOS-5.0.010` · `ADOS-5.0.020` · `ADOS-5.1.010` ·
-`ADOS-5.2.010` · `ADOS-5.2.020` · `ADOS-5.3.010` · `ADOS-5.4.010` · `ADOS-5.4.020` ·
-`ADOS-5.4.030` · `ADOS-5.4.040` · `ADOS-5.4.050` · `ADOS-5.5.010` · `ADOS-5.6.010` ·
-`ADOS-5.6.020` · `ADOS-5.8.010` · `ADOS-5.9.010` · `ADOS-5.9.020` · `ADOS-5.12.010` ·
-`ADOS-5.12.020` · `ADOS-5.13.010` · `ADOS-5.13.020` · `ADOS-5.14.010` · `ADOS-5.14.020` ·
-`ADOS-5.15.010` · `ADOS-5.16.010` · `ADOS-5.16.020` · `ADOS-5.16.040` · `ADOS-5.17.010` ·
-`ADOS-5.18.010` · `ADOS-5.18.020` · `ADOS-5.18.030` · `ADOS-5.19.010` · `ADOS-5.19.020` ·
-`ADOS-5.20.010` · `ADOS-5.20.020` · `ADOS-5.20.030` · `ADOS-5.21.010` · `ADOS-5.21.020` ·
-`ADOS-5.22.010` · `ADOS-5.22.020` · `ADOS-5.23.010` · `ADOS-5.23.020` · `ADOS-5.24.010` ·
-`ADOS-5.24.020` · `ADOS-5.25.010` · `ADOS-5.25.020` · `ADOS-5.26.010` · `ADOS-5.26.020` ·
-`ADOS-5.27.010` · `ADOS-5.27.020` · `ADOS-5.28.010` · `ADOS-5.29.010` · `ADOS-5.29.020` ·
-`ADOS-5.30.010` · `ADOS-5.31.010` · `ADOS-5.31.020` · `ADOS-5.32.010` · `ADOS-5.32.020` ·
-`ADOS-5.33.010` · `ADOS-5.33.020` · `ADOS-5.34.010` · `ADOS-5.34.020` · `ADOS-6.1.010` ·
-`ADOS-6.1.020` · `ADOS-6.1.030` · `ADOS-6.2.010` · `ADOS-6.2.020` · `ADOS-6.3.010` ·
-`ADOS-6.3.020` · `ADOS-6.3.030` · `ADOS-6.4.010` · `ADOS-6.4.020` · `ADOS-6.4.030` ·
-`ADOS-6.4.040` · `ADOS-6.5.010` · `ADOS-6.5.020` · `ADOS-6.5.030` · `ADOS-6.5.040` ·
-`ADOS-6.6.010` · `ADOS-6.6.020` · `ADOS-6.7.010` · `ADOS-6.7.020` · `ADOS-6.7.030` ·
-`ADOS-6.7.040` · `ADOS-6.7.050` · `ADOS-6.7.060` · `ADOS-6.7.070` · `ADOS-6.7.080` ·
-`ADOS-6.8.010` · `ADOS-6.8.020` · `ADOS-6.8.030` · `ADOS-6.8.040` · `ADOS-6.9.010` ·
-`ADOS-6.9.020` · `ADOS-6.9.040` · `ADOS-6.10.010` · `ADOS-6.10.030` · `ADOS-6.10.050` ·
-`ADOS-6.11.010` · `ADOS-6.11.020` · `ADOS-6.11.030` · `ADOS-6.11.050` · `ADOS-6.11.060` ·
-`ADOS-6.12.010` · `ADOS-7.1.010` · `ADOS-7.1.020` · `ADOS-7.2.010` · `ADOS-7.2.020` ·
-`ADOS-7.2.030` · `ADOS-7.3.010` · `ADOS-7.3.020` · `ADOS-7.3.030` · `ADOS-7.4.010` ·
-`ADOS-7.4.030` · `ADOS-7.4.040` · `ADOS-7.4.050` · `ADOS-7.5.010` · `ADOS-7.5.020` ·
-`ADOS-7.5.030` · `ADOS-7.5.040` · `ADOS-7.5.050` · `ADOS-7.5.060` · `ADOS-7.5.070` ·
-`ADOS-7.6.010` · `ADOS-7.6.020` · `ADOS-7.6.030` · `ADOS-7.7.010` · `ADOS-7.7.020` ·
-`ADOS-7.7.030` · `ADOS-7.8.010` · `ADOS-7.8.020` · `ADOS-7.9.010` · `ADOS-7.9.020` ·
-`ADOS-7.9.030` · `ADOS-7.10.010` · `ADOS-7.10.030` · `ADOS-8.1.010` · `ADOS-8.1.020` ·
-`ADOS-8.1.030` · `ADOS-8.1.040` · `ADOS-8.2.010` · `ADOS-8.2.020` · `ADOS-8.2.030` ·
-`ADOS-8.2.040` · `ADOS-8.2.060` · `ADOS-8.3.010` · `ADOS-8.3.030` · `ADOS-8.3.040` ·
-`ADOS-8.3.050` · `ADOS-8.4.010` · `ADOS-8.4.020` · `ADOS-8.4.030` · `ADOS-8.4.040` ·
-`ADOS-8.4.050` · `ADOS-8.4.060` · `ADOS-8.5.010` · `ADOS-8.6.010` · `ADOS-8.6.020` ·
-`ADOS-8.7.010` · `ADOS-8.8.010` · `ADOS-8.9.010` · `ADOS-8.9.020` · `ADOS-8.9.030` ·
-`ADOS-8.9.040` · `ADOS-8.10.010` · `ADOS-8.10.020` · `ADOS-8.10.030` · `ADOS-8.10.040` ·
-`ADOS-8.10.050` · `ADOS-8.10.060` · `ADOS-8.10.070` · `ADOS-8.10.080` · `ADOS-A.1.010` ·
-`ADOS-A.3.010` · `ADOS-A.9.010`
+`ADOS-0.7.030` · `ADOS-1.9.010` · `ADOS-1.13.010` · `ADOS-1.13.020` · `ADOS-1.14.010` ·
+`ADOS-2.1.010` · `ADOS-2.2.010` · `ADOS-2.2.030` · `ADOS-2.3.010` · `ADOS-2.4.010` ·
+`ADOS-2.4.030` · `ADOS-2.4.040` · `ADOS-2.5.010` · `ADOS-2.5.020` · `ADOS-2.5.030` ·
+`ADOS-2.5.070` · `ADOS-2.6.010` · `ADOS-2.6.020` · `ADOS-2.6.030` · `ADOS-2.6.050` ·
+`ADOS-2.6.060` · `ADOS-2.6.070` · `ADOS-2.7.010` · `ADOS-2.8.010` · `ADOS-2.10.010` ·
+`ADOS-2.12.010` · `ADOS-2.13.010` · `ADOS-2.13.020` · `ADOS-2.13.040` · `ADOS-3.1.010` ·
+`ADOS-3.1.020` · `ADOS-3.1.050` · `ADOS-3.2.010` · `ADOS-3.2.040` · `ADOS-3.3.010` ·
+`ADOS-3.3.020` · `ADOS-3.3.030` · `ADOS-3.3.070` · `ADOS-3.4.010` · `ADOS-3.4.020` ·
+`ADOS-3.4.030` · `ADOS-3.4.070` · `ADOS-3.4.080` · `ADOS-3.5.020` · `ADOS-3.6.020` ·
+`ADOS-3.7.010` · `ADOS-3.7.020` · `ADOS-3.7.030` · `ADOS-3.7.040` · `ADOS-3.8.010` ·
+`ADOS-3.8.040` · `ADOS-3.9.010` · `ADOS-3.9.020` · `ADOS-3.9.040` · `ADOS-3.9.060` ·
+`ADOS-3.10.010` · `ADOS-3.11.020` · `ADOS-3.12.010` · `ADOS-3.12.040` · `ADOS-4.1.010` ·
+`ADOS-4.1.020` · `ADOS-4.1.050` · `ADOS-4.2.010` · `ADOS-4.2.020` · `ADOS-4.2.030` ·
+`ADOS-4.2.040` · `ADOS-4.3.010` · `ADOS-4.3.020` · `ADOS-4.3.030` · `ADOS-4.5.010` ·
+`ADOS-4.5.020` · `ADOS-4.5.030` · `ADOS-4.5.060` · `ADOS-4.6.010` · `ADOS-4.6.020` ·
+`ADOS-4.6.030` · `ADOS-4.7.010` · `ADOS-4.7.020` · `ADOS-4.8.010` · `ADOS-4.8.040` ·
+`ADOS-4.8.060` · `ADOS-4.9.010` · `ADOS-4.10.020` · `ADOS-4.10.030` · `ADOS-4.10.040` ·
+`ADOS-4.11.020` · `ADOS-4.12.010` · `ADOS-4.12.020` · `ADOS-4.13.010` · `ADOS-4.13.020` ·
+`ADOS-4.13.030` · `ADOS-4.14.010` · `ADOS-4.14.030` · `ADOS-4.15.010` · `ADOS-4.15.020` ·
+`ADOS-4.16.010` · `ADOS-5.0.010` · `ADOS-5.0.020` · `ADOS-5.1.010` · `ADOS-5.2.010` ·
+`ADOS-5.2.020` · `ADOS-5.3.010` · `ADOS-5.4.010` · `ADOS-5.4.020` · `ADOS-5.4.030` ·
+`ADOS-5.4.040` · `ADOS-5.4.050` · `ADOS-5.5.010` · `ADOS-5.6.010` · `ADOS-5.6.020` ·
+`ADOS-5.8.010` · `ADOS-5.9.010` · `ADOS-5.9.020` · `ADOS-5.12.010` · `ADOS-5.12.020` ·
+`ADOS-5.13.010` · `ADOS-5.13.020` · `ADOS-5.14.010` · `ADOS-5.14.020` · `ADOS-5.15.010` ·
+`ADOS-5.16.010` · `ADOS-5.16.020` · `ADOS-5.16.040` · `ADOS-5.17.010` · `ADOS-5.18.010` ·
+`ADOS-5.18.020` · `ADOS-5.18.030` · `ADOS-5.19.010` · `ADOS-5.19.020` · `ADOS-5.20.010` ·
+`ADOS-5.20.020` · `ADOS-5.20.030` · `ADOS-5.21.010` · `ADOS-5.21.020` · `ADOS-5.22.010` ·
+`ADOS-5.22.020` · `ADOS-5.23.010` · `ADOS-5.23.020` · `ADOS-5.24.010` · `ADOS-5.24.020` ·
+`ADOS-5.25.010` · `ADOS-5.25.020` · `ADOS-5.26.010` · `ADOS-5.26.020` · `ADOS-5.27.010` ·
+`ADOS-5.27.020` · `ADOS-5.28.010` · `ADOS-5.29.010` · `ADOS-5.29.020` · `ADOS-5.30.010` ·
+`ADOS-5.31.010` · `ADOS-5.31.020` · `ADOS-5.32.010` · `ADOS-5.32.020` · `ADOS-5.33.010` ·
+`ADOS-5.33.020` · `ADOS-5.34.010` · `ADOS-5.34.020` · `ADOS-6.1.010` · `ADOS-6.1.020` ·
+`ADOS-6.1.030` · `ADOS-6.2.010` · `ADOS-6.2.020` · `ADOS-6.3.010` · `ADOS-6.3.020` ·
+`ADOS-6.3.030` · `ADOS-6.4.010` · `ADOS-6.4.020` · `ADOS-6.4.030` · `ADOS-6.4.040` ·
+`ADOS-6.5.010` · `ADOS-6.5.020` · `ADOS-6.5.030` · `ADOS-6.5.040` · `ADOS-6.6.010` ·
+`ADOS-6.6.020` · `ADOS-6.7.010` · `ADOS-6.7.020` · `ADOS-6.7.030` · `ADOS-6.7.040` ·
+`ADOS-6.7.050` · `ADOS-6.7.060` · `ADOS-6.7.070` · `ADOS-6.7.080` · `ADOS-6.8.010` ·
+`ADOS-6.8.020` · `ADOS-6.8.030` · `ADOS-6.8.040` · `ADOS-6.9.010` · `ADOS-6.9.020` ·
+`ADOS-6.9.040` · `ADOS-6.10.010` · `ADOS-6.10.030` · `ADOS-6.10.050` · `ADOS-6.11.010` ·
+`ADOS-6.11.020` · `ADOS-6.11.030` · `ADOS-6.11.050` · `ADOS-6.11.060` · `ADOS-6.12.010` ·
+`ADOS-6.14.010` · `ADOS-6.14.020` · `ADOS-6.14.030` · `ADOS-6.14.050` · `ADOS-7.1.010` ·
+`ADOS-7.1.020` · `ADOS-7.2.010` · `ADOS-7.2.020` · `ADOS-7.2.030` · `ADOS-7.3.010` ·
+`ADOS-7.3.020` · `ADOS-7.3.030` · `ADOS-7.4.010` · `ADOS-7.4.030` · `ADOS-7.4.040` ·
+`ADOS-7.4.050` · `ADOS-7.5.010` · `ADOS-7.5.020` · `ADOS-7.5.030` · `ADOS-7.5.040` ·
+`ADOS-7.5.050` · `ADOS-7.5.060` · `ADOS-7.5.070` · `ADOS-7.6.010` · `ADOS-7.6.020` ·
+`ADOS-7.6.030` · `ADOS-7.7.010` · `ADOS-7.7.020` · `ADOS-7.7.030` · `ADOS-7.8.010` ·
+`ADOS-7.8.020` · `ADOS-7.9.010` · `ADOS-7.9.020` · `ADOS-7.9.030` · `ADOS-7.10.010` ·
+`ADOS-7.10.030` · `ADOS-8.1.010` · `ADOS-8.1.020` · `ADOS-8.1.030` · `ADOS-8.1.040` ·
+`ADOS-8.2.010` · `ADOS-8.2.020` · `ADOS-8.2.030` · `ADOS-8.2.040` · `ADOS-8.2.060` ·
+`ADOS-8.3.010` · `ADOS-8.3.030` · `ADOS-8.3.040` · `ADOS-8.3.050` · `ADOS-8.4.010` ·
+`ADOS-8.4.020` · `ADOS-8.4.030` · `ADOS-8.4.040` · `ADOS-8.4.050` · `ADOS-8.4.060` ·
+`ADOS-8.5.010` · `ADOS-8.6.010` · `ADOS-8.6.020` · `ADOS-8.7.010` · `ADOS-8.8.010` ·
+`ADOS-8.9.010` · `ADOS-8.9.020` · `ADOS-8.9.030` · `ADOS-8.9.040` · `ADOS-8.10.010` ·
+`ADOS-8.10.020` · `ADOS-8.10.030` · `ADOS-8.10.040` · `ADOS-8.10.050` · `ADOS-8.10.060` ·
+`ADOS-8.10.070` · `ADOS-8.10.080` · `ADOS-A.1.010` · `ADOS-A.3.010` · `ADOS-A.9.010`
 
 *Note.* The ⚠ marking in the volume text indicates rules whose violation is classified Severity 1
 per `ADOS-8.9.010`. Severity is authoritative in `machine/ados-rules.yaml`; where the marking and
@@ -829,7 +832,145 @@ the registry disagree, the registry governs and the discrepancy is a specificati
 
 ---
 
-## A.13 Closing note
+## A.14 Worked example
+
+*Informative. A complete small project, specified end to end, to show how the volumes combine.
+The reference IR instance for sheet A3.104 in this example is
+[`machine/ados-ir-example.json`](machine/ados-ir-example.json), which validates against the sheet
+schema and whose dimension chains close.*
+
+### A.14.1 The project
+
+| Attribute | Value | Source |
+|---|---|---|
+| Project | Riverside Workshops, code `2317` | — |
+| Type | Three-storey workshop and office building, 2 400 m² | — |
+| Jurisdiction | HU; overlay `HU-2026` | `ADOS-2.7.010` |
+| Originator | `JKA` | `ADOS-2.5.010` |
+| Language / units | `en-GB` / mm, decimal point | `ADOS-0.5.080`, `ADOS-4.5.010` |
+| Conformance | ADOS 1.0 Class B | `ADOS-0.3.1` |
+| Sheet size | A1 landscape | `ADOS-3.2.020` |
+| Nominated issue size | A1 (A3 prints watermarked `REDUCED COPY`) | `ADOS-3.2.040` |
+| Plan orientation | North up (site is 8° off; project north declared as north) | `ADOS-4.3.030` |
+| Datum | Project +0.000 = 118.450 Baltic | `ADOS-4.3.060` |
+| Dimension reference face | Structural face; openings to finished face, `CLR` where required | `ADOS-4.5.060` |
+| Classification | ISO 12006-2 conformant national system | `ADOS-6.6.010` |
+
+Because the nominated size is A1, the minima are the base values: 2.5 mm cap height, 0.18 mm line
+(`ADOS-3.4.010`, `ADOS-4.1.010`). Had the project chosen dual A1/A3 issue, they would have doubled
+to 5.0 mm and 0.35 mm and the annotation capacity of every sheet would have fallen by about 40 %.
+This is the single most consequential decision on the setup checklist.
+
+### A.14.2 The container list (technical design, stage 4)
+
+Derived from `ADOS-2.12.010` (package composition) and `ADOS-2.5.030` (series).
+
+| Short ID | Container ID | Type | Title | Scale |
+|---|---|---|---|---|
+| A0.001 | `2317-JKA-ZZ-XX-DR-A-0001` | `CS` | Cover sheet | — |
+| A0.002 | `2317-JKA-ZZ-XX-RG-A-0002` | `IX` | Drawing register | — |
+| A0.010 | `2317-JKA-ZZ-XX-DR-A-0010` | `GN` | General notes, legends, abbreviations | — |
+| A1.101 | `2317-JKA-ZZ-00-DR-A-1101` | `EX` | Existing level 00 | 1:100 |
+| A1.201 | `2317-JKA-ZZ-00-DR-A-1201` | `DM` | Demolition level 00 | 1:100 |
+| A2.001 | `2317-JKA-ZZ-XX-DR-A-2001` | `SL` | Site location plan | 1:1000 |
+| A2.010 | `2317-JKA-ZZ-XX-DR-A-2010` | `SP` | Site plan | 1:500 |
+| A3.100 | `2317-JKA-ZZ-00-DR-A-3100` | `GA-P` | Level 00 general arrangement | 1:100 |
+| A3.102 | `2317-JKA-ZZ-01-DR-A-3102` | `GA-P` | Level 01 general arrangement | 1:100 |
+| A3.104 | `2317-JKA-ZZ-02-DR-A-3104` | `GA-P` | Level 02 general arrangement | 1:100 |
+| A3.110 | `2317-JKA-ZZ-RF-DR-A-3110` | `RP` | Roof plan | 1:100 |
+| A3.200 | `2317-JKA-ZZ-00-DR-A-3200` | `RCP` | Level 00 reflected ceiling plan | 1:100 |
+| A3.204 | `2317-JKA-ZZ-02-DR-A-3204` | `RCP` | Level 02 reflected ceiling plan | 1:100 |
+| A3.300 | `2317-JKA-ZZ-ZZ-DR-A-3300` | `SO` | Setting-out plan | 1:100 |
+| A4.001 | `2317-JKA-ZZ-ZZ-DR-A-4001` | `EL` | Elevations north and east | 1:100 |
+| A4.002 | `2317-JKA-ZZ-ZZ-DR-A-4002` | `EL` | Elevations south and west | 1:100 |
+| A4.010 | `2317-JKA-ZZ-ZZ-DR-A-4010` | `SE` | Sections AA and BB | 1:100 |
+| A5.010 | `2317-JKA-ZZ-ZZ-DR-A-5010` | `EN` | Core and sanitary enlarged plans | 1:20 |
+| A5.020 | `2317-JKA-ZZ-ZZ-DR-A-5020` | `IE` | Sanitary interior elevations | 1:20 |
+| A6.010 | `2317-JKA-ZZ-ZZ-DR-A-6010` | `WT` | Wall types | 1:10 |
+| A6.020 | `2317-JKA-ZZ-ZZ-DR-A-6020` | `WT` | Floor and roof types | 1:10 |
+| A7.010 | `2317-JKA-ZZ-XX-DR-A-7010` | `DT` | Envelope details: base and threshold | 1:5 |
+| A7.014 | `2317-JKA-ZZ-XX-DR-A-7014` | `DT` | Envelope details: openings | 1:5 |
+| A7.020 | `2317-JKA-ZZ-XX-DR-A-7020` | `DT` | Envelope details: parapet and roof edge | 1:5 |
+| A8.010 | `2317-JKA-ZZ-ZZ-SC-A-8010` | `DS` | Door schedule | — |
+| A8.020 | `2317-JKA-ZZ-ZZ-SC-A-8020` | `RS` | Room and finishes schedule | — |
+| A8.030 | `2317-JKA-ZZ-ZZ-SC-A-8030` | `WS` | Window schedule | — |
+| A8.040 | `2317-JKA-ZZ-ZZ-SC-A-8040` | `AR` | Area schedule | — |
+| A9.010 | `2317-JKA-ZZ-ZZ-DR-A-9010` | `FS` | Fire strategy plans | 1:200 |
+| A9.020 | `2317-JKA-ZZ-ZZ-DR-A-9020` | `AS` | Access strategy plans | 1:200 |
+| — | `2317-JKA-ZZ-ZZ-SP-A-0001` | `SP-SPEC` | Specification | — |
+| — | `2317-JKA-ZZ-ZZ-MO-A-0001` | `MO` | IFC model export | — |
+
+Thirty containers plus the specification and the model. Every ● row of `ADOS-2.12.010` for stage 4
+is present; the ○ rows for phasing and survey are recorded as not applicable in the Information
+Delivery Plan (`ADOS-2.9.020`).
+
+### A.14.3 Fact carriers as instantiated
+
+| Fact | Carrier | Referenced from |
+|---|---|---|
+| Partition position | Model, projected into A3.1xx | — |
+| Wall build-up | A6.010, type code `WT-01` … `WT-07` | A3.1xx, A4.010, A7.0xx |
+| Door properties | A8.010, mark `D-nnnn` | A3.1xx, A9.010 |
+| Room name, area, finishes | A8.020, room number `n.nn` | A3.1xx, A5.010 |
+| Fire resistance requirement | A9.010 + specification clause | A8.010, A6.010 |
+| Setting-out | A3.300 + model shared coordinates | A3.1xx |
+| Materials and workmanship | Specification | all drawings, by clause |
+
+Note what is *not* on the general arrangement plans: no wall build-ups, no door sizes, no finishes,
+no performance values. Every one of them is a reference. This is `ADOS-0.3.020` in practice, and it
+is why the plans stay within their density budget (`ADOS-3.7`).
+
+### A.14.4 One sheet in detail — A3.104
+
+| Property | Value | Rule |
+|---|---|---|
+| Zoning | Large format; `Z-DRAW` 621 × 559 at frame origin +20/+15 | `ADOS-3.3.010` |
+| Views | One: `P1`, plan, L2, 1:100, 420 × 380 mm | `ADOS-2.11.010` |
+| Fill ratio | 0.46 | `ADOS-3.7.010` |
+| Line tiers | W3 cut walls, W2 seen, W1 dashed structure over | `ADOS-4.1.020` |
+| Dimension chains | Three per side; `CH-S-1` sums 14 000 + 26 000 = 40 000 = `CH-S-3` | `ADOS-4.5.030` |
+| Tags | Room `2.14`, doors `D-1108`…, wall types `WT-01`… | `ADOS-4.6.030` |
+| References out | Detail `D3 / A7.014`; read-with A3.204, A8.010, A8.020, A6.010 | `ADOS-2.4.030` |
+| References in | Section `S1` on A4.010 | `ADOS-2.4.030` |
+| Scope statement | Present, 30 words, names the exclusion and the owner | `ADOS-0.3.090` |
+| Status / revision | `A1` / `C03`; three revision rows, each with a grid location | `ADOS-2.6` |
+| Provenance | Library detail `JKA-STD-034 v3`, verified 2026-01-05 | `ADOS-5.16.040` |
+
+The revision description reads *Core doors D-1108 and D-1109 relocated 300 east at grid C/4* — a
+change, a location and an object. Compare with *general updates*, which `ADOS-2.6.040` rejects
+because it answers nothing.
+
+### A.14.5 Two failure cases, traced
+
+**Case 1 — the plan that looked finished.** The level 02 plan reached `S4` with the sanitary core
+shown at 1:100 and no enlarged plan. It passed M1 (legible), M2 (consistent) and M5 (balanced), and
+failed M4.11 (detail condition coverage) because the condition-to-detail matrix had no entry for the
+accessible WC layout. Under `ADOS-2.3.010` the content sits at L3 and requires an enlarged plan at
+1:50 or 1:20 (`ADOS-5.15`). Caught at the gate; cost one day. Had it been caught on site, it would
+have been a fit-out variation and an accessibility non-conformity.
+
+**Case 2 — the door that was right twice.** Door `D-1108` was scheduled `FD30S` and drawn on a wall
+whose type `WT-04` carries 60 minutes. Both documents were internally correct. `M4.20` (disagreeing
+duplicate values) caught the mismatch by comparing the door schedule, the wall type sheet and the
+fire strategy — three carriers that no human reads simultaneously. The resolution was a schedule
+correction and a revision; the RFI that would otherwise have raised it was avoided, and the case was
+recorded against `ADOS-5.20.020` in the cause analysis (`ADOS-8.9.040`).
+
+### A.14.6 What the generator did
+
+For this package the pipeline (`ADOS-7.4.010`) ran: 24 210 elements extracted; 24 210 depth-classified
+with 0 `E-STYLE-001`; 30 containers selected from the stage table; 41 views projected; 2 386
+annotations generated; layout solved in 3 escalations (two content-level reclassifications, one view
+split producing A3.104 and the level 02 core enlarged plan); 214 references resolved with 214
+reciprocals generated; IR emitted at 4.1 MB; 178 IR checks run; render produced 30 PDFs; 22 raster
+checks run; publication written with issue record and 12 supersessions.
+
+Two runs, in separate processes, produced byte-identical output excluding the declared timestamp
+fields (`ADOS-7.2.010`). The build report retained with the package carries every measured value.
+
+---
+
+## A.15 Closing note
 
 *Informative.*
 

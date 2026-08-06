@@ -1111,7 +1111,300 @@ registered.
 
 ---
 
-## 4.13 Summary of Volume 4
+## 4.13 Stairs, ramps and level changes
+
+### 4.13.1 Why they need their own rules
+
+**Problem.** A stair is the element most frequently drawn incorrectly and most frequently the
+subject of a statutory failure. It is a three-dimensional object represented in plan by a
+convention that discards most of its geometry, and it is governed by dimensional rules with no
+tolerance.
+
+**Rationale (R).** Three facts make stairs special: the plan representation is conventional rather
+than projective (the cut through a flight is a graphic device); the governing dimensions (going,
+rise, headroom, width) are statutory and non-negotiable; and the relationship between the flights
+of consecutive levels is the source of most coordination errors.
+
+### ADOS-4.13.010 — Stair plan representation ⚠
+
+**Decision.** A stair in plan shall show:
+
+1. Every tread in the flight, at W2, with the going dimensioned once per flight as
+   `n × going = total`.
+2. The cut line through the flight at the plan cut plane, drawn as a break line
+   (`ADOS-4.11.050`) at W2, with the flight beyond the cut plane at W1.
+3. A direction arrow originating at the lower end of the flight, terminating with an arrowhead at
+   the upper end, labelled `UP` or `DN` relative to the level shown.
+4. Numbered treads at the first, last and every fifth tread of each flight.
+5. Landing levels annotated with FFL (`ADOS-4.5.100`).
+6. Handrails and balustrades at W2, with their type reference and height stated in section or
+   interior elevation.
+7. The nosing line where a nosing projects, at W1.
+
+**Rationale.** `UP`/`DN` labels are relative to the level shown, which is why they differ between
+consecutive plans of the same stair — a difference that reads as an error unless the convention is
+declared. The direction arrow's origin, not its head, carries the "from" information, which is why
+the origin is specified.
+
+**Validation.** `V-4.13.010`: every stair in every plan carries all seven items; direction arrow
+labels are consistent with the level relationship.
+
+### ADOS-4.13.020 — Stair dimensional annotation ⚠
+
+**Decision.** Every stair shall carry, in plan or section: going, rise, number of risers per flight,
+total rise per flight, clear width between finished faces or handrails as applicable, landing
+dimensions, and headroom at the critical point.
+
+The going and rise shall be stated as a product: `14 R @ 175 = 2450` and `13 G @ 275 = 3575`, so
+that the arithmetic is visible and checkable.
+
+**Rationale.** Stating a product rather than individual dimensions makes the two most common errors
+— a miscounted riser and an inconsistent going — visible on the drawing, and it closes the chain
+(`ADOS-4.5.030`) against the floor-to-floor dimension.
+
+**Validation.** `V-4.13.020`: `risers × rise = floor-to-floor`; `goings = risers − 1` for a straight
+flight; clear width ≥ the statutory minimum for the escape route it serves.
+
+### ADOS-4.13.030 — Headroom ⚠
+
+**Decision.** Headroom shall be dimensioned at the critical point of every stair and ramp: the point
+of minimum vertical distance between the pitch line and any element above. The critical point shall
+be identified on the section, not assumed.
+
+**Rationale.** Headroom failures are discovered during construction, are expensive to remedy, and
+follow from the critical point being at a location nobody drew — typically under an incoming flight
+or a structural beam.
+
+**Validation.** `V-4.13.030`: every stair and ramp has a headroom dimension with an identified
+critical point; value ≥ the statutory minimum.
+
+### ADOS-4.13.040 — Ramps
+
+**Decision.** A ramp shall be shown with: gradient stated as a ratio (`1:20`), direction of fall
+arrow, levels at both ends and at every landing, landing lengths dimensioned, clear width, and
+handrail extents. Gradients shall be stated as ratios, never as percentages or degrees, throughout
+a project.
+
+**Rationale.** A single gradient notation per project prevents conversion errors. The ratio form is
+the one used in accessibility standards and is directly checkable against them.
+
+**Validation.** `V-4.13.040`: all six items present; gradient within the permitted maximum for the
+route class; landing spacing within the permitted maximum rise between landings.
+
+### ADOS-4.13.050 — Level changes and thresholds
+
+**Decision.** Every change in finished floor level shall be annotated with levels on both sides and
+a reference to the threshold detail. A level change of any magnitude on an accessible route shall be
+identified and either dimensioned as compliant or shown as a ramp.
+
+**Rationale (R).** Unannotated small level changes — a 15 mm threshold upstand, a 20 mm finish
+change — are the most common accessibility non-conformity found at completion, and they originate in
+drawings that show the change but do not state it.
+
+**Validation.** `V-4.13.050`: every level change in the model has annotations on both sides; changes
+on the accessible route carry a compliance statement.
+
+---
+
+## 4.14 Curved, sloped and non-orthogonal geometry
+
+### 4.14.1 The setting-out problem
+
+**Problem.** Orthogonal geometry is set out from two chained dimensions. Curved, sloped and
+non-orthogonal geometry is not, and drawings that dimension it as though it were produce geometry
+that cannot be built to the intended shape.
+
+**Rationale (R).** A curve is set out on site from a centre and a radius, from a chord and an offset,
+or from a table of coordinates. Which method is available depends on whether the centre is reachable
+and on the accuracy required. The drawing shall therefore state the setting-out method, not only the
+shape.
+
+### ADOS-4.14.010 — Curve setting-out ⚠
+
+**Decision.** Every curve in the permanent works shall be dimensioned by one of the following
+methods, and the method shall be stated:
+
+| Method | Data required | Use when |
+|---|---|---|
+| **Centre and radius** | Centre coordinates, radius, start and end angles or tangent points | The centre is within the site and reachable |
+| **Chord and offsets** | Chord endpoints, offsets at stated intervals | The centre is unreachable or off site |
+| **Coordinate table** | A table of setting-out points at stated intervals with coordinates | Free-form curves, or accuracy better than the offset method allows |
+| **Tangent and radius** | Tangent point coordinates, radius, direction of curvature | Curves tangential to straight runs |
+
+Tangent points between a straight and a curve shall always be dimensioned, whichever method is used.
+
+**Rationale.** The tangent point is where a curve error becomes a visible kink. It is also the point
+from which the setting-out engineer works, and it is frequently the only point that is not
+implicitly defined by the rest of the geometry.
+
+**Validation.** `V-4.14.010`: every curve declares its setting-out method and carries the data that
+method requires; every tangent point is dimensioned.
+
+### ADOS-4.14.020 — Coordinate tables
+
+**Decision.** Where a coordinate table is used, it shall state: the coordinate system, the point
+interval, the point identifiers, the coordinates to the project's stated precision, and the
+tolerance. Points shall be identified on the drawing at the same identifiers.
+
+**Validation.** `V-4.14.020`: table and drawing point sets are identical; coordinate system stated.
+
+### ADOS-4.14.030 — Sloped surfaces ⚠
+
+**Decision.** Every sloped surface shall be defined by: spot levels at every high point, low point
+and change of plane; fall direction arrows with the gradient stated for every plane; and the
+intersection lines between planes drawn and levelled.
+
+A surface shall not be defined by a single gradient where its boundary conditions require more than
+one plane. Where three or more boundary levels are fixed, the surface is over-determined and one
+level shall be nominated as the tolerance-absorbing point.
+
+**Rationale.** Three points define a plane. A quadrilateral with four fixed corner levels is a warped
+surface, not a plane, and cannot be built from a single tile or slab without twist. Identifying the
+tolerance-absorbing point converts an unbuildable instruction into a buildable one.
+
+**Validation.** `V-4.14.030`: for every sloped surface, plane count and fixed level count are
+consistent; over-determined surfaces nominate a tolerance-absorbing point.
+
+### ADOS-4.14.040 — Non-orthogonal grids
+
+**Decision.** A non-orthogonal grid shall be defined by: the coordinates of at least three
+non-collinear intersections, the angle of each grid direction relative to the project north or to
+grid line 1, and the spacing along each direction. Angles shall be stated in degrees, minutes and
+seconds, or in decimal degrees to three places, consistently across the project.
+
+**Rationale.** An angular error of 0.1° over a 50 m grid is 87 mm at the far end — larger than any
+construction tolerance. Angular precision is therefore not a matter of drawing convention but of
+setting-out feasibility.
+
+**Validation.** `V-4.14.040`: ≥ 3 non-collinear coordinated intersections; angles stated to the
+declared precision; grid closure error computed and ≤ 1 mm over the grid extent.
+
+### ADOS-4.14.050 — Faceting of curved elements
+
+**Decision.** Where a curved element is built as a series of straight facets, the drawing shall show
+the facets, dimension the facet length and the angle between facets, and state the maximum deviation
+from the true curve. Showing a true curve where facets will be built is prohibited.
+
+**Rationale.** `ADOS-0.4.040`. A drawn true curve is priced and fabricated as a true curve; a faceted
+one is not. The difference is a substantial cost and a visible difference in the finished work.
+
+**Validation.** `V-4.14.050`: elements flagged as faceted in the model are drawn faceted; maximum
+deviation stated.
+
+---
+
+## 4.15 Cross-discipline representation
+
+### ADOS-4.15.010 — Ownership determines representation ⚠
+
+**Decision.** On any drawing, content owned by another discipline shall be rendered as background
+(`ADOS-3.8.050`: `T1`, W1), shall carry a reference to the owning discipline's container, and shall
+not be dimensioned or annotated except where the interface requires it.
+
+**Rationale.** `ADOS-2.8.030`. Content drawn at full weight implies authorship and therefore
+responsibility. A services run drawn at W2 on an architectural plan is an instruction the architect
+did not intend to give and has not coordinated.
+
+**Validation.** `V-4.15.010`: elements whose discipline differs from the container's discipline are
+at `T1`/W1 and carry an ownership reference; dimensioned cross-discipline elements are listed and
+justified.
+
+### ADOS-4.15.020 — Service zone reservations ⚠
+
+**Decision.** Where the architecture reserves space for another discipline, the reservation shall be
+drawn as a zone with dimensioned extents and levels, labelled with the reserving discipline, the
+purpose and the reference to the discipline's document. A reservation is an architectural
+instruction and is drawn at architectural weight; its *contents* are not.
+
+**Rationale.** The distinction between "space reserved" (the architect's decision, dimensioned) and
+"what goes in it" (another discipline's decision, referenced) is the interface, and it is the thing
+most often left implicit.
+
+**Validation.** `V-4.15.020`: every declared reservation is dimensioned and levelled and names its
+discipline and document.
+
+### ADOS-4.15.030 — Builder's work openings
+
+**Decision.** Every opening in structure or fabric required by another discipline shall be shown on
+the architectural drawing with: position dimensioned to grid, size, level, the requiring discipline,
+and a reference to the schedule of builder's work. Openings shall not be shown without a size.
+
+**Rationale (R).** Builder's work openings are formed early and are expensive to add later. They are
+also the classic case of information owned by one party and executed by another, which is exactly
+where `ADOS-2.8.030` applies.
+
+**Validation.** `V-4.15.030`: every builder's work opening carries all five fields and appears in the
+schedule; schedule and drawing sets are identical.
+
+### ADOS-4.15.040 — Coordination status annotation
+
+**Decision.** Where a cross-discipline interface is not yet coordinated at the time of issue, it
+shall be marked with a hold (`ADOS-2.6.080`) naming the parties and the resolution date. It shall not
+be drawn as resolved.
+
+**Validation.** `V-4.15.040`: interfaces listed as uncoordinated in the coordination record carry a
+hold marking on every drawing that shows them.
+
+---
+
+## 4.16 Symbol inventory
+
+### ADOS-4.16.010 — The default symbol set ⚠
+
+**Decision.** The following symbol set is the ADOS default. A project's symbol register
+(`ADOS-4.9.050`) shall be a subset of this set plus any symbols added by a jurisdiction overlay, to
+a total of 30. Every symbol satisfies `ADOS-4.9.040`.
+
+| # | Token | Symbol | Meaning |
+|---|---|---|---|
+| 1 | `SY-NORTH` | Circle with a filled half-arrow | North point |
+| 2 | `SY-GRID` | 10 mm circle with a label | Grid reference |
+| 3 | `SY-SECT` | Cut line with arrows and a 14 mm bubble | Section marker |
+| 4 | `SY-DET` | Enclosure with leader to a 14 mm bubble | Detail marker |
+| 5 | `SY-IELEV` | Quartered circle with arrows | Interior elevation marker |
+| 6 | `SY-NOTE` | 5 mm hexagon with a number | Sheet note tag |
+| 7 | `SY-REV` | 5 mm triangle with a revision code | Revision tag |
+| 8 | `SY-LEVEL-P` | 3.5 mm half-filled triangle with a value | Level, in plan |
+| 9 | `SY-LEVEL-S` | Horizontal line with a value and a tick | Level, in section or elevation |
+| 10 | `SY-DOOR` | Leaf arc and leaf line | Door swing |
+| 11 | `SY-SLIDE` | Leaf line with a direction arrow | Sliding door |
+| 12 | `SY-WIN-OP` | Dashed triangle apex at the hinge | Window opening direction |
+| 13 | `SY-STAIR-UP` | Arrow with `UP` | Stair direction |
+| 14 | `SY-FALL` | Arrow with a gradient value | Fall direction |
+| 15 | `SY-RWO` | Circle with a cross | Rainwater outlet |
+| 16 | `SY-FD` | Filled square on the door line | Fire door position |
+| 17 | `SY-FC` | Heavy dashed line with an end tick | Fire compartment line |
+| 18 | `SY-CB` | Short heavy dash across a cavity | Cavity barrier |
+| 19 | `SY-MJ` | Double line with an offset tick | Movement joint |
+| 20 | `SY-AP` | Square with a diagonal | Access panel |
+| 21 | `SY-BWO` | Rectangle with a diagonal cross and a size | Builder's work opening |
+| 22 | `SY-RESV` | Dash-dot enclosure with a hatch | Service zone reservation |
+| 23 | `SY-SETOUT` | Circle with cross-hairs and coordinates | Setting-out point |
+| 24 | `SY-BREAK` | Zig-zag across the element | Break line |
+| 25 | `SY-MATCH` | Heavy dashed line with a bubble | Match line |
+| 26 | `SY-SCALE` | Divided bar with a labelled zero | Graphic scale bar |
+| 27 | `SY-PROJ` | Truncated cone in two views | Projection method |
+| 28 | `SY-HOLD` | Enclosed `H-nnn` | Hold marker |
+| 29 | `SY-EXCL` | `T1` hatch with a boundary | Excluded scope area |
+| 30 | `SY-GEN` | Enclosed `AI` with a corner tick | Machine-generated content marker |
+
+**Validation.** `V-4.16.010`: project symbol register ⊆ default set ∪ overlay; total ≤ 30; every
+symbol used appears in the register and in the legend.
+
+### ADOS-4.16.020 — Symbol modification prohibited
+
+**Decision.** A symbol's geometry shall not be modified per project. Where a project needs a
+distinction the set does not carry, a symbol shall be added to the register, not an existing one
+altered.
+
+**Rationale.** Readers carry symbol recognition between projects. A modified symbol is worse than a
+new one because it is confidently misread.
+
+**Validation.** `V-4.16.020`: symbol geometry hashes match the library.
+
+---
+
+## 4.17 Summary of Volume 4
 
 1. Line weight encodes depth, monotonically, in three tiers at factor 2: 0.18 / 0.35 / 0.70.
 2. Four line types, defined in printed millimetres, valid at every scale.
@@ -1122,7 +1415,11 @@ registered.
 5. Leaders and tags reference; they do not describe.
 6. Four reference marker types with fixed two-field bubbles and reciprocal references.
 7. Eight hatches maximum, defined in printed pitch, applied by scale, with poché below 1:50.
-8. Everything is in the legend, preferably on the sheet.
+8. Stairs, ramps, curves, slopes and non-orthogonal grids carry their setting-out method, not only
+   their shape.
+9. Other disciplines' content is background and referenced; reservations and builder's work
+   openings are architectural instructions and are dimensioned.
+10. Thirty symbols, unmodified, all in the legend, preferably on the sheet.
 
 ---
 
