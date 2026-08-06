@@ -73,6 +73,7 @@ substitute for professional review (`ADOS-7.10.030`).
 | M1.5 | Hatch pitch | `min(printed pitch)` | ≥ 0.5 mm and ≥ width + 0.30 mm | S2 |
 | M1.6 | Degraded character recovery | see `ADOS-8.2.030` | CER ≤ 0.02 | S1 |
 | M1.7 | Degraded stroke survival | see `ADOS-8.2.040` | ≥ 0.99 of strokes present | S1 |
+| M1.8 | Note complexity | see `ADOS-8.2.060` | all six measures within threshold | S3 |
 
 **Validation.** `V-8.2.010`: all sub-metrics computed and within threshold.
 
@@ -140,7 +141,7 @@ height 8 device pixels; minimum stroke 1.5 device pixels; no degradation simulat
 **Validation.** `V-8.2.050`: screen-only containers evaluated under this condition and watermarked
 (`ADOS-0.3.060` Ex. 1).
 
-### ADOS-8.2.060 — Note text complexity ⚠
+### ADOS-8.2.060 — Note text complexity (M1.8) ⚠
 
 **Purpose.** Bound the reading difficulty of note text, language-independently.
 
@@ -283,7 +284,7 @@ type whose questions cannot be mapped to content items is misspecified.
 
 **Validation.** `V-8.4.020`: question-to-content mapping complete for every registered type.
 
-### ADOS-8.4.030 — Noise measurement ⚠
+### ADOS-8.4.030 — Noise measurement (M4.19) ⚠
 
 **Decision.** Content present but not required by any listed user shall be reported.
 
@@ -307,7 +308,7 @@ listed for review.
 | M4.17 | References to superseded containers | 0 | S1 |
 | M4.18 | External references not listed | 0 | S2 |
 
-### ADOS-8.4.050 — Duplicate value scan ⚠
+### ADOS-8.4.050 — Duplicate value scan (M4.20, M4.21) ⚠
 
 **Purpose.** Enforce `ADOS-0.3.020` by measurement.
 
@@ -322,7 +323,7 @@ threshold: disagreeing duplicates = 0
 
 **Validation.** `V-8.4.050`: scan executed over the whole set; both counts within threshold.
 
-### ADOS-8.4.060 — Stale derived content ⚠
+### ADOS-8.4.060 — Stale derived content (M4.22) ⚠
 
 **Purpose.** Detect the failure mode that derived workflows introduce: a view or value that is no
 longer connected to its source.
@@ -448,7 +449,7 @@ with the sample, times and correctness.
 | M7.10 | Greyscale equivalence | all M1–M3 metrics pass on the greyscale render | pass | S1 |
 | M7.11 | PDF/A conformance (archive copies) | validator result | pass | S2 |
 
-### ADOS-8.7.020 — Photograph robustness (safety-critical documents)
+### ADOS-8.7.020 — Photograph robustness, safety-critical documents (M7.12)
 
 **Decision.** For fire strategy, escape and setting-out drawings, an additional check simulates
 photographic capture: perspective warp of ±5°, illumination gradient of 30 %, JPEG quality 60, then
@@ -673,17 +674,17 @@ registered.
 
 | Metric | Name | Sub-metrics | Source | Primary gate |
 |---|---|---|---|---|
-| **M1** | Readability | 7 | IR + raster | S1 |
+| **M1** | Readability | 8 | IR + raster | S1 |
 | **M2** | Consistency | 16 | IR | S2 |
 | **M3** | Hierarchy | 4 | IR | S3 |
-| **M4** | Information completeness | 18 | IR + model | S1 |
+| **M4** | Information completeness | 22 | IR + model | S1 |
 | **M5** | Visual balance | 9 | IR + raster | S3 |
 | **M6** | Navigation | 15 | IR + human | S1 |
-| **M7** | Print quality | 11 | raster | S1 |
+| **M7** | Print quality | 12 | raster | S1 |
 | **M8** | Accessibility | 11 | raster + PDF | S1 |
 | **M9** | Automation readiness | 12 | model + IR | S1 |
 
-**Total: 103 sub-metrics**, all defined in `machine/ados-validation.yaml` with formulas, thresholds,
+**Total: 109 sub-metrics**, all defined in `machine/ados-validation.yaml` with formulas, thresholds,
 severities and gates.
 
 ---
@@ -691,7 +692,7 @@ severities and gates.
 ## 8.12 Summary of Volume 8
 
 1. Every `shall` rule has one deterministic validation; a rule without one is a recommendation.
-2. Nine metrics, 103 sub-metrics, each objective, deterministic, sourced, thresholded, attributable
+2. Nine metrics, 109 sub-metrics, each objective, deterministic, sourced, thresholded, attributable
    and actionable.
 3. Readability is measured with an instrument (OCR on a deterministically degraded render), not by
    opinion.

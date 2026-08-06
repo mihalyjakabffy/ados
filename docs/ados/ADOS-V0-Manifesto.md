@@ -296,7 +296,7 @@ shall run against it.
 **Purpose.** Keep the reader's orientation cost bounded.
 
 **Background.** Search cost in a hierarchical structure grows with depth; the number of items
-a reader can hold while descending is small (`ADOS-1.2.020`). Empirically, orientation fails
+a reader can hold while descending is small (§1.2.4 of Volume 1). Empirically, orientation fails
 when a reader must hold more than about four levels of containment.
 
 **Problem.** Deep, implicit hierarchies produce readers who can find nothing and authors who
@@ -533,8 +533,8 @@ refurbishment work and the most expensive.
 
 ### 0.4.3 Accessibility as an ethical requirement
 
-**ADOS-0.4.070 — No information shall be available only to readers with unimpaired colour
-vision.** Approximately 8 % of male readers and 0.5 % of female readers have a colour vision
+**ADOS-0.4.070 — Colour shall never be the sole carrier of information.** No information shall be
+available only to readers with unimpaired colour vision. Approximately 8 % of male readers and 0.5 % of female readers have a colour vision
 deficiency. `ADOS-0.3.030` already prohibits colour-only encoding on robustness grounds; this
 clause restates it as an ethical obligation so that it cannot be traded away when robustness
 is not at issue (for example in screen-only deliverables).
@@ -745,7 +745,7 @@ explicitly outside the definition:
 - **Visual sophistication.** A refined-looking sheet that fails the orientation test has
   failed.
 - **Completeness of the model.** Model richness that does not reach a reader is invisible.
-- **Volume of output.** Sheet count is a cost, not an achievement. `ADOS-2.3.060` requires
+- **Volume of output.** Sheet count is a cost, not an achievement. `ADOS-2.3.020` requires
   content to be placed at the lowest sufficient level of the hierarchy.
 - **Effort expended.** Production time is an input. Reader outcome is the output.
 

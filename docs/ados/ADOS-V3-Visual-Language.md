@@ -268,7 +268,7 @@ Zone dimensions (printed, at authored size):
 
 | Zone | Role | Width | Height | Rule |
 |---|---|---|---|---|
-| `Z-DRAW` | Views | sheet width − 20 − 10 − 180 − 10 | sheet height − 20 − 10 − 10 | `ADOS-3.3.030` |
+| `Z-DRAW` | Views | sheet width − 20 (bind) − 10 (right) − 180 (band) − 10 (gutter) | sheet height − 10 − 10 − 10 (banner) − 5 (gridref) | `ADOS-3.3.030` |
 | `Z-TITLE` | Title block | 180 | 90 | `ADOS-3.9` |
 | `Z-REV` | Revision register | 180 | 60 min, grows upward | `ADOS-2.6.030` |
 | `Z-NOTES` | Notes, legends, scope | 180 (2 sub-columns of 85, 10 gutter) | remainder | `ADOS-3.3.070` |
@@ -345,9 +345,29 @@ placement a discrete problem with a deterministic tie-break (`ADOS-7.5.050`).
 ### ADOS-3.3.040 — Drawing area column structure
 
 **Decision.** The drawing area shall be treated as a column grid whose column count is chosen so
-that column width ≥ 60 mm and the residual is ≤ 1 sub-module. For A1 with the standard template
-(drawing area 631 × 574 mm), the conforming structures are 6 columns of 100 mm with 10 mm gutters
-(residual 1 mm) or 4 columns of 154 mm with 10 mm gutters (residual 1 mm).
+that column width ≥ 60 mm, column width and gutter lie on the 5 mm sub-module, and the residual is
+≤ 1 sub-module.
+
+For A1 landscape with the standard large-format template the arithmetic is:
+
+```
+sheet                     841 × 594
+frame        841 − 20 − 10 = 811   ×   594 − 10 − 10 = 574
+Z-DRAW       811 − 180 (band) − 10 (gutter) = 621
+             574 − 10 (Z-BANNER) − 5 (Z-GRIDREF)     = 559
+```
+
+The conforming column structures for a 621 mm drawing area, all with 10 mm gutters, are:
+
+| Columns | Width | Total | Residual |
+|---|---|---|---|
+| 6 | 95 mm | 6 × 95 + 5 × 10 = 620 | 1 mm |
+| 3 | 200 mm | 3 × 200 + 2 × 10 = 620 | 1 mm |
+| 2 | 305 mm | 2 × 305 + 1 × 10 = 620 | 1 mm |
+
+Column origins are therefore at 0, 105, 210, 315, 420, 525 mm (six-column), all on the sub-module
+lattice. The 1 mm residual falls at the right-hand edge of the drawing area and carries no
+content.
 
 **Rationale.** Views placed on a column grid align automatically, and view widths become
 predictable across the set, which supports the template effect.
