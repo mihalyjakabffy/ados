@@ -1,0 +1,177 @@
+(* ============================================================================
+   ADOS 1.0 — Naming and reference grammar
+   Normative. Every identifier and reference string in a conforming set shall
+   parse against this grammar (ADOS-2.5.010, ADOS-2.4.020, ADOS-6.4.010).
+
+   Notation: ISO/IEC 14977 EBNF.
+   All terminals are ASCII. No spaces, no non-ASCII characters, no diacritics
+   in any identifier. Case is significant: identifiers are upper case except
+   where stated.
+   ============================================================================ *)
+
+(* ---------- 1. Primitives ------------------------------------------------- *)
+
+digit            = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+upper            = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "J" | "K"
+                 | "L" | "M" | "N" | "P" | "Q" | "R" | "S" | "T" | "U" | "V"
+                 | "W" | "X" | "Y" | "Z" ;
+                 (* note: "I" and "O" are excluded from grid labels only; they
+                    are permitted in other upper-case fields. See grid.label. *)
+upper_all        = upper | "I" | "O" ;
+alnum            = upper_all | digit ;
+hyphen           = "-" ;
+dot              = "." ;
+underscore       = "_" ;
+
+(* ---------- 2. Container identifier (full form) — ADOS-2.5.010 ------------ *)
+
+container.id     = project , hyphen , originator , hyphen , zone , hyphen ,
+                   level , hyphen , type , hyphen , discipline , hyphen ,
+                   number ;
+
+project          = alnum , alnum , alnum , alnum , [ alnum ] , [ alnum ] ;
+                   (* 4 to 6 characters, project code, fixed width per project *)
+
+originator       = upper_all , upper_all , [ upper_all ] ;
+                   (* 2 or 3 characters, organisation code *)
+
+zone             = ( "Z" , "Z" ) | ( alnum , alnum ) ;
+                   (* ZZ = whole site or building *)
+
+level            = "B" , digit                    (* basements: B1, B2 ...    *)
+                 | digit , digit                  (* 00 ground, 01 upper ...  *)
+                 | digit , digit , "M" , "Z"      (* mezzanine of that level  *)
+                 | "R" , "F"                      (* roof                     *)
+                 | "Z" , "Z"                      (* multiple levels          *)
+                 | "X" , "X" ;                    (* not applicable           *)
+
+type             = "DR" | "SC" | "SP" | "RP" | "MO" | "MI" | "RI" | "CO"
+                 | "IR" | "RG" | "PH" | "CA" ;
+
+discipline       = "A" | "S" | "M" | "E" | "P" | "C" | "L" | "F" | "I"
+                 | "Q" | "X" ;
+
+number           = series , serial ;
+series           = digit ;                        (* ADOS-2.5.030            *)
+serial           = digit , digit , digit ;
+
+(* Example: 2317-JKA-ZZ-02-DR-A-3104 *)
+
+(* ---------- 3. Sheet number (short form) — ADOS-2.5.020 ------------------- *)
+
+sheet.short      = discipline , series , dot , serial ;
+                   (* Example: A3.104 — a pure function of container.id      *)
+
+(* ---------- 4. Revision and status — ADOS-2.6.010, ADOS-2.6.020 ----------- *)
+
+revision         = ( "P" | "C" ) , digit , digit ;      (* P01 .. Cnn        *)
+
+status           = "S0" | "S1" | "S2" | "S3" | "S4" | "S6" | "S7"
+                 | ( "A" , digit ) | ( "B" , digit ) | "WD" ;
+
+(* ---------- 5. Published file name — ADOS-6.4.010 ------------------------- *)
+
+file.published   = container.id , hyphen , status , hyphen , revision ,
+                   dot , extension ;
+
+file.authoring   = project , hyphen , originator , hyphen , zone , hyphen ,
+                   discipline , hyphen , model.role , dot , extension ;
+
+model.role       = "M" , digit ;                  (* M3 = 3D model, M2 = 2D  *)
+
+extension        = lower , { lower | digit } ;
+lower            = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
+                 | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t"
+                 | "u" | "v" | "w" | "x" | "y" | "z" ;
+
+(* ---------- 6. Cross-reference — ADOS-2.4.020 ----------------------------- *)
+
+reference        = target , [ "/" , view.id ] ;
+target           = container.id | sheet.short ;
+view.id          = upper_all , digit , [ digit ] ;      (* D3, S12, E1       *)
+
+(* The graphic reference bubble carries the same two fields:
+   view.id in the upper half, target in the lower half (ADOS-4.7.020).       *)
+
+(* ---------- 7. View name — ADOS-6.4.020 ----------------------------------- *)
+
+view.name        = subject , " - " , view.kind , [ " - " , variant ] ;
+subject          = level | free.upper ;
+view.kind        = "GA PLAN" | "RCP" | "ROOF PLAN" | "ELEVATION" | "SECTION"
+                 | "ENLARGED PLAN" | "INTERIOR ELEVATION" | "DETAIL"
+                 | "SCHEDULE" | "DIAGRAM" | "KEY PLAN" | "SETTING OUT" ;
+variant          = "CONSTRUCTION" | "COORDINATION" | "PRESENTATION"
+                 | "EXISTING" | "DEMOLITION" | free.upper ;
+free.upper       = upper_all , { upper_all | digit | " " } ;
+
+(* View names shall not contain a sheet number (ADOS-6.4.020). *)
+
+(* ---------- 8. Element marks and type codes — ADOS-2.5.060, ADOS-6.4.030 -- *)
+
+element.mark     = mark.prefix , hyphen , mark.serial ;
+mark.prefix      = "D" | "W" | "WT" | "FT" | "RT" | "CT" | "RM" | "IM"
+                 | "SN" | "JN" | "BAL" | "LV" | "SG" ;
+mark.serial      = digit , { digit } ;
+                   (* Marks shall not encode location (ADOS-2.5.060).        *)
+
+type.code        = mark.prefix , hyphen , digit , digit , [ lower ] ;
+                   (* WT-01, WT-01a — variants are explicit codes            *)
+
+type.name        = type.code , underscore , class.name , underscore , defining ;
+class.name       = free.upper ;
+defining         = free.upper ;
+                   (* Example: WT-01_EXT WALL_CAVITY 300                     *)
+
+(* ---------- 9. Grid and level designation — ADOS-2.5.050, ADOS-4.4.040 ---- *)
+
+grid.label       = grid.letter | grid.number ;
+grid.letter      = upper , [ dot , digit , { digit } ] ;   (* A, B, B.1      *)
+grid.number      = digit , { digit } , [ dot , digit , { digit } ] ;
+                   (* grid.letter uses `upper`, which excludes I and O
+                      (ADOS-2.5.050).                                        *)
+
+level.value      = level.prefix , " " , sign , integer , dot ,
+                   digit , digit , digit ;
+level.prefix     = "FFL" | "SSL" | "SFL" | "FCL" | "TOS" | "TOW" | "TOC"
+                 | "SOF" | "IL" ;
+sign             = "+" | "-" ;
+integer          = digit , { digit } ;
+                   (* Example: FFL +12.450                                   *)
+
+(* ---------- 10. Dimension annotation — ADOS-4.5 --------------------------- *)
+
+dimension.text   = [ dim.prefix , " " ] , dim.value , [ " " , dim.suffix ] ;
+dim.prefix       = "CLR" | "NOM" | "EQ" | "MIN" | "MAX" | "R" | "Ø" ;
+dim.value        = integer | ( "TBC" , "/" , hold.id ) ;
+dim.suffix       = tolerance | provenance | "TBC/" , hold.id ;
+tolerance        = ( "±" , integer ) | ( "≤" , " " , integer )
+                 | ( "≥" , " " , integer ) ;
+provenance       = "(S)" | "(V)" ;
+hold.id          = "H" , hyphen , digit , digit , digit ;
+
+(* ---------- 11. Rule, validation, metric and error identifiers ------------ *)
+
+rule.id          = "ADOS" , hyphen , volume , dot , chapter , dot , ordinal ;
+volume           = digit | "A" ;
+chapter          = digit , [ digit ] ;
+ordinal          = digit , digit , digit ;
+
+validation.id    = "V" , hyphen , volume , dot , chapter , dot , ordinal ;
+metric.id        = "M" , digit , [ dot , digit , [ digit ] ] ;
+error.code       = "E" , hyphen , error.class , hyphen , digit , digit , digit ;
+error.class      = "MODEL" | "CONTENT" | "STYLE" | "DIM" | "REF" | "FACT"
+                 | "DENSITY" | "LAYOUT" | "RENDER" | "META" | "PROV" ;
+
+token.ref        = "{" , "ados" , { dot , token.segment } , "}" ;
+token.segment    = lower , { lower | digit | underscore } ;
+
+(* ---------- 12. Prohibitions ---------------------------------------------- *)
+
+(* The following shall never appear in any identifier:
+     - spaces in file names or container identifiers
+     - non-ASCII characters
+     - the strings "final", "FINAL", "new", "old", "copy", "use this",
+       or any version marker outside the revision field
+     - variable-width fields (placeholders ZZ and XX preserve width)
+     - a revision or status embedded in a container identifier
+       (both are attributes, not identity — ADOS-2.5.010)                    *)

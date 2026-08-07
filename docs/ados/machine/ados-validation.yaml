@@ -1,0 +1,309 @@
+# ============================================================================
+# ADOS 1.0 — Validation profile
+# Normative. Every metric, its source, formula, threshold, severity and gate.
+# Referenced by Volume 8. Thresholds are not tunable per project (ADOS-8.10.080);
+# a project needing a different value records a Deviation Register entry.
+#
+# source:    ir      computed from the ADOS-IR (ados-sheet-schema.json)
+#            raster  computed from the rendered page at the nominated issue size
+#            model   computed by querying the authoring model
+#            human   obtained by the stated procedure
+# gate:      the lowest status at which the check blocks issue
+# ============================================================================
+
+edition: "1.0"
+evaluation_size: nominated_issue_size          # ADOS-8.2.020
+severity_gates:                                 # ADOS-8.10.060
+  S0:    { S1: null, S2: null, S3: null, S4: null }
+  S1_S2: { S1: 0,    S2: 5,    S3: null, S4: null }
+  S3_S4: { S1: 0,    S2: 0,    S3: 10,   S4: null }
+  A_B:   { S1: 0,    S2: 0,    S3: 0,    S4: null }
+
+degradation:                                    # ADOS-8.2.040 — deterministic
+  render_dpi: 600
+  colour: greyscale
+  generations: 2
+  blur_sigma_px: 0.5
+  transfer_curve: declared_reference_device
+  threshold: 0.50
+  dither: 0.02
+  noise_sigma_levels: 2
+
+ocr:
+  engine: declared_and_pinned
+  metric: character_error_rate
+
+metrics:
+
+  # ------------------------------------------------------------------ M1 ----
+  - id: M1
+    name: Readability
+    question: Can the marks be resolved at all, under the adverse reference condition?
+    submetrics:
+      - id: M1.1
+        name: Minimum cap height
+        source: ir
+        formula: min(annotation.cap_height_um) over all text
+        threshold: ">= 2500 um (>= 1800 um where annotation.secondary)"
+        severity: S1
+        gate: S1
+        rule: ADOS-3.4.010
+      - id: M1.2
+        name: Minimum stroke width
+        source: ir
+        formula: min(stroke.width_um)
+        threshold: ">= 180 um; >= 250 um for safety-critical classes"
+        severity: S1
+        gate: S1
+        rule: ADOS-4.1.010
+      - id: M1.3
+        name: Text clear-zone violations
+        source: ir
+        formula: count(text bbox expanded by clear_zone_um intersecting an unmasked mark)
+        threshold: 0
+        severity: S1
+        gate: S1
+        rule: ADOS-3.4.080
+      - id: M1.4
+        name: Tone separation
+        source: ir
+        formula: min(abs(L*(a) - L*(b))) over adjacent meaning-bearing tone pairs
+        threshold: ">= 18; >= 36 for declared critical pairs"
+        severity: S2
+        gate: S3
+        rule: ADOS-3.8.010
+      - id: M1.5
+        name: Hatch pitch
+        source: ir
+        formula: min(hatch.pitch_um) at the view scale
+        threshold: ">= 500 um and >= width_um + 300 um"
+        severity: S2
+        gate: S3
+        rule: ADOS-4.10.020
+      - id: M1.6
+        name: Degraded character recovery
+        source: raster
+        formula: CER = (substitutions + insertions + deletions) / characters_in_IR
+        threshold: "<= 0.02"
+        severity: S1
+        gate: S1
+        rule: ADOS-8.2.030
+      - id: M1.7
+        name: Degraded stroke survival
+        source: raster
+        formula: strokes detected after degradation / strokes in IR
+        threshold: ">= 0.99"
+        severity: S1
+        gate: S1
+        rule: ADOS-8.2.040
+      - id: M1.8
+        name: Note complexity
+        source: ir
+        formula: per note - words/sentence, sentences, clause depth, negations, abbreviations, vocabulary
+        threshold: "<=25 words, <=2 sentences, <=1 clause depth, <=1 negation, 0 unregistered, 0 out-of-vocabulary"
+        severity: S3
+        gate: A_B
+        rule: ADOS-8.2.060
+
+  # ------------------------------------------------------------------ M2 ----
+  - id: M2
+    name: Consistency
+    question: Does the reader's learned template hold across the set?
+    note: Measured by exact identity, not by percentage similarity (ADOS-8.3.010).
+    submetrics:
+      - { id: M2.1,  name: Zone origin variance,              source: ir,    formula: "max deviation of zone origin from set mode", threshold: "0 um",  severity: S2, gate: S3, rule: ADOS-3.3.010 }
+      - { id: M2.2,  name: Title block field position variance, source: ir,  formula: "max deviation per field",                     threshold: "0 um",  severity: S2, gate: S3, rule: ADOS-3.9.010 }
+      - { id: M2.3,  name: North vector variance,             source: ir,    formula: "max(abs(theta - mode(theta))) over plans",    threshold: "0 mdeg", severity: S1, gate: S1, rule: ADOS-4.3.030 }
+      - { id: M2.4,  name: Scale set cardinality per class,    source: ir,   formula: "count(distinct scale per drawing class)",     threshold: "1",     severity: S2, gate: S3, rule: ADOS-4.2.040 }
+      - { id: M2.5,  name: Distinct line widths per sheet,     source: ir,   formula: "count(distinct width_um in Z-DRAW)",          threshold: "<= 5",  severity: S2, gate: S3, rule: ADOS-4.1.030 }
+      - { id: M2.6,  name: Distinct text sizes per sheet,      source: ir,   formula: "count(distinct size_token)",                  threshold: "<= 5",  severity: S2, gate: S3, rule: ADOS-3.4.030 }
+      - { id: M2.7,  name: Distinct tones per sheet,           source: ir,   formula: "count(distinct tone)",                        threshold: "<= 4",  severity: S2, gate: S3, rule: ADOS-3.8.020 }
+      - { id: M2.8,  name: Distinct hatch patterns in set,     source: ir,   formula: "count(distinct hatch.token)",                 threshold: "<= 8",  severity: S2, gate: S3, rule: ADOS-4.10.030 }
+      - { id: M2.9,  name: Distinct symbols in set,            source: ir,   formula: "count(distinct symbol_id)",                   threshold: "<= 30", severity: S3, gate: A_B, rule: ADOS-4.9.050 }
+      - { id: M2.10, name: Distinct font families,             source: raster, formula: "count(embedded font families)",             threshold: "<= 2 (<= 3 with monospace)", severity: S2, gate: S3, rule: ADOS-3.4.020 }
+      - { id: M2.11, name: View template coverage,             source: model, formula: "views with template / views",                threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.7.070 }
+      - { id: M2.12, name: Per-element graphic overrides,      source: model, formula: "count(instance graphic overrides)",          threshold: "0",    severity: S2, gate: S3, rule: ADOS-6.7.010 }
+      - { id: M2.13, name: Key plan geometry identity,         source: ir,    formula: "hash(key plan geometry) distinct count",     threshold: "1",    severity: S3, gate: A_B, rule: ADOS-2.4.060 }
+      - { id: M2.14, name: Encoding table coverage,            source: ir,    formula: "mapped states / observed states",            threshold: "1.00", severity: S1, gate: S1, rule: ADOS-3.1.050 }
+      - { id: M2.15, name: Dimension style variance,           source: ir,    formula: "count(distinct dimension geometry sets)",    threshold: "1",    severity: S3, gate: A_B, rule: ADOS-4.5.020 }
+      - { id: M2.16, name: Grouping ratio,                     source: ir,    formula: "min(gap_between) / max(gap_within) per group", threshold: ">= 2.0", severity: S3, gate: A_B, rule: ADOS-3.5.020 }
+
+  # ------------------------------------------------------------------ M3 ----
+  - id: M3
+    name: Hierarchy
+    question: Is importance visible before content is read?
+    submetrics:
+      - id: M3.1
+        name: Salience inversions
+        source: ir
+        formula: >
+          salience(text) = cap_height_mm * weight_factor * (1 + 0.5*is_upper);
+          salience(fill) = sqrt(area_mm2) * (L_paper - L_fill) / 100;
+          salience(stroke) = width_mm * sqrt(length_mm) * 3;
+          count rank inversions against the required order
+          [sheet number > sheet title > status > view title > view content > annotation]
+        threshold: "0"
+        severity: S3
+        gate: A_B
+        rule: ADOS-8.3.040
+      - { id: M3.2, name: Emphasis area ratio,           source: ir, formula: "emphasised area / drawing area", threshold: "<= 0.10", severity: S3, gate: A_B, rule: ADOS-3.6.040 }
+      - { id: M3.3, name: Hierarchy levels per region,   source: ir, formula: "count(distinct level per region)", threshold: "<= 3",  severity: S3, gate: A_B, rule: ADOS-3.6.020 }
+      - { id: M3.4, name: Channels per hierarchy step,   source: ir, formula: "count(channels differing between adjacent levels)", threshold: "1 (>= 2 where criticality = life_safety)", severity: S3, gate: A_B, rule: ADOS-3.6.030 }
+
+  # ------------------------------------------------------------------ M4 ----
+  - id: M4
+    name: Information completeness
+    question: Are all the questions this document is responsible for answered?
+    submetrics:
+      - { id: M4.1,  name: Required content coverage,   source: ir,    formula: "present required items / required items", threshold: "1.00", severity: S1, gate: S1, rule: ADOS-5.0.010 }
+      - { id: M4.2,  name: Package composition,         source: ir,    formula: "required containers present for stage",   threshold: "1.00", severity: S1, gate: S1, rule: ADOS-2.12.010 }
+      - { id: M4.3,  name: Scope statement presence,    source: ir,    formula: "sheets with non-empty scope / sheets",    threshold: "1.00", severity: S2, gate: S3, rule: ADOS-0.3.090 }
+      - { id: M4.4,  name: Exclusion completeness,      source: ir,    formula: "scope boundaries with exclusion note / boundaries", threshold: "1.00", severity: S1, gate: S1, rule: ADOS-4.8.060 }
+      - { id: M4.5,  name: Empty schedule cells,        source: ir,    formula: "count(empty cells)",                      threshold: "0",    severity: S2, gate: S3, rule: ADOS-3.12.040 }
+      - { id: M4.6,  name: Untagged instances,          source: model, formula: "count(instances of a tagged class without a tag)", threshold: "0", severity: S1, gate: S1, rule: ADOS-5.4.040 }
+      - { id: M4.7,  name: Undefined type codes,        source: ir,    formula: "used codes - defined codes",              threshold: "0",    severity: S1, gate: S1, rule: ADOS-5.16.020 }
+      - { id: M4.8,  name: Unused type definitions,     source: ir,    formula: "defined codes - used codes",              threshold: "0",    severity: S3, gate: A_B, rule: ADOS-5.16.020 }
+      - { id: M4.9,  name: Unresolved holds,            source: ir,    formula: "count(TBC without hold register entry)",  threshold: "0",    severity: S1, gate: S1, rule: ADOS-2.6.080 }
+      - { id: M4.10, name: Dimension chain closure,     source: ir,    formula: "count(chains where sum(sub) != overall)",  threshold: "0",   severity: S1, gate: S1, rule: ADOS-4.5.030 }
+      - { id: M4.11, name: Detail condition coverage,   source: ir,    formula: "conditions mapped to a detail / conditions", threshold: "1.00", severity: S1, gate: S1, rule: ADOS-5.18.030 }
+      - { id: M4.12, name: Section coverage,            source: ir,    formula: "coverage rules met",                      threshold: "all",  severity: S2, gate: S3, rule: ADOS-5.14.020 }
+      - { id: M4.13, name: Legend completeness,         source: ir,    formula: "states with a legend entry / states used", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-4.9.010 }
+      - { id: M4.14, name: Provenance completeness,     source: ir,    formula: "survey/assumed content marked / such content", threshold: "1.00", severity: S1, gate: S1, rule: ADOS-4.5.090 }
+      - { id: M4.15, name: Unresolved references,       source: ir,    formula: "count(references not resolving)",         threshold: "0",    severity: S1, gate: S1, rule: ADOS-2.4.040 }
+      - { id: M4.16, name: Missing reciprocals,         source: ir,    formula: "count(callouts without a reciprocal)",    threshold: "0",    severity: S2, gate: S3, rule: ADOS-2.4.030 }
+      - { id: M4.17, name: References to superseded containers, source: ir, formula: "count",                              threshold: "0",    severity: S1, gate: S1, rule: ADOS-2.6.070 }
+      - { id: M4.18, name: External references not listed, source: ir, formula: "count",                                   threshold: "0",    severity: S2, gate: S3, rule: ADOS-5.2.040 }
+      - { id: M4.19, name: Noise ratio,                 source: ir,    formula: "annotations not traceable to a required content item / annotations", threshold: "<= 0.02", severity: S3, gate: A_B, rule: ADOS-8.4.030 }
+      - { id: M4.20, name: Disagreeing duplicate values, source: ir,   formula: "count(same fact, different values across carriers)", threshold: "0", severity: S1, gate: S1, rule: ADOS-8.4.050 }
+      - { id: M4.21, name: Agreeing duplicate values,   source: ir,    formula: "count(undeclared duplications)",          threshold: "0",    severity: S2, gate: S3, rule: ADOS-2.2.030 }
+      - { id: M4.22, name: Stale derived content,       source: model, formula: "overrides + exploded views + stale views + stale schedules + stale imports", threshold: "0", severity: S1, gate: S1, rule: ADOS-8.4.060 }
+
+  # ------------------------------------------------------------------ M5 ----
+  - id: M5
+    name: Visual balance and composition
+    question: Is attention distributed as intended, and is the sheet used well?
+    submetrics:
+      - { id: M5.1, name: Balance error,          source: raster, formula: "|centroid(ink) - centre(Z-DRAW)| / diagonal(Z-DRAW)", threshold: "<= 0.10", severity: S3, gate: A_B, rule: ADOS-3.11.020 }
+      - { id: M5.2, name: Fill ratio,             source: ir,     formula: "union(view bboxes) / drawing area",  threshold: "0.40 .. 0.85", severity: S3, gate: A_B, rule: ADOS-3.7.010 }
+      - { id: M5.3, name: Local ink coverage,     source: raster, formula: "max coverage over 20 mm windows",    threshold: "<= 0.25", severity: S2, gate: S3, rule: ADOS-3.7.020 }
+      - { id: M5.4, name: Annotation density,     source: ir,     formula: "max annotations per search region",  threshold: "<= 50",   severity: S2, gate: S3, rule: ADOS-3.7.030 }
+      - { id: M5.5, name: Alignment edges,        source: ir,     formula: "distinct clustered edges per axis (1 mm tolerance)", threshold: "<= 6", severity: S3, gate: A_B, rule: ADOS-3.11.040 }
+      - { id: M5.6, name: Lattice conformance,    source: ir,     formula: "placeable origins with x,y mod 5000 um = 0 / origins", threshold: "1.00", severity: S3, gate: A_B, rule: ADOS-3.3.030 }
+      - { id: M5.7, name: View separation,        source: ir,     formula: "min pairwise view bbox gap",         threshold: ">= 20 mm", severity: S3, gate: A_B, rule: ADOS-3.5.040 }
+      - { id: M5.8, name: Boundary clearance,     source: ir,     formula: "min view-to-drawing-area gap",       threshold: ">= 10 mm", severity: S3, gate: A_B, rule: ADOS-3.5.040 }
+      - { id: M5.9, name: Fold-zone intrusions,   source: ir,     formula: "count(text/dim/marker bbox intersecting a fold-safe zone)", threshold: "0", severity: S2, gate: S3, rule: ADOS-3.3.100 }
+
+  # ------------------------------------------------------------------ M6 ----
+  - id: M6
+    name: Navigation
+    question: Can the reader move through the set without loss?
+    submetrics:
+      - { id: M6.1,  name: Index completeness,        source: ir, formula: "register rows / live containers",        threshold: "1.00", severity: S1, gate: S1, rule: ADOS-5.2.020 }
+      - { id: M6.2,  name: Index currency,            source: ir, formula: "rows whose revision matches / rows",     threshold: "1.00", severity: S1, gate: S1, rule: ADOS-5.2.010 }
+      - { id: M6.3,  name: Navigation depth,          source: ir, formula: "longest shortest-path index -> fact carrier", threshold: "<= 3", severity: S3, gate: A_B, rule: ADOS-2.4.050 }
+      - { id: M6.4,  name: Key plan presence,         source: ir, formula: "partial views with key plan / partial views", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-2.4.060 }
+      - { id: M6.5,  name: Identifier grammar,        source: ir, formula: "identifiers parsing / identifiers",      threshold: "1.00", severity: S1, gate: S1, rule: ADOS-2.5.010 }
+      - { id: M6.6,  name: Identifier uniqueness,     source: ir, formula: "count(duplicate identifiers)",           threshold: "0",    severity: S1, gate: S1, rule: ADOS-2.5.070 }
+      - { id: M6.7,  name: Series conformance,        source: ir, formula: "containers whose series matches type / containers", threshold: "1.00", severity: S3, gate: A_B, rule: ADOS-2.5.030 }
+      - { id: M6.8,  name: Match-line reciprocity,    source: ir, formula: "reciprocal match lines / match lines",   threshold: "1.00", severity: S2, gate: S3, rule: ADOS-4.7.060 }
+      - { id: M6.9,  name: Marker resolution,         source: ir, formula: "markers resolving / markers",            threshold: "1.00", severity: S1, gate: S1, rule: ADOS-4.7.010 }
+      - { id: M6.10, name: Marker density,            source: ir, formula: "max markers per view",                   threshold: "<= 12", severity: S3, gate: A_B, rule: ADOS-4.7.050 }
+      - { id: M6.11, name: Reference bubble completeness, source: ir, formula: "bubbles with both fields / bubbles", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-4.7.020 }
+      - { id: M6.12, name: Orientation test,          source: human, formula: "median time and correctness over 5 sheets", threshold: "<= 5 s, 1.00 correct", severity: S2, gate: S3, rule: ADOS-8.6.020 }
+      - { id: M6.13, name: Internal hyperlink coverage, source: raster, formula: "internal links / references (digital issue)", threshold: ">= 0.95", severity: S3, gate: A_B, rule: ADOS-6.11.040 }
+      - { id: M6.14, name: Bookmark presence,         source: raster, formula: "documents with bookmarks / multi-page documents", threshold: "1.00", severity: S3, gate: A_B, rule: ADOS-6.11.040 }
+      - { id: M6.15, name: Text searchability,        source: raster, formula: "extracted text / IR text",           threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.11.040 }
+
+  # ------------------------------------------------------------------ M7 ----
+  - id: M7
+    name: Print quality
+    question: Does the document survive the reproduction chain?
+    submetrics:
+      - { id: M7.1,  name: Page size,                source: raster, formula: "|rendered - declared|",              threshold: "<= 0.5 mm", severity: S2, gate: S3, rule: ADOS-6.11.060 }
+      - { id: M7.2,  name: Scaling flags,            source: raster, formula: "count(scale-to-fit flags)",           threshold: "0",   severity: S2, gate: S3, rule: ADOS-6.11.060 }
+      - { id: M7.3,  name: Vector integrity,         source: raster, formula: "count(pages that are a full-page raster)", threshold: "0", severity: S1, gate: S1, rule: ADOS-6.11.020 }
+      - { id: M7.4,  name: Font embedding,           source: raster, formula: "embedded fonts / used fonts",         threshold: "1.00", severity: S1, gate: S1, rule: ADOS-6.11.020 }
+      - { id: M7.5,  name: Raster resolution,        source: raster, formula: "min effective dpi of embedded images", threshold: ">= 600", severity: S3, gate: A_B, rule: ADOS-6.11.020 }
+      - { id: M7.6,  name: Tone accuracy,            source: raster, formula: "|measured L* - target L*| on the reference device", threshold: "<= 4", severity: S2, gate: S3, rule: ADOS-6.11.050 }
+      - { id: M7.7,  name: Transfer curve currency,  source: model,  formula: "age of calibration record",           threshold: "<= 12 months", severity: S3, gate: A_B, rule: ADOS-6.11.050 }
+      - { id: M7.8,  name: Degraded stroke survival, source: raster, formula: "see M1.7",                            threshold: ">= 0.99", severity: S1, gate: S1, rule: ADOS-8.2.040 }
+      - { id: M7.9,  name: Margin conformance,       source: ir,     formula: "count(marks outside the frame)",      threshold: "0",   severity: S2, gate: S3, rule: ADOS-3.3.020 }
+      - { id: M7.10, name: Greyscale equivalence,    source: raster, formula: "M1-M3 pass on the greyscale render",  threshold: "pass", severity: S1, gate: S1, rule: ADOS-3.10.010 }
+      - { id: M7.11, name: PDF/A conformance,        source: raster, formula: "validator result on archive copies",  threshold: "pass", severity: S2, gate: S3, rule: ADOS-0.6.030 }
+      - { id: M7.12, name: Photograph robustness,    source: raster, formula: "CER after warp/illumination/JPEG simulation, safety-critical classes", threshold: "<= 0.05", severity: S2, gate: S3, rule: ADOS-8.7.020 }
+
+  # ------------------------------------------------------------------ M8 ----
+  - id: M8
+    name: Accessibility
+    question: Is the document usable by all defined users, and by machines?
+    submetrics:
+      - { id: M8.1,  name: Colour independence,      source: raster, formula: "greyscale render passes M1-M4",       threshold: "pass", severity: S1, gate: S1, rule: ADOS-3.10.010 }
+      - { id: M8.2,  name: Colour-only encodings,    source: ir,     formula: "count(distinctions carried by colour alone)", threshold: "0", severity: S1, gate: S1, rule: ADOS-0.4.070 }
+      - { id: M8.3,  name: CVD distinguishability,   source: raster, formula: "min deltaE under protanopia/deuteranopia/tritanopia simulation", threshold: ">= 20", severity: S2, gate: S3, rule: ADOS-3.10.030 }
+      - { id: M8.4,  name: Text contrast,            source: raster, formula: "min contrast ratio of text to background", threshold: ">= 7:1", severity: S1, gate: S1, rule: ADOS-3.8.040 }
+      - { id: M8.5,  name: Reversed text,            source: ir,     formula: "count(light text on dark background)", threshold: "0",   severity: S2, gate: S3, rule: ADOS-3.8.040 }
+      - { id: M8.6,  name: Text extraction,          source: raster, formula: "extracted characters / IR characters", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-0.4.080 }
+      - { id: M8.7,  name: Document language tag,    source: raster, formula: "present and matching the declared language", threshold: "pass", severity: S3, gate: A_B, rule: ADOS-2.7.020 }
+      - { id: M8.8,  name: Logical structure,        source: raster, formula: "tagged PDF with heading structure (documents)", threshold: "pass", severity: S3, gate: A_B, rule: ADOS-6.11.040 }
+      - { id: M8.9,  name: Metadata completeness,    source: raster, formula: "populated fields / required fields",  threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.11.030 }
+      - { id: M8.10, name: Machine-readable delivery, source: ir,    formula: "structured export present where required", threshold: "pass", severity: S2, gate: S3, rule: ADOS-5.34.030 }
+      - { id: M8.11, name: Interactive target size,  source: raster, formula: "min hyperlink hot-zone dimension",    threshold: ">= 6 mm", severity: S4, gate: null, rule: ADOS-6.11.040 }
+
+  # ------------------------------------------------------------------ M9 ----
+  - id: M9
+    name: Automation readiness
+    question: Can this documentation be generated and validated deterministically?
+    submetrics:
+      - { id: M9.1,  name: IR schema validity,       source: ir,    formula: "schema validation result",             threshold: "pass", severity: S2, gate: S3, rule: ADOS-7.3.010 }
+      - { id: M9.2,  name: Determinism,              source: raster, formula: "byte identity across two runs (excluding declared timestamps)", threshold: "pass", severity: S2, gate: S3, rule: ADOS-7.2.010 }
+      - { id: M9.3,  name: Manual value overrides,   source: model, formula: "count(dimension/tag/schedule overrides)", threshold: "0", severity: S1, gate: S1, rule: ADOS-6.7.050 }
+      - { id: M9.4,  name: Per-element graphic overrides, source: model, formula: "count",                            threshold: "0",   severity: S2, gate: S3, rule: ADOS-6.7.010 }
+      - { id: M9.5,  name: View template coverage,   source: model, formula: "views with template / views",           threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.7.070 }
+      - { id: M9.6,  name: Classification coverage,  source: model, formula: "classified elements / elements",        threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.6.010 }
+      - { id: M9.7,  name: Parameter binding,        source: model, formula: "bound schedule fields / schedule fields", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.3.030 }
+      - { id: M9.8,  name: Model health checks,      source: model, formula: "twelve checks of ADOS-6.12.010",        threshold: "all pass", severity: S1, gate: S1, rule: ADOS-6.12.010 }
+      - { id: M9.9,  name: Naming grammar conformance, source: ir,  formula: "names parsing / names",                 threshold: "1.00", severity: S2, gate: S3, rule: ADOS-6.4.010 }
+      - { id: M9.10, name: Encoding table closure,   source: ir,    formula: "observed states subset of declared states", threshold: "pass", severity: S1, gate: S1, rule: ADOS-7.6.020 }
+      - { id: M9.11, name: Provenance coverage,      source: ir,    formula: "non-model content with provenance / such content", threshold: "1.00", severity: S2, gate: S3, rule: ADOS-7.9.030 }
+      - { id: M9.12, name: Build report,             source: ir,    formula: "present and hashes match published files", threshold: "pass", severity: S2, gate: S3, rule: ADOS-7.8.020 }
+
+# ---------------------------------------------------------------------------
+# System-level measures. Reported and trended; not per-package gates.
+# ---------------------------------------------------------------------------
+system_measures:
+  - id: SM1
+    name: Defect escape rate
+    formula: defects found after issue / (defects found before issue + defects found after issue)
+    source: RFI register + instruction register
+    threshold: practice target, reviewed annually; a rising trend requires recorded action
+    rule: ADOS-8.9.030
+  - id: SM2
+    name: RFI cause mapping
+    formula: RFIs classified as documentation defects mapped to a preventing rule / such RFIs
+    threshold: "1.00 (unmapped cases become change requests)"
+    rule: ADOS-8.9.040
+  - id: SM3
+    name: Audit coverage
+    formula: containers audited / max(0.05 * containers, 20)
+    threshold: ">= 1.00 per quarter"
+    rule: ADOS-8.10.070
+
+# ---------------------------------------------------------------------------
+# Gate procedure (ADOS-8.10.050). Binary; no partial issue.
+# ---------------------------------------------------------------------------
+gate_procedure:
+  - step: 1
+    action: Run the automated check suite
+  - step: 2
+    action: Correct or register all S1 and S2 defects (S1 may never be registered)
+  - step: 3
+    action: Complete the document type checklist (Volume 5)
+  - step: 4
+    action: Checker verifies content correctness, completeness and coordination
+  - step: 5
+    action: Re-run the automated suite after any correction
+  - step: 6
+    action: Approver reviews report, deviations and checklist, and authorises
+  - step: 7
+    action: Publish in one automated run; retain the build report; create the issue record;
+            move superseded containers

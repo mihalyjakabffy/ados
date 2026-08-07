@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ados.spec/1.0/ados-sheet-schema.json",
+  "title": "ADOS-IR — package intermediate representation",
+  "description": "Normative schema for the ADOS intermediate representation (ADOS-7.3). The IR is the sole input to the renderer and to all structural validation. All lengths are integer micrometres; all angles are integer millidegrees (ADOS-7.2.040). Keys are sorted on serialisation.",
+  "type": "object",
+  "required": ["edition", "package"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string", "description": "Non-normative annotation on the instance; ignored by the renderer." },
+    "edition": { "const": "1.0" },
+    "package": { "$ref": "#/$defs/Package" }
+  },
+
+  "$defs": {
+    "um": { "type": "integer", "description": "length in micrometres" },
+    "mdeg": { "type": "integer", "description": "angle in millidegrees" },
+    "guid": { "type": "string", "minLength": 8 },
+    "date": { "type": "string", "format": "date" },
+
+    "Point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": { "x": { "$ref": "#/$defs/um" }, "y": { "$ref": "#/$defs/um" } }
+    },
+
+    "Box": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "$ref": "#/$defs/um" }, "y": { "$ref": "#/$defs/um" },
+        "w": { "$ref": "#/$defs/um" }, "h": { "$ref": "#/$defs/um" }
+      }
+    },
+
+    "Status": {
+      "type": "string",
+      "pattern": "^(S0|S1|S2|S3|S4|S6|S7|A[0-9]+|B[0-9]+|WD)$",
+      "description": "ADOS-2.6.010"
+    },
+
+    "Revision": {
+      "type": "string",
+      "pattern": "^(P|C)[0-9]{2}$",
+      "description": "ADOS-2.6.020"
+    },
+
+    "ContainerId": {
+      "type": "string",
+      "pattern": "^[A-Z0-9]{4,6}-[A-Z]{2,3}-[A-Z0-9]{2}-(B[0-9]|[0-9]{2}(MZ)?|RF|ZZ|XX)-(DR|SC|SP|RP|MO|MI|RI|CO|IR|RG|PH|CA)-[ASMEPCLFIQX]-[0-9]{4}$",
+      "description": "ADOS-2.5.010"
+    },
+
+    "Package": {
+      "type": "object",
+      "required": ["package_id", "project", "set", "status", "issue", "generator", "containers"],
+      "additionalProperties": false,
+      "properties": {
+        "package_id": { "type": "string" },
+        "purpose": { "type": "string" },
+        "status": { "$ref": "#/$defs/Status" },
+        "project": {
+          "type": "object",
+          "required": ["code", "name", "jurisdiction", "units", "language", "decimal_separator"],
+          "additionalProperties": false,
+          "properties": {
+            "code": { "type": "string" },
+            "name": { "type": "string" },
+            "jurisdiction": { "type": "string" },
+            "units": { "enum": ["mm", "m"] },
+            "language": { "type": "string", "description": "BCP 47 tag" },
+            "decimal_separator": { "enum": [".", ","] },
+            "datum": { "type": "string" },
+            "coordinate_system": { "type": "string" }
+          }
+        },
+        "set": {
+          "type": "object",
+          "required": ["originator_code", "nominated_issue_size", "conformance_class", "edition"],
+          "additionalProperties": false,
+          "properties": {
+            "originator_code": { "type": "string" },
+            "nominated_issue_size": { "enum": ["A0", "A1", "A2", "A3", "A4"] },
+            "authored_size": { "enum": ["A0", "A1", "A2", "A3", "A4"] },
+            "conformance_class": { "enum": ["A", "B", "C"] },
+            "edition": { "const": "1.0" },
+            "overlays": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "issue": {
+          "type": "object",
+          "required": ["date", "medium", "recipients"],
+          "additionalProperties": false,
+          "properties": {
+            "date": { "$ref": "#/$defs/date" },
+            "medium": { "type": "string" },
+            "recipients": { "type": "array", "items": { "type": "string" } },
+            "supersedes": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "generator": {
+          "type": "object",
+          "required": ["name", "version", "artefact_versions", "model_version", "model_hash"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "artefact_versions": { "type": "object", "additionalProperties": { "type": "string" } },
+            "model_version": { "type": "string" },
+            "model_hash": { "type": "string" }
+          }
+        },
+        "encoding_table": {
+          "type": "array",
+          "description": "ADOS-3.1.050 — every graphic state used, with its meaning",
+          "items": {
+            "type": "object",
+            "required": ["channel", "state", "meaning", "criticality", "rule"],
+            "additionalProperties": false,
+            "properties": {
+              "channel": { "enum": ["position", "line_weight", "line_type", "tone", "symbol", "text_size", "text_weight", "text_case", "enclosure", "colour"] },
+              "state": { "type": "string" },
+              "meaning": { "type": "string" },
+              "criticality": { "enum": ["life_safety", "cost", "efficiency"] },
+              "rule": { "type": "string" }
+            }
+          }
+        },
+        "containers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Container" }
+        }
+      }
+    },
+
+    "Container": {
+      "type": "object",
+      "required": ["container_id", "short_id", "type", "status", "revision", "parties", "revisions", "scope_statement", "read_with", "references_out", "references_in"],
+      "additionalProperties": false,
+      "properties": {
+        "container_id": { "$ref": "#/$defs/ContainerId" },
+        "short_id": { "type": "string", "pattern": "^[ASMEPCLFIQX][0-9]\\.[0-9]{3}$" },
+        "title": { "type": "string" },
+        "type": {
+          "enum": ["CS", "IX", "GN", "GA-P", "SO", "EX", "DM", "PH", "SL", "SP", "FS", "AS",
+                   "RP", "RCP", "EL", "SE", "EN", "IE", "WT", "TS", "DT", "RS", "DS", "WS",
+                   "SP-SPEC", "AR", "TP", "RFI", "CO", "DD", "PR", "MM", "DR", "SR", "CI",
+                   "AB", "OM"],
+          "description": "ADOS-5.0.010 closed type registry"
+        },
+        "status": { "$ref": "#/$defs/Status" },
+        "revision": { "$ref": "#/$defs/Revision" },
+        "sheet": {
+          "type": "object",
+          "required": ["size", "orientation", "zoning_template"],
+          "additionalProperties": false,
+          "properties": {
+            "size": { "enum": ["A0", "A1", "A2", "A3", "A4"] },
+            "orientation": { "enum": ["landscape", "portrait"] },
+            "zoning_template": { "enum": ["large_format", "small_format", "cover"] }
+          }
+        },
+        "parties": {
+          "type": "object",
+          "required": ["author", "checker", "approver"],
+          "additionalProperties": false,
+          "properties": {
+            "author": { "type": "string" },
+            "checker": { "type": "string" },
+            "approver": { "type": "string" }
+          },
+          "description": "ADOS-7.9.010 — persons, never a generator identity; checker != author"
+        },
+        "revisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "date", "description", "author", "checker"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "$ref": "#/$defs/Revision" },
+              "date": { "$ref": "#/$defs/date" },
+              "description": { "type": "string", "maxLength": 160 },
+              "author": { "type": "string" },
+              "checker": { "type": "string" },
+              "affected_regions": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "scope_statement": { "type": "string", "minLength": 1, "description": "ADOS-0.3.090" },
+        "read_with": { "type": "array", "items": { "type": "string" } },
+        "regions": { "type": "array", "items": { "$ref": "#/$defs/Region" } },
+        "references_out": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
+        "references_in": { "type": "array", "items": { "$ref": "#/$defs/Reference" } },
+        "provenance": {
+          "type": "array",
+          "description": "ADOS-7.9.030 — origin of non-model content",
+          "items": {
+            "type": "object",
+            "required": ["item", "origin", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "item": { "type": "string" },
+              "origin": { "enum": ["library", "precedent", "template", "generated_prose", "survey", "consultant"] },
+              "version": { "type": "string" },
+              "approved_by": { "type": "string" },
+              "approved_date": { "$ref": "#/$defs/date" }
+            }
+          }
+        }
+      }
+    },
+
+    "Region": {
+      "type": "object",
+      "required": ["region_id", "bounds"],
+      "additionalProperties": false,
+      "properties": {
+        "region_id": { "enum": ["Z-DRAW", "Z-TITLE", "Z-REV", "Z-NOTES", "Z-KEY", "Z-BANNER", "Z-GRIDREF"] },
+        "bounds": { "$ref": "#/$defs/Box" },
+        "views": { "type": "array", "items": { "$ref": "#/$defs/View" } },
+        "blocks": { "type": "array", "items": { "$ref": "#/$defs/Block" } }
+      }
+    },
+
+    "Block": {
+      "type": "object",
+      "required": ["block_id", "kind", "bounds", "annotations"],
+      "additionalProperties": false,
+      "properties": {
+        "block_id": { "type": "string" },
+        "kind": { "enum": ["scope", "read_with", "notes", "legend", "standard_notes_ref", "title_block", "revision_register", "abbreviations", "table"] },
+        "bounds": { "$ref": "#/$defs/Box" },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/Annotation" } }
+      }
+    },
+
+    "View": {
+      "type": "object",
+      "required": ["view_id", "view_type", "level", "scale_denominator", "origin", "extent", "title", "geometry", "annotations"],
+      "additionalProperties": false,
+      "properties": {
+        "view_id": { "type": "string" },
+        "view_type": { "enum": ["plan", "rcp", "roof_plan", "elevation", "section", "detail", "interior_elevation", "enlarged_plan", "schedule", "diagram", "key_plan", "setting_out"] },
+        "level": { "enum": ["L1", "L2", "L3", "L4", "L5"] },
+        "scale_denominator": { "enum": [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 1250, 2000, 2500, 5000] },
+        "origin": { "$ref": "#/$defs/Point" },
+        "extent": { "type": "object", "required": ["w", "h"], "additionalProperties": false,
+                    "properties": { "w": { "$ref": "#/$defs/um" }, "h": { "$ref": "#/$defs/um" } } },
+        "north_vector_mdeg": { "$ref": "#/$defs/mdeg" },
+        "cut_plane_height": { "oneOf": [{ "$ref": "#/$defs/um" }, { "type": "null" }] },
+        "view_range": {
+          "oneOf": [
+            { "type": "object", "required": ["below", "above"], "additionalProperties": false,
+              "properties": { "below": { "$ref": "#/$defs/um" }, "above": { "$ref": "#/$defs/um" } } },
+            { "type": "null" }
+          ]
+        },
+        "detail_level": { "enum": ["coarse", "medium", "fine"] },
+        "typical_applicability": { "type": "string" },
+        "location_reference": { "type": "string" },
+        "title": {
+          "type": "object",
+          "required": ["text", "size_token"],
+          "additionalProperties": false,
+          "properties": {
+            "text": { "type": "string" },
+            "size_token": { "enum": ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"] },
+            "scale_label": { "type": "string" }
+          }
+        },
+        "geometry": {
+          "type": "array",
+          "items": { "oneOf": [{ "$ref": "#/$defs/Stroke" }, { "$ref": "#/$defs/Fill" }, { "$ref": "#/$defs/Symbol" }] }
+        },
+        "annotations": { "type": "array", "items": { "$ref": "#/$defs/Annotation" } }
+      }
+    },
+
+    "Stroke": {
+      "type": "object",
+      "required": ["kind", "path", "tier", "width_um", "line_type", "tone", "depth_class", "source_guid"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "stroke" },
+        "path": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/Point" } },
+        "closed": { "type": "boolean" },
+        "tier": { "enum": ["W1", "W2", "W3", "APP"] },
+        "width_um": { "type": "integer", "minimum": 130 },
+        "line_type": { "enum": ["L-CONT", "L-DASH", "L-DOT", "L-CENT"] },
+        "pattern_phase_um": { "type": "integer" },
+        "tone": { "enum": ["T0", "T1", "T2", "T3", "T4", "T5"] },
+        "depth_class": { "enum": ["cut", "seen", "beyond", "hidden", "background", "apparatus"] },
+        "source_guid": { "$ref": "#/$defs/guid" }
+      }
+    },
+
+    "Fill": {
+      "type": "object",
+      "required": ["kind", "boundary", "tone", "source_guid"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "fill" },
+        "boundary": {
+          "type": "array",
+          "minItems": 1,
+          "description": "outer ring first, then holes; every ring closed (ADOS-4.10.060)",
+          "items": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/Point" } }
+        },
+        "tone": { "enum": ["T0", "T1", "T2", "T3", "T4", "T5"] },
+        "hatch": {
+          "oneOf": [
+            { "type": "object", "required": ["token", "pitch_um", "angle_mdeg", "width_um"],
+              "additionalProperties": false,
+              "properties": {
+                "token": { "enum": ["H-CONC", "H-MSNR", "H-INSU-R", "H-INSU-Q", "H-TIMB-S", "H-TIMB-E", "H-METL", "H-EART"] },
+                "pitch_um": { "type": "integer", "minimum": 500 },
+                "angle_mdeg": { "enum": [0, 30000, 45000, 60000, 90000] },
+                "width_um": { "type": "integer", "minimum": 180 }
+              } },
+            { "type": "null" }
+          ]
+        },
+        "source_guid": { "$ref": "#/$defs/guid" }
+      }
+    },
+
+    "Symbol": {
+      "type": "object",
+      "required": ["kind", "symbol_id", "placement", "size_um", "source_guid"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "symbol" },
+        "symbol_id": { "type": "string" },
+        "placement": { "$ref": "#/$defs/Point" },
+        "rotation_mdeg": { "$ref": "#/$defs/mdeg" },
+        "size_um": { "type": "integer", "minimum": 3000 },
+        "source_guid": { "$ref": "#/$defs/guid" }
+      }
+    },
+
+    "Annotation": {
+      "type": "object",
+      "required": ["anno_id", "class", "anchor", "placement", "content", "clear_zone_um", "mask"],
+      "additionalProperties": false,
+      "properties": {
+        "anno_id": { "type": "string" },
+        "class": { "enum": ["text", "dimension", "tag", "leader", "note_tag", "marker", "level", "grid_label", "scale_bar", "north_point", "watermark"] },
+        "anchor": { "$ref": "#/$defs/Point" },
+        "placement": {
+          "type": "object",
+          "required": ["x", "y", "rotation_mdeg"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "$ref": "#/$defs/um" },
+            "y": { "$ref": "#/$defs/um" },
+            "rotation_mdeg": { "enum": [0, 90000] }
+          }
+        },
+        "size_token": { "enum": ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"] },
+        "cap_height_um": { "type": "integer", "minimum": 1800 },
+        "weight": { "enum": ["regular", "bold"] },
+        "case": { "enum": ["upper", "sentence"] },
+        "content": { "type": "string", "description": "fully resolved; no templates or placeholders (ADOS-7.3.020)" },
+        "source_ref": {
+          "oneOf": [
+            { "type": "object", "required": ["kind", "target"], "additionalProperties": false,
+              "properties": { "kind": { "type": "string" }, "target": { "type": "string" } } },
+            { "type": "null" }
+          ]
+        },
+        "clear_zone_um": { "type": "integer", "minimum": 1000 },
+        "mask": { "type": "boolean" },
+        "collision_group": { "type": "string" },
+        "secondary": { "type": "boolean", "description": "permits the 1.8 mm floor (ADOS-3.4.010)" },
+        "leader": {
+          "oneOf": [
+            { "type": "object", "required": ["terminator", "angle_mdeg", "length_um", "landing_um"],
+              "additionalProperties": false,
+              "properties": {
+                "terminator": { "enum": ["dot", "arrow"] },
+                "angle_mdeg": { "enum": [30000, 45000, 60000, 120000, 135000, 150000, 210000, 225000, 240000, 300000, 315000, 330000] },
+                "length_um": { "type": "integer", "minimum": 8000, "maximum": 60000 },
+                "landing_um": { "type": "integer" }
+              } },
+            { "type": "null" }
+          ]
+        },
+        "dimension": {
+          "oneOf": [
+            { "type": "object",
+              "required": ["chain_id", "chain_level", "from_ref", "to_ref", "value_um", "displayed_value", "terminator"],
+              "additionalProperties": false,
+              "properties": {
+                "chain_id": { "type": "string" },
+                "chain_level": { "enum": [1, 2, 3] },
+                "from_ref": { "$ref": "#/$defs/DimRef" },
+                "to_ref": { "$ref": "#/$defs/DimRef" },
+                "value_um": { "type": "integer" },
+                "displayed_value": { "type": "string" },
+                "prefix": { "type": "string" },
+                "suffix": { "type": "string" },
+                "terminator": { "enum": ["oblique", "arrow"] }
+              } },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+
+    "DimRef": {
+      "type": "object",
+      "required": ["guid", "face"],
+      "additionalProperties": false,
+      "properties": {
+        "guid": { "$ref": "#/$defs/guid" },
+        "face": { "enum": ["structural", "finished", "centre"] }
+      }
+    },
+
+    "Reference": {
+      "type": "object",
+      "required": ["ref_id", "kind", "source", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "ref_id": { "type": "string" },
+        "kind": { "enum": ["callout_section", "callout_detail", "callout_elevation", "match_line", "read_with", "supersedes", "derived_from", "implements", "conflicts_with", "spec_clause", "external"] },
+        "source": {
+          "type": "object",
+          "required": ["container_id"],
+          "additionalProperties": false,
+          "properties": {
+            "container_id": { "type": "string" },
+            "view_id": { "type": "string" },
+            "anno_id": { "type": "string" }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "container_id": { "type": "string" },
+            "view_id": { "type": "string" },
+            "external_ref": { "type": "string" }
+          }
+        },
+        "reciprocal_of": { "oneOf": [{ "type": "string" }, { "type": "null" }] }
+      }
+    }
+  }
+}
