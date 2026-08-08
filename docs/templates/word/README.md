@@ -5,7 +5,7 @@ Not hand-styled: a change to the system is a change to the token file and a rebu
 
 ```
 python3 docs/templates/word/build.py      # writes templates/*.dotx
-python3 docs/templates/word/verify.py     # 142 checks against the token file
+python3 docs/templates/word/verify.py     # 174 checks against the token file
 ```
 
 ## What is here
