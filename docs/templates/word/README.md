@@ -54,8 +54,13 @@ then **File → Open** and select it.
 ## Fonts
 
 The templates specify **Inter** for text and **IBM Plex Mono** for identifiers. Both are free
-(SIL Open Font Licence). Install them before first use, or Word substitutes a face with different
-metrics and every measurement in the system shifts.
+(SIL Open Font Licence). **Install them before first use.** Word has no font-fallback chain: without
+them a substitute is used, every measurement shifts, and the document is no longer the one that was
+designed.
+
+The font table declares `altName` substitutes — Arial for Inter, Consolas for IBM Plex Mono — so an
+uninstalled face degrades to a sans rather than to a serif. That is damage limitation, not a
+substitute for installing the fonts.
 
 - Inter — https://rsms.me/inter/
 - IBM Plex Mono — https://www.ibm.com/plex/
@@ -136,14 +141,24 @@ silently drops a setting is caught.
 | W8 | Header and footer hairlines at the W1 tier |
 | W9 | Schedule column widths sum to the 390 mm frame |
 | W10 | Monochrome, and every fill is a tone-ladder value |
+| W11 | Every table declares a fixed width equal to the sum of its columns |
+| W12 | Every cell carries an explicit width |
+| W13 | Every style reference resolves to a styleId that exists |
+| W14 | No right-aligned tab stops in header or footer |
 
-Current state: **142 checks pass across 8 templates**, and all eight pass OOXML schema validation.
+Current state: **174 checks pass across 8 templates**, and all eight pass OOXML schema validation.
 
-**Not verified: appearance.** LibreOffice in the build container cannot convert any file — it fails
-on plain text — so no page was rendered and looked at. The geometry, styles, fields and structure
-are verified against the token file and the schema, which is stronger than eyeballing a render for
-measurements; but nothing here confirms that a page *looks* right. Open one in Word, print it at
-100 %, and run the orientation test in PTS-03 §5.1 before adopting.
+W11 to W14 exist because the first build passed every other check and still rendered wrongly. Three
+defects were found only by looking at a rendered page:
+
+| Defect | Cause | Now caught by |
+|---|---|---|
+| Every table collapsed to its content width | `w:tblW` left at `auto`/0, and no cell carried a width — `column.width` only reaches rows that exist, and the tables are built with `rows=0` | W11, W12 |
+| Identifiers did not render monospace | `w:rStyle` referenced the style *name* (`mono inline`) instead of its styleId (`monoinline`), so the reference dangled | W13 |
+| The container ID broke across two lines mid-identifier | A right-aligned tab stop the renderer did not honour; the header and footer are now fixed two-cell tables | W14 |
+
+The lesson is recorded rather than tidied away: a structural check suite proves the values are
+present, not that the page is right. Render a page and look at it.
 
 ## Language
 

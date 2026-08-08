@@ -21,6 +21,10 @@ W7  table row pitch is a whole number of sub-modules
 W8  header and footer hairlines are at the W1 tier
 W9  schedule column widths sum to the sheet frame width
 W10 no colour: every ink and shading value is a grey from the tone ladder
+W11 every table declares a fixed width equal to the sum of its columns
+W12 every cell carries an explicit width
+W13 every character-style reference resolves to a styleId that exists
+W14 no right-aligned tab stops: identity is placed in fixed cells, not by tab
 """
 
 from __future__ import annotations
@@ -190,6 +194,43 @@ def check_template(path: Path, r: Result) -> None:
         want = T["sheet"]["formats"]["A3"]["frame"][0]
         r.add(name, "W9 columns sum to the frame width", abs(total_mm - want) < 1.0,
               f"{total_mm:.1f} mm of {want} mm across {len(cols)} columns")
+
+    # W11 ------------------------------------------------------------------
+    # w:gridCol alone does not fix a table's width. Left at w:tblW auto/0 the
+    # renderer sizes the table to its content, which is what collapsed every
+    # table in the first build.
+    parts = doc + "".join(headers) + "".join(footers)
+    tbls = re.findall(r"<w:tbl>.*?</w:tbl>", parts, re.S)
+    bad_w = []
+    for i, tbl in enumerate(tbls):
+        grid = sum(int(v) for v in re.findall(r'<w:gridCol w:w="(\d+)"', tbl))
+        m = re.search(r'<w:tblW[^>]*/>', tbl)
+        got_type = attr(m.group(0), "type") if m else None
+        got_w = int(attr(m.group(0), "w") or 0) if m else 0
+        if got_type != "dxa" or abs(got_w - grid) > 2:
+            bad_w.append(f"table{i}: {got_type}/{got_w} vs grid {grid}")
+    r.add(name, "W11 table width fixed and equal to its columns", not bad_w,
+          "; ".join(bad_w[:3]) or f"{len(tbls)} tables")
+
+    # W12 ------------------------------------------------------------------
+    bad_c = []
+    for i, tbl in enumerate(tbls):
+        ncells = len(re.findall(r"<w:tc>", tbl))
+        nwidths = len(re.findall(r"<w:tcW\b", tbl))
+        if ncells != nwidths:
+            bad_c.append(f"table{i}: {nwidths} widths for {ncells} cells")
+    r.add(name, "W12 every cell carries a width", not bad_c, "; ".join(bad_c[:3]))
+
+    # W13 ------------------------------------------------------------------
+    ids = set(re.findall(r'w:styleId="([^"]+)"', styles))
+    refs = set(re.findall(r'<w:rStyle w:val="([^"]+)"', doc + "".join(headers + footers)))
+    refs |= set(re.findall(r'<w:pStyle w:val="([^"]+)"', doc + "".join(headers + footers)))
+    dangling = sorted(refs - ids)
+    r.add(name, "W13 style references resolve", not dangling, ", ".join(dangling))
+
+    # W14 ------------------------------------------------------------------
+    tabs = re.findall(r'<w:tab w:pos="\d+" w:val="right"/>', "".join(headers + footers))
+    r.add(name, "W14 no right-tab in header or footer", not tabs, f"{len(tabs)} found")
 
     # W10 ------------------------------------------------------------------
     fills = {f.upper() for f in re.findall(r'<w:shd[^>]*w:fill="([0-9A-Fa-f]{6})"', doc)}

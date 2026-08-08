@@ -148,27 +148,26 @@ def schedule_sheet(doc, columns, note: str):
 
 
 def sheet_footer(doc, section, title_default: str):
-    """A3 sheets carry the TB-S field set in the footer rather than a drawn
-    title block: Word cannot place a block at an absolute coordinate."""
-    p = section.footer.paragraphs[0]
-    p.style = doc.styles["t2 body tight"]
-    set_tabs(p, [(SHEET_W, "right")])
-    set_exact_spacing(p, P.step("t2")["pitch_pt"], before_pt=8)
-    P.add_border(p, "top")
-    add_docproperty(p, "PTS_ProjectName", "PROJECT NAME")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_DocumentTitle", title_default)
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_ContainerID", "0000-XXX-ZZ-XX-SC-A-0000", style="mono inline")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_Status", "S0")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_Revision", "P01")
-    p.add_run("\t")
-    p.add_run("Sheet ")
-    add_field(p, "PAGE", "1")
-    p.add_run(" / ")
-    add_field(p, "NUMPAGES", "1")
+    """A3 sheets carry the TB-S field set in the footer: Word cannot place a
+    block at an absolute coordinate, so the title block becomes a footer band."""
+    row = P._apparatus_table(doc, section.footer, [SHEET_W * 0.8, SHEET_W * 0.2], "top")
+
+    left = P._apparatus_para(doc, row.cells[0])
+    add_docproperty(left, "PTS_ProjectName", "PROJECT NAME")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_DocumentTitle", title_default)
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_ContainerID", "0000-XXX-ZZ-XX-SC-A-0000", style="mono inline")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_Status", "S0")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_Revision", "P01")
+
+    right = P._apparatus_para(doc, row.cells[1], align_right=True)
+    right.add_run("Sheet ")
+    add_field(right, "PAGE", "1")
+    right.add_run(" / ")
+    add_field(right, "NUMPAGES", "1")
 
 
 # ------------------------------------------------------------- templates ---

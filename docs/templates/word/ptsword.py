@@ -49,6 +49,10 @@ FONT_MONO = "IBM Plex Mono"
 PTS_STYLE_IDS = ("t1", "t2", "t3", "t4", "t5", "th", "td",
                  "monoinline", "italicterm", "smallcapslabel")
 
+# Style name -> styleId. A w:rStyle must carry the id; carrying the name makes
+# the reference dangle and the run falls back to the paragraph style.
+STYLE_IDS: dict[str, str] = {}
+
 
 # ---------------------------------------------------------------- units ----
 
@@ -151,11 +155,13 @@ def add_field(paragraph, instruction: str, placeholder: str, style: str | None =
     A typed value is a hand-maintained copy of a fact held elsewhere and is the
     most frequently wrong content in any document set (PTS-01 §6.1).
     """
+    style_id = STYLE_IDS.get(style, style) if style else None
+
     def run(children):
         r = OxmlElement("w:r")
-        if style:
+        if style_id:
             rPr = OxmlElement("w:rPr")
-            rs = _el("w:rStyle", val=style)
+            rs = _el("w:rStyle", val=style_id)
             rPr.append(rs)
             r.append(rPr)
         for c in children:
@@ -232,6 +238,7 @@ def build_styles(doc: Document) -> None:
 
     for name, _base, stp, bold, before, after, caps, keep in spec:
         st = styles.add_style(name, WD_STYLE_TYPE.PARAGRAPH)
+        STYLE_IDS[name] = st.style_id
         st.base_style = styles["Normal"]
         st.quick_style = True
         s = step(stp)
@@ -263,6 +270,7 @@ def build_styles(doc: Document) -> None:
         ("small caps label", "t2", False, False, True),
     ]:
         cs = styles.add_style(name, WD_STYLE_TYPE.CHARACTER)
+        STYLE_IDS[name] = cs.style_id
         s = step(size)
         cs.font.size = Pt(s["pt"])
         cs.font.italic = italic
@@ -315,40 +323,75 @@ def setup_sheet(doc: Document, fmt: str = "A3") -> None:
 
 # ------------------------------------------------------- header and footer --
 
+def _apparatus_table(doc: Document, container, widths_mm: list[float], edge: str):
+    """A two-cell fixed table for a header or footer.
+
+    Not a tab stop. A right-aligned tab depends on the renderer honouring the
+    stop; where it does not, a long identifier runs past the measure and breaks
+    at one of its own hyphens, which is how a container ID becomes two IDs. A
+    fixed cell cannot do that.
+    """
+    table = container.add_table(rows=1, cols=len(widths_mm), width=Mm(sum(widths_mm)))
+    table.autofit = False
+    clear_borders(table)
+    set_cell_margins(table, left_mm=0, right_mm=0)
+    for col, w in zip(table.columns, widths_mm):
+        col.width = Mm(w)
+    row = table.rows[0]
+    for cell, w in zip(row.cells, widths_mm):
+        cell.width = Mm(w)
+        tcPr = cell._tc.get_or_add_tcPr()
+        borders = _get_or_add(tcPr, "tcBorders", "tcPr")
+        borders.append(_el(f"w:{edge}", val="single", sz=4, space=2, color="000000"))
+    # A header or footer whose last block is a table confuses Word; keep the
+    # container's own paragraph after it, collapsed to nothing.
+    tail = container.paragraphs[0]
+    tail._p.getparent().remove(tail._p)
+    tail = container.add_paragraph()
+    set_exact_spacing(tail, 1)
+    return row
+
+
+def _apparatus_para(doc: Document, cell, align_right: bool = False):
+    p = cell.paragraphs[0]
+    p.style = doc.styles["t2 body tight"]
+    if align_right:
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    return p
+
+
 def build_header(doc: Document, section) -> None:
     d = T["document"]
-    p = section.header.paragraphs[0]
-    p.style = doc.styles["t2 body tight"]
-    width = d["text_column"]["x"] + d["text_column"]["width"] - d["margins"]["left"]
-    set_tabs(p, [(width, "right")])
-    set_exact_spacing(p, step("t2")["pitch_pt"])
-    add_docproperty(p, "PTS_ProjectName", "PROJECT NAME")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_ProjectCode", "0000")
-    p.add_run("\t")
-    add_docproperty(p, "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000", style="mono inline")
-    add_border(p, "bottom")
+    total = d["text_column"]["x"] + d["text_column"]["width"] - d["margins"]["left"]
+    row = _apparatus_table(doc, section.header, [total * 0.6, total * 0.4], "bottom")
+
+    left = _apparatus_para(doc, row.cells[0])
+    add_docproperty(left, "PTS_ProjectName", "PROJECT NAME")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_ProjectCode", "0000")
+
+    right = _apparatus_para(doc, row.cells[1], align_right=True)
+    add_docproperty(right, "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000", style="mono inline")
 
 
 def build_footer(doc: Document, section, page_numbers: bool = True) -> None:
     d = T["document"]
-    p = section.footer.paragraphs[0]
-    p.style = doc.styles["t2 body tight"]
-    width = d["text_column"]["x"] + d["text_column"]["width"] - d["margins"]["left"]
-    set_tabs(p, [(width, "right")])
-    set_exact_spacing(p, step("t2")["pitch_pt"], before_pt=8)
-    add_border(p, "top")
-    add_docproperty(p, "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000", style="mono inline")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_Revision", "P01")
-    p.add_run("  ·  ")
-    add_docproperty(p, "PTS_Status", "S0")
+    total = d["text_column"]["x"] + d["text_column"]["width"] - d["margins"]["left"]
+    row = _apparatus_table(doc, section.footer, [total * 0.7, total * 0.3], "top")
+
+    left = _apparatus_para(doc, row.cells[0])
+    add_docproperty(left, "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000", style="mono inline")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_Revision", "P01")
+    left.add_run("  ·  ")
+    add_docproperty(left, "PTS_Status", "S0")
+
+    right = _apparatus_para(doc, row.cells[1], align_right=True)
     if page_numbers:
-        p.add_run("\t")
-        p.add_run("Page ")
-        add_field(p, "PAGE", "1")
-        p.add_run(" / ")
-        add_field(p, "NUMPAGES", "1")
+        right.add_run("Page ")
+        add_field(right, "PAGE", "1")
+        right.add_run(" / ")
+        add_field(right, "NUMPAGES", "1")
 
 
 # ----------------------------------------------------------------- tables --
@@ -488,6 +531,56 @@ def _prune_styles(xml: str) -> str:
     return xml
 
 
+
+def _stamp_table_widths(doc: Document) -> None:
+    """Give every table an explicit width, and every cell the width of its
+    column. python-docx sets w:gridCol but leaves w:tblW at auto/0 and only
+    writes w:tcW on rows that exist when the width is assigned."""
+    containers = [doc]
+    for section in doc.sections:
+        containers += [section.header, section.footer,
+                       section.first_page_header, section.first_page_footer,
+                       section.even_page_header, section.even_page_footer]
+    tables = [t for c in containers if c is not None for t in c.tables]
+    for table in tables:
+        grid = [int(gc.get(qn("w:w")))
+                for gc in table._tbl.tblGrid.findall(qn("w:gridCol"))]
+        if not grid:
+            continue
+        tblPr = table._tbl.tblPr
+        existing = tblPr.find(qn("w:tblW"))
+        if existing is not None:
+            tblPr.remove(existing)
+        _insert(tblPr, _el("w:tblW", w=sum(grid), type="dxa"), "tblPr")
+        for row in table.rows:
+            for cell, w in zip(row.cells, grid):
+                cell.width = Twips(w)
+
+
+def _font_table(xml: str) -> str:
+    """Declare a substitute for each specified face.
+
+    Word has no font-fallback chain: a missing face is replaced by whatever the
+    renderer picks, which on a machine without Inter is a serif — a different
+    document. w:altName is the one mechanism OOXML provides, and it at least
+    keeps the substitute in the right class.
+    """
+    entries = {
+        FONT: ("Arial", "swiss", "variable"),
+        FONT_MONO: ("Consolas", "modern", "fixed"),
+    }
+    additions = []
+    for face, (alt, family, pitch) in entries.items():
+        if f'w:name="{face}"' in xml:
+            continue
+        additions.append(
+            f'<w:font w:name="{face}"><w:altName w:val="{alt}"/>'
+            f'<w:charset w:val="00"/><w:family w:val="{family}"/>'
+            f'<w:pitch w:val="{pitch}"/></w:font>'
+        )
+    return xml.replace("</w:fonts>", "".join(additions) + "</w:fonts>") if additions else xml
+
+
 def save_as_dotx(doc: Document, out_path: Path) -> None:
     """Save as a Word template.
 
@@ -495,6 +588,7 @@ def save_as_dotx(doc: Document, out_path: Path) -> None:
     custom document properties the DOCPROPERTY fields resolve against are
     injected here, because python-docx does not expose them.
     """
+    _stamp_table_widths(doc)
     tmp = out_path.with_suffix(".tmp.docx")
     doc.save(tmp)
 
@@ -523,6 +617,9 @@ def save_as_dotx(doc: Document, out_path: Path) -> None:
     items["docProps/custom.xml"] = _custom_properties_xml().encode("utf-8")
 
     items["word/styles.xml"] = _prune_styles(items["word/styles.xml"].decode("utf-8")).encode("utf-8")
+
+    items["word/fontTable.xml"] = _font_table(
+        items["word/fontTable.xml"].decode("utf-8")).encode("utf-8")
 
     settings = items["word/settings.xml"].decode("utf-8")
     settings = re.sub(r"<w:zoom(?![^>]*w:percent)([^>]*?)/>",
