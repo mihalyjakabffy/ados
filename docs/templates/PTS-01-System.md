@@ -531,8 +531,8 @@ because pages are photocopied and separated and a page without identity is unusa
 
 ```
 header  y 15   left: PROJECT NAME · 2317        right: container ID (mono)     t2
-        y 20   hairline 0.18 mm, T5, 20 → 190
-footer  y 272  hairline 0.18 mm, T5, 20 → 190
+        y 20   hairline 0.18 mm, T5, 20 → 170 (the body block width)
+footer  y 272  hairline 0.18 mm, T5, 20 → 170 (the body block width)
         y 280  left: container ID · C03 · A1    right: Page 3 / 12             t2
 ```
 

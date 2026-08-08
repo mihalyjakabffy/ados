@@ -66,8 +66,8 @@
       "gutter": 5,
       "text_column": { "x": 50, "width": 120, "characters": 67, "derived_from": "ADOS-3.4.090" },
       "baseline": { "first": 30, "pitch": 5, "last": 270, "count": 49 },
-      "header": { "baseline": 15, "rule_y": 20, "rule_width": 0.18, "rule_extent": [20, 190] },
-      "footer": { "rule_y": 272, "baseline": 280, "rule_width": 0.18, "rule_extent": [20, 190] },
+      "header": { "baseline": 15, "rule_y": 20, "rule_width": 0.18, "rule_extent": [20, 170] },
+      "footer": { "rule_y": 272, "baseline": 280, "rule_width": 0.18, "rule_extent": [20, 170] },
       "page_number_format": "Page n / m"
     },
 

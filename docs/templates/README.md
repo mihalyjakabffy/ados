@@ -22,6 +22,7 @@ removed, not because calm was the objective.
 | 2 | [`PTS-02-Templates.md`](PTS-02-Templates.md) | The twelve templates, each in fourteen fields |
 | 3 | [`PTS-03-Implementation.md`](PTS-03-Implementation.md) | Archicad · InDesign · Word · build order · acceptance test |
 | — | [`machine/pts-tokens.json`](machine/pts-tokens.json) | Every constant, buildable. **Build from this, not from the prose.** |
+| — | [`word/`](word/README.md) | Eight `.dotx` templates generated from the token file, plus their builder and verifier |
 
 ## The twelve templates
 
