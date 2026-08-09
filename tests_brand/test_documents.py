@@ -52,7 +52,7 @@ def test_the_identity_catalogue_is_registered():
 
 def test_template_ids_are_unique_and_prefixed():
     for tid in TEMPLATES:
-        assert re.fullmatch(r"B[TI]\d{2}-[a-z0-9-]+", tid), tid
+        assert re.fullmatch(r"B[TIW]\d{2}-[a-z0-9-]+", tid), tid
 
 
 def test_every_template_declares_a_family_and_a_purpose():
@@ -121,8 +121,8 @@ def test_coverage_reports_before_anything_is_attempted(tokens):
 
 def test_every_html_template_renders(tokens):
     for tid, template in TEMPLATES.items():
-        if template.medium is Medium.PDF:
-            continue
+        if template.medium is not Medium.HTML:
+            continue        # PDF and Word go through their own builders
         doc = template.render(tokens)
         assert doc.content and len(str(doc.content)) > 500, tid
         assert doc.media_type.startswith("text/html")

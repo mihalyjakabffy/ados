@@ -5,7 +5,7 @@
   "brand_status": "published",
   "content_hash": "4aadb1166c690b4599ebd50d0f128c1d44281901bc8c0a0a4001739af50758ba",
   "ados_edition": "1.0",
-  "asset_count": 40,
+  "asset_count": 48,
   "assets": [
     {
       "name": "agent-proposal",
@@ -231,6 +231,7 @@
       "title": "Business Card",
       "page": "85\u00d755",
       "family": "correspondence",
+      "medium": "html",
       "tokens_used": 35
     },
     {
@@ -244,6 +245,7 @@
       "title": "Letterhead",
       "page": "A4-portrait",
       "family": "correspondence",
+      "medium": "html",
       "tokens_used": 36
     },
     {
@@ -257,6 +259,7 @@
       "title": "Email Signature (HTML)",
       "page": "inline",
       "family": "correspondence",
+      "medium": "html",
       "tokens_used": 35
     },
     {
@@ -270,6 +273,7 @@
       "title": "Presentation Deck",
       "page": "16:9",
       "family": "presentation",
+      "medium": "html",
       "tokens_used": 37
     },
     {
@@ -283,6 +287,7 @@
       "title": "Portfolio Spread",
       "page": "A3-landscape",
       "family": "board",
+      "medium": "html",
       "tokens_used": 36
     },
     {
@@ -296,6 +301,7 @@
       "title": "Competition Board",
       "page": "A1-landscape",
       "family": "board",
+      "medium": "html",
       "tokens_used": 36
     },
     {
@@ -309,6 +315,7 @@
       "title": "Social Post",
       "page": "1:1",
       "family": "correspondence",
+      "medium": "html",
       "tokens_used": 36
     },
     {
@@ -322,6 +329,7 @@
       "title": "Website Homepage",
       "page": "screen",
       "family": "presentation",
+      "medium": "html",
       "tokens_used": 41
     },
     {
@@ -335,6 +343,7 @@
       "title": "A4 Report",
       "page": "A4-portrait",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -348,6 +357,7 @@
       "title": "A3 Technical Document",
       "page": "A3-landscape",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -361,6 +371,7 @@
       "title": "Presentation",
       "page": "16:9",
       "family": "presentation",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -374,6 +385,7 @@
       "title": "Portfolio Page",
       "page": "A3-landscape",
       "family": "board",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -387,6 +399,7 @@
       "title": "Project Cover",
       "page": "A1-landscape",
       "family": "sheet",
+      "medium": "pdf",
       "tokens_used": 33
     },
     {
@@ -400,6 +413,7 @@
       "title": "Meeting Minutes",
       "page": "A4-portrait",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -413,6 +427,7 @@
       "title": "Project Report",
       "page": "A4-portrait",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -426,6 +441,7 @@
       "title": "Proposal",
       "page": "A4-portrait",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -439,6 +455,7 @@
       "title": "Invoice",
       "page": "A4-portrait",
       "family": "document",
+      "medium": "html",
       "tokens_used": 29
     },
     {
@@ -452,6 +469,119 @@
       "title": "Email Signature",
       "page": "inline",
       "family": "correspondence",
+      "medium": "html",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW01-specification",
+      "type": "word-template",
+      "path": "word/BW01-specification.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW01-specification",
+      "title": "Specification (Word)",
+      "page": "A4-portrait",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW02-door-schedule",
+      "type": "word-template",
+      "path": "word/BW02-door-schedule.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW02-door-schedule",
+      "title": "Door Schedule (Word)",
+      "page": "A3-landscape",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW03-window-schedule",
+      "type": "word-template",
+      "path": "word/BW03-window-schedule.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW03-window-schedule",
+      "title": "Window Schedule (Word)",
+      "page": "A3-landscape",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW04-meeting-minutes",
+      "type": "word-template",
+      "path": "word/BW04-meeting-minutes.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW04-meeting-minutes",
+      "title": "Meeting Minutes (Word)",
+      "page": "A4-portrait",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW05-site-visit-report",
+      "type": "word-template",
+      "path": "word/BW05-site-visit-report.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW05-site-visit-report",
+      "title": "Site Visit Report (Word)",
+      "page": "A4-portrait",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW06-request-for-information",
+      "type": "word-template",
+      "path": "word/BW06-request-for-information.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW06-request-for-information",
+      "title": "Request for Information (Word)",
+      "page": "A4-portrait",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW07-revision-log",
+      "type": "word-template",
+      "path": "word/BW07-revision-log.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW07-revision-log",
+      "title": "Revision Log (Word)",
+      "page": "A3-landscape",
+      "family": "document",
+      "medium": "dotx",
+      "tokens_used": 29
+    },
+    {
+      "name": "BW08-transmittal",
+      "type": "word-template",
+      "path": "word/BW08-transmittal.dotx",
+      "format": "dotx",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "template": "BW08-transmittal",
+      "title": "Transmittal (Word)",
+      "page": "A4-portrait",
+      "family": "document",
+      "medium": "dotx",
       "tokens_used": 29
     },
     {

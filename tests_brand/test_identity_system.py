@@ -439,3 +439,160 @@ def test_the_checker_notices_a_missing_logo_variant(tmp_path, om, om_tokens):
     audit = audit_package(tmp_path, om, om_tokens)
     assert any("declared variants with no file" in f.message
                for f in audit.report.findings)
+
+
+# ---------------------------------------------------------------------------
+# The Word family — the same overlay, a different builder
+# ---------------------------------------------------------------------------
+
+
+def test_all_eight_word_templates_are_registered():
+    from brand.templates.document_templates import TEMPLATES, Medium
+
+    word = {t for t in TEMPLATES.values() if t.medium is Medium.DOCX}
+    assert len(word) == 8
+    assert {t.template_id for t in word} == {
+        "BW01-specification", "BW02-door-schedule", "BW03-window-schedule",
+        "BW04-meeting-minutes", "BW05-site-visit-report",
+        "BW06-request-for-information", "BW07-revision-log", "BW08-transmittal",
+    }
+
+
+def test_a_branded_dotx_is_a_valid_word_template(om, om_tokens):
+    import zipfile
+    from brand.templates.document_templates import get_template
+    from brand.templates.renderers import render_word_dotx
+
+    doc = render_word_dotx(
+        get_template("BW01-specification"), om_tokens, brand=om
+    )
+    assert doc.medium.value == "dotx"
+    zf = zipfile.ZipFile(__import__("io").BytesIO(doc.content))
+    content_types = zf.read("[Content_Types].xml").decode()
+    assert "template.main+xml" in content_types, "a .dotx, not a .docx"
+    assert "docProps/custom.xml" in zf.namelist()
+
+
+def test_the_brand_reaches_the_word_typeface_and_its_substitute(om):
+    """Both halves: the face Word asks for, and what it falls back to.
+
+    Word has no fallback chain, so ``w:altName`` is the only mechanism there
+    is — and a hard-coded Arial would contradict whatever the brand declared.
+    """
+    import io
+    import zipfile
+
+    from brand.models.visual_identity import FontFace
+    from brand.templates.document_templates import get_template
+    from brand.templates.renderers import render_word_dotx
+
+    def font_table(brand):
+        doc = render_word_dotx(
+            get_template("BW01-specification"), brand.resolve_tokens(),
+            brand=brand,
+        )
+        return zipfile.ZipFile(io.BytesIO(doc.content)).read(
+            "word/fontTable.xml"
+        ).decode()
+
+    assert 'w:altName w:val="Arial"' in font_table(om)
+
+    changed = om.model_copy(
+        update={
+            "visual_identity": om.visual_identity.model_copy(
+                update={
+                    "typography": om.visual_identity.typography.model_copy(
+                        update={
+                            "primary_font": FontFace(
+                                family="Söhne", fallback="Helvetica"
+                            )
+                        }
+                    )
+                }
+            )
+        }
+    )
+    table = font_table(changed)
+    assert "Söhne" in table
+    assert 'w:altName w:val="Helvetica"' in table
+
+
+def test_the_practice_reaches_the_document_properties(om, om_tokens):
+    """Identity arrives as a field default, and stays a field."""
+    import io
+    import zipfile
+
+    from brand.templates.document_templates import get_template
+    from brand.templates.renderers import render_word_dotx
+
+    doc = render_word_dotx(
+        get_template("BW08-transmittal"), om_tokens, brand=om
+    )
+    zf = zipfile.ZipFile(io.BytesIO(doc.content))
+    props = zf.read("docProps/custom.xml").decode()
+    assert om.identity.name in props
+    assert f"brand {om.version}" in props
+    # Project-level facts are NOT baked in: they belong to a document.
+    assert "PROJECT NAME" in props, "a stale project name is worse than a blank"
+
+
+def test_the_word_overlay_does_not_leak(om, om_tokens):
+    """A leaked overlay would brand the next, unrelated build."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[1] / "docs/templates/word")
+    )
+    import ptsword
+
+    from brand.templates.document_templates import get_template
+    from brand.templates.renderers import render_word_dotx
+
+    before = (ptsword.FONT, ptsword.FONT_ALT, dict(ptsword.DOC_PROPERTIES))
+    render_word_dotx(get_template("BW01-specification"), om_tokens, brand=om)
+    assert (ptsword.FONT, ptsword.FONT_ALT, dict(ptsword.DOC_PROPERTIES)) == before
+
+
+def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
+    """The 174 structural checks, run against the *branded* output.
+
+    The verifier inspects the produced packages rather than the code, so this
+    is the real assurance that branding a template did not break it.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from brand.templates.document_templates import TEMPLATES, Medium
+    from brand.templates.renderers import render_word_dotx
+
+    #: The verifier keys its per-template geometry off the filename.
+    names = {
+        "BW01-specification": "PTS-T05-Specification",
+        "BW02-door-schedule": "PTS-T06a-Door-Schedule",
+        "BW03-window-schedule": "PTS-T06b-Window-Schedule",
+        "BW04-meeting-minutes": "PTS-T07-Meeting-Minutes",
+        "BW05-site-visit-report": "PTS-T08-Site-Visit-Report",
+        "BW06-request-for-information": "PTS-T09-Request-for-Information",
+        "BW07-revision-log": "PTS-T10-Revision-Log",
+        "BW08-transmittal": "PTS-T11-Transmittal",
+    }
+    for tid, template in TEMPLATES.items():
+        if template.medium is not Medium.DOCX:
+            continue
+        doc = render_word_dotx(template, om_tokens, brand=om)
+        (tmp_path / f"{names[tid]}.dotx").write_bytes(doc.content)
+
+    verifier = Path(__file__).resolve().parents[1] / "docs/templates/word/verify.py"
+    result = subprocess.run(
+        [sys.executable, str(verifier), str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout[-2000:]
+    assert "All 174 checks passed" in result.stdout
+
+
+def test_the_package_contains_the_word_templates(package):
+    _, out = package
+    assert len(list((out / "word").glob("*.dotx"))) == 8

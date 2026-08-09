@@ -54,6 +54,7 @@ class Family(str, Enum):
 class Medium(str, Enum):
     HTML = "html"
     PDF = "pdf"
+    DOCX = "dotx"          # a Word *template*, not a document
     TEXT = "text"
 
 
@@ -84,6 +85,10 @@ class RenderedDocument:
         return {
             Medium.HTML: "text/html; charset=utf-8",
             Medium.PDF: "application/pdf",
+            Medium.DOCX: (
+                "application/vnd.openxmlformats-officedocument"
+                ".wordprocessingml.template"
+            ),
             Medium.TEXT: "text/plain; charset=utf-8",
         }[self.medium]
 
@@ -406,6 +411,7 @@ def _register_identity_templates() -> None:
     from brand.templates import identity_templates
 
     TEMPLATES.update(identity_templates.IDENTITY_TEMPLATES)
+    TEMPLATES.update(identity_templates.WORD_TEMPLATES)
 
 
 def get_template(template_id: str) -> DocumentTemplate:

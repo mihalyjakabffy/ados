@@ -53,6 +53,29 @@ Double-clicking a `.dotx` creates a new document from it rather than opening the
 which is the point of shipping templates rather than documents. To edit a template, open Word first,
 then **File → Open** and select it.
 
+## Brand-aware builds
+
+`ptsword.token_overlay()` merges a brand's values over the token file for the duration of one
+build, exactly as `ptspdf.token_overlay()` does for the sheets. A context manager rather than a
+setter, because these are module globals and an overlay that outlived its build would brand the
+next one.
+
+What a brand may supply: the three semantic line weights, the uppercase tracking, the module, the
+typeface families **and their `w:altName` substitutes**, and defaults for the document properties.
+What it may not: anything ADOS derives.
+
+```python
+from brand.templates.document_templates import get_template
+from brand.templates.renderers import render_word_dotx
+
+doc = render_word_dotx(get_template("BW01-specification"), tokens, brand=brand)
+doc.write("PTS-T05-Specification.dotx")
+```
+
+`verify.py` takes a directory, so the branded output is checked by the same 174 structural checks
+as the unbranded pack — and `tests_brand` runs exactly that, so branding a template cannot quietly
+break it.
+
 ## Fonts
 
 The templates specify **Inter** for text and **IBM Plex Mono** for identifiers. Both are free
@@ -67,8 +90,10 @@ substitute for installing the fonts.
 - Inter — https://rsms.me/inter/
 - IBM Plex Mono — https://www.ibm.com/plex/
 
-To swap in the practice's licensed family (PTS-01 §5.1 recommends Söhne), change `FONT` and
-`FONT_MONO` at the top of `ptsword.py` and rebuild. Do not restyle by hand in Word: recalibrate the
+To swap in the practice's licensed family (PTS-01 §5.1 recommends Söhne): with a brand, set it on
+`visual_identity.typography` and the overlay carries the family and its substitute into the font
+table. Without one, change `FONT`, `FONT_MONO`, `FONT_ALT` and `FONT_MONO_ALT` at the top of
+`ptsword.py` and rebuild. Do not restyle by hand in Word: recalibrate the
 point sizes against the new family's measured cap height first (PTS-03 §1.1), because the
 cap-height-to-em ratio differs between families by up to 8 % and the point sizes are derived from
 cap height, not chosen.

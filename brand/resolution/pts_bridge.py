@@ -68,6 +68,8 @@ class PtsOverlay:
     tokens: dict[str, Any] = field(default_factory=dict)
     identity: dict[str, str] = field(default_factory=dict)
     fonts: dict[str, str] = field(default_factory=dict)
+    families: dict[str, str] = field(default_factory=dict)
+    properties: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
     def paths(self) -> list[str]:
@@ -95,6 +97,7 @@ def build_overlay(brand: Brand, tokens: TokenSet | None = None) -> PtsOverlay:
     _module(brand, overlay)
     _identity(brand, tokens, overlay)
     _fonts(brand, overlay)
+    _properties(brand, overlay)
 
     illegal = [p for p in overlay.paths() if p not in ALLOWED_OVERLAY_PATHS]
     if illegal:                                            # pragma: no cover
@@ -179,6 +182,30 @@ def _identity(brand: Brand, tokens: TokenSet, overlay: PtsOverlay) -> None:
     }
 
 
+def _properties(brand: Brand, overlay: PtsOverlay) -> None:
+    """Defaults for the Word templates' document properties.
+
+    The PTS Word templates bind every identity field to a DOCPROPERTY rather
+    than typing it, so this is where a brand reaches them: a template arrives
+    carrying the practice's own name instead of "Originator name", and the
+    fields still stay fields.
+
+    Only the fields a *brand* knows are set. Project name, client, container
+    identifier and issue date belong to a project, not to a practice, and
+    filling them here would put a stale value where the reader expects a blank.
+    """
+    overlay.properties = {
+        "PTS_Originator": ", ".join(
+            part for part in (
+                brand.identity.name,
+                brand.identity.descriptor,
+                ", ".join(brand.identity.locations),
+            ) if part
+        ),
+        "PTS_Conformance": overlay.identity["conformance"],
+    }
+
+
 def _fonts(brand: Brand, overlay: PtsOverlay) -> None:
     """Map brand faces to the font files the PDF builder can embed.
 
@@ -203,6 +230,15 @@ def _fonts(brand: Brand, overlay: PtsOverlay) -> None:
         "primary": typo.primary_font.family,
         "secondary": typo.secondary_font.family if typo.secondary_font else None,
         "mono": typo.mono_font.family if typo.mono_font else None,
+    }
+    # Word needs family *names*, not files: it resolves a face from the name at
+    # open time and has no fallback chain, which is why the declared fallback
+    # travels with it.
+    overlay.families = {
+        "primary": typo.primary_font.family,
+        "primary_fallback": typo.primary_font.fallback,
+        **({"mono": typo.mono_font.family,
+            "mono_fallback": typo.mono_font.fallback} if typo.mono_font else {}),
     }
     for role, family in wanted.items():
         if family is None:

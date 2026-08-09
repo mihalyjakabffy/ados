@@ -304,6 +304,92 @@ def render_sheet_pdf(
     )
 
 
+def render_word_dotx(
+    template: DocumentTemplate, tokens: TokenSet, *, brand=None, **context: Any
+) -> RenderedDocument:
+    """Build a branded ``.dotx`` with the existing Word builder.
+
+    The counterpart of :func:`render_sheet_pdf`, and the same argument: the
+    seven PTS Word templates are already built, verified by 174 structural
+    checks, and known to survive a real Word install. Re-implementing them
+    inside the Brand System would mean two sets of templates that must be kept
+    saying the same thing, and they would not.
+
+    What the brand supplies is what PTS leaves open — the typeface names, the
+    three semantic line weights, and the document-property defaults the
+    DOCPROPERTY fields resolve against. Everything the fields *don't* cover
+    stays a field, so a brand cannot bake a project's name into a template.
+    """
+    if brand is None:
+        raise ValueError(
+            "render_word_dotx needs the Brand: the PTS overlay is derived from "
+            "line-weight, typeface and identity fields the flat token layer "
+            "does not carry individually"
+        )
+    import io
+
+    word_dir = _REPO_ROOT / "docs" / "templates" / "word"
+    sys.path.insert(0, str(word_dir))
+    import ptsword                                          # noqa: F401
+    import build as word_build                              # noqa: N813
+
+    from brand.resolution.pts_bridge import build_overlay
+
+    builder = _WORD_BUILDERS.get(template.template_id)
+    if builder is None:                                     # pragma: no cover
+        raise KeyError(f"no Word builder for {template.template_id}")
+
+    overlay = build_overlay(brand, tokens)
+    buffer = io.BytesIO()
+    with ptsword.token_overlay(
+        overlay.tokens,
+        font=overlay.families.get("primary"),
+        font_mono=overlay.families.get("mono"),
+        font_alt=overlay.families.get("primary_fallback"),
+        font_mono_alt=overlay.families.get("mono_fallback"),
+        properties=overlay.properties,
+    ):
+        getattr(word_build, builder)(_StreamDir(buffer))
+
+    return RenderedDocument(
+        template_id=template.template_id,
+        medium=Medium.DOCX,
+        content=buffer.getvalue(),
+        brand_id=tokens.brand_id,
+        brand_version=tokens.brand_version,
+        tokens_used=tuple(sorted(template.bindings)),
+    )
+
+
+#: Template id → the function in ``docs/templates/word/build.py`` that makes it.
+_WORD_BUILDERS: dict[str, str] = {
+    "BW01-specification": "t05_specification",
+    "BW02-door-schedule": "t06a_door_schedule",
+    "BW03-window-schedule": "t06b_window_schedule",
+    "BW04-meeting-minutes": "t07_meeting_minutes",
+    "BW05-site-visit-report": "t08_site_visit_report",
+    "BW06-request-for-information": "t09_rfi",
+    "BW07-revision-log": "t10_revision_log",
+    "BW08-transmittal": "t11_transmittal",
+}
+
+
+class _StreamDir:
+    """Stands in for the output directory the Word builders write into.
+
+    Each builder ends with ``save_as_dotx(doc, out / "PTS-Txx-Name.dotx")``.
+    Rather than change eight call sites to thread a stream through, this
+    intercepts the one ``/`` and hands back the buffer — ``save_as_dotx``
+    already accepts a path or a stream, so the builders are untouched.
+    """
+
+    def __init__(self, buffer) -> None:
+        self.buffer = buffer
+
+    def __truediv__(self, _name: str):
+        return self.buffer
+
+
 def _draw_cover(P, buffer, tokens: TokenSet, overlay, context: dict) -> None:
     """The T01 cover, with the brand substituted for the PTS defaults."""
     cap = {k: P.step(k)["cap"] for k in ("t1", "t2", "t3", "t4", "t5", "t6", "t7")}

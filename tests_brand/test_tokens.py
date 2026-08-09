@@ -145,8 +145,16 @@ def test_a_minimal_brand_reports_what_it_cannot_render(minimal_brand):
     from brand.templates.document_templates import coverage
 
     cov = coverage(minimal_brand.resolve_tokens())
-    assert cov["BT09-invoice"] == ["font.family.mono"]
-    assert all(not missing for tid, missing in cov.items() if tid != "BT09-invoice")
+    blocked = {tid for tid, missing in cov.items() if missing}
+    # The invoice and the whole Word family set figures and identifiers in the
+    # mono face. Nine templates, one missing token, named before anything is
+    # attempted.
+    assert all(cov[tid] == ["font.family.mono"] for tid in blocked)
+    assert "BT09-invoice" in blocked
+    assert {t for t in blocked if t.startswith("BW")} == {
+        t for t in cov if t.startswith("BW")
+    }
+    assert len(cov) - len(blocked) >= 17, "everything else is unaffected"
 
 
 def test_a_complete_brand_renders_every_template(tokens):

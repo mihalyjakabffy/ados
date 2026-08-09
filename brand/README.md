@@ -61,7 +61,7 @@ brand    = proposal.approve(approved_by="MJ")   # the human step
 | `resolution/` | `BrandResolver` (brand → tokens) and `pts_bridge` (tokens → the PTS builders) |
 | `versioning/` | Semantic versions, lineage, and the immutability of a published version |
 | `agents/` | `BrandAgent`, subclassing the repository's `BaseAgent` |
-| `templates/` | Eighteen declarative templates in two catalogues, and two renderers |
+| `templates/` | Twenty-six declarative templates in two catalogues, and three renderers |
 | `preview/` | A self-contained HTML preview — the artefact a human approves against |
 | `store/` | File-backed and SQL-backed repositories behind one protocol |
 | `schemas/` | JSON Schema, generated from the models |
@@ -72,7 +72,7 @@ brand    = proposal.approve(approved_by="MJ")   # the human step
 | `examples/studio_nord.py` | A small worked example |
 | `examples/studio_om.py` | **STUDIO OM** — a full practice identity |
 | `examples/build_studio_om.py` | Builds the complete STUDIO OM package |
-| `examples/studio-om/` | That package: 40 assets, audited |
+| `examples/studio-om/` | That package: 48 assets, audited |
 
 Persistence lives in `schemas/brand_models.py` and `alembic/versions/011_brand_system.py`, following
 the repository's convention that ORM classes share one `Base` under `schemas/`. The HTTP surface is
@@ -174,10 +174,16 @@ better than substituting a proportional face and shipping an invoice whose colum
 | `BI06-competition-board` | Competition Board | board | HTML |
 | `BI07-social-post` | Social Post | correspondence | HTML |
 | `BI08-website-home` | Website Homepage | presentation | HTML |
+| `BW01`–`BW08` | Specification · Door / Window Schedule · Meeting Minutes · Site Visit Report · RFI · Revision Log · Transmittal | document | **`.dotx`, via `ptsword.py`** |
 
-`BT05` is the load-bearing one. It is built by `docs/templates/pdf/ptspdf.py` — the same code that
-produces the verified PTS sheets — driven by a brand overlay. Change the brand's cut weight and the
-plotted line changes.
+Two of these are load-bearing. `BT05` is built by `docs/templates/pdf/ptspdf.py` and the `BW`
+family by `docs/templates/word/ptsword.py` — the same code that produces the verified PTS sheets and
+the eight `.dotx` templates — each driven by a brand overlay. Change the brand's cut weight and the
+plotted line changes; change the typeface and the Word font table follows, `w:altName` included.
+
+The branded `.dotx` files are checked by the PTS verifier itself: `tests_brand` runs
+`docs/templates/word/verify.py` against the *branded* output and requires all 174 checks to pass, so
+branding a template cannot quietly break it.
 
 ## The PTS overlay
 
@@ -188,6 +194,13 @@ line.tiers.W1  line.tiers.W2  line.tiers.W3
 type.uppercase_tracking_percent
 module.M  module.sub
 ```
+
+Alongside the token paths the overlay carries three things that are not PTS tokens at all, because
+PTS has no opinion about them: the identity strings a title block sets, the typeface **families and
+their `w:altName` substitutes** (Word resolves a face by name and has no fallback chain), and
+defaults for the Word templates' document properties. Only the fields a *practice* knows are set —
+project name, client and container identifier stay blank, because a stale value where the reader
+expects a blank is worse than the blank.
 
 Nothing else. Sheet geometry, the type scale and the tone ladder are derived from ADOS root facts
 and carry rule numbers; a brand that could move them could produce a non-conformant sheet while the
@@ -237,7 +250,7 @@ is the distinction ADOS itself makes.
 ## Tests
 
 ```bash
-python -m pytest tests_brand -q      # 192 tests
+python -m pytest tests_brand -q      # 199 tests
 ```
 
 Runs in CI alongside `tests_rules` and `construmind/tests`. No database, no storage, no API key: the
@@ -250,9 +263,6 @@ key actually gets.
   `GET /api/v2/brands/{id}/preview`. A page in `archstate-web/` is the natural next step; it was not
   built because `node_modules` is not installed in this environment and shipping an unverifiable
   `.tsx` would be worse than not shipping one.
-- **Word templates are not yet brand-aware.** `ptsword.py` has the same overlay-shaped seam as
-  `ptspdf.py` but has not been wired; the PDF path was done first because it is the one with a
-  verifier behind it.
 - **Font files are not resolved from a brand.** A brand naming a family with no file in
   `docs/templates/pdf/fonts/` keeps the bundled face and gets a warning rather than a silent
   substitution.

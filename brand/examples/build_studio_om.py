@@ -53,7 +53,7 @@ from brand.guidelines import render_guidelines
 from brand.models.brand import Brand
 from brand.preview.brand_preview import render_preview
 from brand.templates.document_templates import TEMPLATES, Medium, get_template
-from brand.templates.renderers import render_sheet_pdf
+from brand.templates.renderers import render_sheet_pdf, render_word_dotx
 from brand.validation.consistency import audit_package
 
 BRIEF = (
@@ -152,7 +152,7 @@ def build(out_dir: Path, brand: Brand = STUDIO_OM) -> dict[str, Any]:
 
     # -- 5. every template ------------------------------------------------
     doc_dir = out_dir / "documents"
-    counts = {"html": 0, "pdf": 0}
+    counts = {"html": 0, "pdf": 0, "dotx": 0}
     for tid, template in sorted(TEMPLATES.items()):
         if template.medium is Medium.PDF:
             doc = render_sheet_pdf(
@@ -160,18 +160,19 @@ def build(out_dir: Path, brand: Brand = STUDIO_OM) -> dict[str, Any]:
                 project="Malthouse", client="Ash Trust",
                 container_id="2317-SOM-ZZ-XX-DR-A-0001",
             )
-            counts["pdf"] += 1
+        elif template.medium is Medium.DOCX:
+            doc = render_word_dotx(template, tokens, brand=brand)
         else:
             doc = template.render(tokens, **_context_for(tid))
-            counts["html"] += 1
-        suffix = doc.medium.value
-        path = doc.write(doc_dir / f"{tid}.{suffix}")
+        counts[doc.medium.value] += 1
+        target = (out_dir / "word" if template.medium is Medium.DOCX else doc_dir)
+        path = doc.write(target / f"{tid}.{doc.medium.value}")
         inv.add(path, type=_asset_type(template), template=tid,
                 title=template.title, page=template.page,
-                family=template.family.value,
+                family=template.family.value, medium=template.medium.value,
                 tokens_used=len(doc.tokens_used))
     log.step("Templates", f"{counts['html']} HTML, {counts['pdf']} PDF, "
-                          f"{len(TEMPLATES)} total")
+                          f"{counts['dotx']} Word, {len(TEMPLATES)} total")
 
     # -- 6. guidelines, preview -------------------------------------------
     guide_html = out_dir / "brand-guidelines/studio-om-brand-guidelines.html"
@@ -298,6 +299,8 @@ def _context_for(template_id: str) -> dict[str, Any]:
 
 
 def _asset_type(template) -> str:
+    if template.medium.value == "dotx":
+        return "word-template"
     return {
         "document": "document", "sheet": "drawing",
         "presentation": "presentation", "board": "portfolio",

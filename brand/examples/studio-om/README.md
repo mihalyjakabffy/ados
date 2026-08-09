@@ -17,9 +17,9 @@ python -m brand.examples.build_studio_om
 2. **Validation** — STUDIO OM 1.0.0 (published): clean.
 3. **Brand + tokens** — 197 tokens, five serialisations
 4. **Logo system** — 7 SVG variants, 4 PNG rasters · clear space 10 mm · minimum 28 mm
-5. **Templates** — 17 HTML, 1 PDF, 18 total
+5. **Templates** — 17 HTML, 1 PDF, 8 Word, 26 total
 6. **Guidelines** — 18 sections + PDF
-7. **Consistency audit** — 41 files · STUDIO OM 1.0.0 (published): 2 info.
+7. **Consistency audit** — 49 files · STUDIO OM 1.0.0 (published): 2 info.
 
 ## Contents
 
@@ -36,10 +36,11 @@ python -m brand.examples.build_studio_om
 | provenance | 2 |
 | stationery | 5 |
 | tokens | 4 |
+| word-template | 8 |
 
 `asset-inventory.json` records every file with its brand version.
 `consistency-audit.json` is the result of auditing this folder against the
-brand: 41 files · STUDIO OM 1.0.0 (published): 2 info.
+brand: 49 files · STUDIO OM 1.0.0 (published): 2 info.
 
 ## Reading order
 

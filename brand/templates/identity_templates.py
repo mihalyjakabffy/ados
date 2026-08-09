@@ -549,3 +549,63 @@ IDENTITY_TEMPLATES: dict[str, DocumentTemplate] = {
         PORTFOLIO_SPREAD, COMPETITION_BOARD, SOCIAL_POST, WEBSITE_HOME,
     )
 }
+
+
+# ---------------------------------------------------------------------------
+# The Word family
+#
+# These are not rendered here. They are the eight PTS ``.dotx`` templates in
+# ``docs/templates/word/``, built by their own verified builder and branded
+# through the same overlay the PDF sheets use. They appear in the catalogue so
+# that ``coverage()``, the API and the consistency audit see the whole system —
+# a deliverable that is real but invisible to the registry is a deliverable
+# nobody checks.
+#
+# Word is the right medium for exactly these: long-form text somebody edits, on
+# a page whose layout is a running header and a measure rather than an absolute
+# coordinate. The five sheet-family documents stay PDFs for the opposite reason
+# (see ``docs/templates/word/README.md``).
+# ---------------------------------------------------------------------------
+
+
+def _word(tid: str, title: str, page: str, purpose: str,
+          extra: tuple[str, ...] = ()) -> DocumentTemplate:
+    from brand.templates.renderers import render_word_dotx
+
+    return DocumentTemplate(
+        template_id=tid, title=title, family=Family.DOCUMENT, page=page,
+        purpose=purpose, medium=Medium.DOCX, renderer=render_word_dotx,
+        bindings=_t("font.family.mono", "asset.logo.wordmark", *extra),
+    )
+
+
+WORD_TEMPLATES: dict[str, DocumentTemplate] = {
+    t.template_id: t for t in (
+        _word("BW01-specification", "Specification (Word)", "A4-portrait",
+              "Clause-numbered specification. Every standard cited carries its "
+              "number, year and title; an undated citation changes the "
+              "contractual requirement without a variation."),
+        _word("BW02-door-schedule", "Door Schedule (Word)", "A3-landscape",
+              "Twelve columns at A3. A separate file from the window schedule "
+              "because T06 splits a schedule that overflows rather than hiding "
+              "columns to fit."),
+        _word("BW03-window-schedule", "Window Schedule (Word)", "A3-landscape",
+              "The window half of the same schedule family, split for the same "
+              "reason."),
+        _word("BW04-meeting-minutes", "Meeting Minutes (Word)", "A4-portrait",
+              "The editable record of what was decided and who owes what by "
+              "when. Actions carry an owner and a date or they are not actions."),
+        _word("BW05-site-visit-report", "Site Visit Report (Word)", "A4-portrait",
+              "What was observed on site, by whom, on what date — the document "
+              "a dispute is later reconstructed from."),
+        _word("BW06-request-for-information", "Request for Information (Word)",
+              "A4-portrait",
+              "One question per RFI, set as the largest text on the page, with "
+              "the date the answer is needed by."),
+        _word("BW07-revision-log", "Revision Log (Word)", "A3-landscape",
+              "The permanent record of every revision. A superseded revision is "
+              "never deleted."),
+        _word("BW08-transmittal", "Transmittal (Word)", "A4-portrait",
+              "What was issued, to whom, when, and for what permitted use."),
+    )
+}

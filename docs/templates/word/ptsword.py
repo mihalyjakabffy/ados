@@ -19,9 +19,12 @@ handled, not hidden:
 
 from __future__ import annotations
 
+import copy
+import io
 import json
 import re
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from docx import Document
@@ -43,6 +46,59 @@ CT_DOTX = "application/vnd.openxmlformats-officedocument.wordprocessingml.templa
 
 FONT = "Inter"          # PTS declared open fallback for Word (PTS-01 §5.1)
 FONT_MONO = "IBM Plex Mono"
+
+# The w:altName substitutes. Held as variables rather than written into
+# _font_table because a practice that licenses a different family also has a
+# different sensible substitute for it, and a hard-coded Arial would quietly
+# contradict what the brand declares.
+FONT_ALT = "Arial"
+FONT_MONO_ALT = "Consolas"
+
+@contextmanager
+def token_overlay(overlay: dict | None = None, *, font: str | None = None,
+                  font_mono: str | None = None,
+                  font_alt: str | None = None,
+                  font_mono_alt: str | None = None,
+                  properties: dict[str, str] | None = None):
+    """Build with a brand's values merged over the file, then restore.
+
+    The counterpart of ``ptspdf.token_overlay``. PTS holds the geometry, which
+    is derived from ADOS and is not a practice's to choose; the typefaces, the
+    three semantic line weights and the document-property defaults are.
+
+    ``properties`` overrides entries of :data:`DOC_PROPERTIES` — the values the
+    DOCPROPERTY fields resolve against — so a template arrives carrying the
+    practice's own name instead of "Originator name".
+
+    A context manager rather than a setter because these are module globals:
+    an overlay that outlived its build would brand the next one.
+    """
+    global T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES
+    saved = (T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES)
+    T = _deep_merge(T, overlay or {})
+    FONT = font or FONT
+    FONT_MONO = font_mono or FONT_MONO
+    FONT_ALT = font_alt or FONT_ALT
+    FONT_MONO_ALT = font_mono_alt or FONT_MONO_ALT
+    if properties:
+        DOC_PROPERTIES = [
+            (name, properties.get(name, value)) for name, value in DOC_PROPERTIES
+        ]
+    try:
+        yield T
+    finally:
+        T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES = saved
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    out = copy.deepcopy(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
 
 # Word derives a styleId from the style name by removing spaces, so the PTS
 # styles all begin with one of these prefixes.
@@ -566,8 +622,8 @@ def _font_table(xml: str) -> str:
     keeps the substitute in the right class.
     """
     entries = {
-        FONT: ("Arial", "swiss", "variable"),
-        FONT_MONO: ("Consolas", "modern", "fixed"),
+        FONT: (FONT_ALT, "swiss", "variable"),
+        FONT_MONO: (FONT_MONO_ALT, "modern", "fixed"),
     }
     additions = []
     for face, (alt, family, pitch) in entries.items():
@@ -581,18 +637,23 @@ def _font_table(xml: str) -> str:
     return xml.replace("</w:fonts>", "".join(additions) + "</w:fonts>") if additions else xml
 
 
-def save_as_dotx(doc: Document, out_path: Path) -> None:
-    """Save as a Word template.
+def save_as_dotx(doc: Document, out_path: Path | io.BytesIO) -> None:
+    """Save as a Word template, to a path or an open binary stream.
 
     A .dotx is a .docx whose main part declares the template content type. The
     custom document properties the DOCPROPERTY fields resolve against are
     injected here, because python-docx does not expose them.
     """
     _stamp_table_widths(doc)
-    tmp = out_path.with_suffix(".tmp.docx")
-    doc.save(tmp)
+    # python-docx writes a zip; read it straight back out of memory rather than
+    # leaving a temporary file beside the output. The Brand System renders one
+    # of these per request and a stray .tmp.docx in a package directory would
+    # end up in the asset inventory.
+    staging = io.BytesIO()
+    doc.save(staging)
+    staging.seek(0)
 
-    with zipfile.ZipFile(tmp) as zin:
+    with zipfile.ZipFile(staging) as zin:
         items = {n: zin.read(n) for n in zin.namelist()}
 
     ct = items["[Content_Types].xml"].decode("utf-8")
@@ -626,11 +687,14 @@ def save_as_dotx(doc: Document, out_path: Path) -> None:
                       r'<w:zoom\1 w:percent="100"/>', settings)
     items["word/settings.xml"] = settings.encode("utf-8")
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zout:
+    target = out_path
+    if hasattr(out_path, "write"):          # an open binary stream
+        target = out_path
+    else:
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zout:
         for name, data in items.items():
             zout.writestr(name, data)
-    tmp.unlink()
 
 
 def new_document(kind: str = "document", fmt: str = "A3") -> tuple[Document, object]:

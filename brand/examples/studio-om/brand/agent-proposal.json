@@ -69,12 +69,12 @@
     }
   },
   "proposed_brand": {
-    "brand_id": "5c985b6c-4b75-4de1-993f-19b7e6a7809b",
+    "brand_id": "b56a92e6-8103-4d2b-88d1-81640ee5b4bd",
     "version": "1.0.0",
     "status": "proposed",
     "parent_version": null,
     "content_hash": "4f8b305ab7b1b152ba467b0ce7e4ebdff0ccb6b6dd8b46f846a15fe34087f518",
-    "created_at": "2026-08-09T20:17:29.888340Z",
+    "created_at": "2026-08-09T20:31:45.210996Z",
     "changelog": "",
     "ados_edition": "1.0",
     "origin": "agent",
