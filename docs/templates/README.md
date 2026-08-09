@@ -23,6 +23,7 @@ removed, not because calm was the objective.
 | 3 | [`PTS-03-Implementation.md`](PTS-03-Implementation.md) | Archicad · InDesign · Word · build order · acceptance test |
 | — | [`machine/pts-tokens.json`](machine/pts-tokens.json) | Every constant, buildable. **Build from this, not from the prose.** |
 | — | [`word/`](word/README.md) | Eight `.dotx` templates generated from the token file, plus their builder and verifier |
+| — | [`pdf/`](pdf/README.md) | The five sheet- and board-family templates drawn to true printed size, plus their builder and verifier |
 
 ## The twelve templates
 

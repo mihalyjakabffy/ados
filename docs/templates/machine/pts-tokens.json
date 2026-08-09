@@ -23,14 +23,14 @@
           "size": [1189, 841], "frame": [1159, 821], "template": "large",
           "band_width": 180, "draw": [969, 806],
           "columns": { "count": 5, "width": 185, "gutter": 10, "total": 965, "residual": 4 },
-          "title_block": "TB-L", "title_block_origin": [999, 15]
+          "title_block": "TB-L", "title_block_origin": [999, 10]
         },
         "A1": {
           "size": [841, 594], "frame": [811, 574], "template": "large",
           "band_width": 180, "draw": [621, 559],
           "columns": { "count": 6, "width": 95, "gutter": 10, "total": 620, "residual": 1 },
           "column_origins": [0, 105, 210, 315, 420, 525],
-          "title_block": "TB-L", "title_block_origin": [651, 15]
+          "title_block": "TB-L", "title_block_origin": [651, 10]
         },
         "A2": {
           "size": [594, 420], "frame": [564, 400], "template": "small",

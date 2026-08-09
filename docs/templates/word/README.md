@@ -35,7 +35,9 @@ depth encoding. Building them in Word would produce a document that looks like t
 breaks every rule underneath it.
 
 They are Archicad deliverables (drawings) and InDesign deliverables (cover, board). See
-[`../PTS-03-Implementation.md`](../PTS-03-Implementation.md) §2 and §3.
+[`../PTS-03-Implementation.md`](../PTS-03-Implementation.md) §2 and §3. All five are drawn to true
+printed size as PDFs in [`../pdf/`](../pdf/README.md), which is what an Archicad or InDesign
+implementation should be measured against.
 
 ## Installing
 

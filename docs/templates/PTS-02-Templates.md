@@ -155,7 +155,7 @@ provide the reference frame from which all other information about it is located
 | 7 | Assembly type marks, at every run and every change | `t2` |
 | 8 | Levels at every change, with type prefix and signed value | `t2` |
 | 9 | Three closed dimension chains per side | `t2`, offsets 10 / 20 / 30 |
-| 10 | Section, elevation and detail markers | 14 mm bubbles |
+| 10 | Section, elevation and detail markers | 20 mm bubbles |
 | 11 | North point (plans) | ≥ 15 mm |
 | 12 | Cut plane height statement (plans) | `t2` |
 | 13 | Stair and ramp direction, going, rise, up/down | `t2` |

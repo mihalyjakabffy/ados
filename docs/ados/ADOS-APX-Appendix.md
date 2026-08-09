@@ -667,15 +667,18 @@ Field order follows `ADOS-3.9.030`: sheet number and revision at the outer corne
    chain-to-chain spacing:         10.0
 ```
 
-### A.10.4 Reference bubble (14 mm)
+### A.10.4 Reference bubble (20 mm)
 
 ```
-        ╭──────────╮
-        │    D3    │  ← view identifier, 3.5 mm cap
-        ├──────────┤  ← divider, W2
-        │  07-014  │  ← container identifier, 3.5 mm cap
-        ╰──────────╯
-         ◄── 14 ──►
+        ╭──────────────╮
+        │      D3      │  ← view identifier, 3.5 mm cap, baseline +5.0
+        ├──────────────┤  ← divider, W2, on the centre
+        │    A7.014    │  ← container identifier, 2.5 mm cap, baseline −5.0
+        ╰──────────────╯
+         ◄──── 20 ────►
+
+   the binding dimension is the chord at each field's baseline, 0.866 d = 17.3,
+   not the diameter;  a six-character short form is 11.5 wide at 2.5 mm cap
 ```
 
 ### A.10.5 Leader geometry
