@@ -14,7 +14,9 @@ the token file. Text y is the baseline.
 
 from __future__ import annotations
 
+import copy
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 from reportlab.lib.utils import ImageReader  # noqa: F401  (kept for callers)
@@ -75,12 +77,50 @@ def tone(token: str) -> float:
     return max(0.0, min(1.0, c))
 
 
-TIER = {"W1": T["line"]["tiers"]["W1"],
-        "W2": T["line"]["tiers"]["W2"],
-        "W3": T["line"]["tiers"]["W3"],
-        "FRAME": T["line"]["permitted_rules"]["sheet_frame"],
-        "DIV": T["line"]["permitted_rules"]["title_block_division"],
-        "HAIR": T["line"]["permitted_rules"]["table_group_rule"]}
+def _tier_table() -> dict:
+    return {"W1": T["line"]["tiers"]["W1"],
+            "W2": T["line"]["tiers"]["W2"],
+            "W3": T["line"]["tiers"]["W3"],
+            "FRAME": T["line"]["permitted_rules"]["sheet_frame"],
+            "DIV": T["line"]["permitted_rules"]["title_block_division"],
+            "HAIR": T["line"]["permitted_rules"]["table_group_rule"]}
+
+
+TIER = _tier_table()
+
+
+@contextmanager
+def token_overlay(overlay: dict):
+    """Build with a partial token tree merged over the file, then restore.
+
+    The Brand System supplies the overlay: PTS holds the geometry, which is
+    derived and not a practice's to choose, while the typefaces and the three
+    semantic line weights are. Everything the overlay may set is whitelisted on
+    its side (``brand/resolution/pts_bridge.py``); this end only merges.
+
+    A context manager rather than a setter because the module tokens are
+    global: an overlay that outlived its build would silently brand the next
+    one.
+    """
+    global T, TIER
+    saved_t, saved_tier = T, TIER
+    merged = _deep_merge(T, overlay or {})
+    T = merged
+    TIER = _tier_table()
+    try:
+        yield T
+    finally:
+        T, TIER = saved_t, saved_tier
+
+
+def _deep_merge(base: dict, overlay: dict) -> dict:
+    out = copy.deepcopy(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
 
 # Ink levels. Every mark on a sheet is set at one of these four, and each of
 # the three non-black levels is a step of the tone ladder rather than a grey
@@ -115,7 +155,11 @@ class Sheet:
                             "top": m["top"], "bottom": m["bottom"]}
             self.spec = f
 
-        self.c = rl_canvas.Canvas(str(path), pagesize=(self.w * MM, self.h * MM))
+        # A path or an open binary stream. The stream form lets a caller build
+        # a sheet in memory — the Brand System renders one per request — without
+        # a temporary file.
+        target = path if hasattr(path, "write") else str(path)
+        self.c = rl_canvas.Canvas(target, pagesize=(self.w * MM, self.h * MM))
         self.c.setPageCompression(0)      # keep the content stream inspectable
         self.c.setTitle(title)
         self.c.setSubject(subject)
