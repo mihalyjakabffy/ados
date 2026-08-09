@@ -30,13 +30,29 @@ from brand.templates.document_templates import (
 # ---------------------------------------------------------------------------
 
 
-def test_the_ten_categories_exist():
+def test_the_ten_document_categories_exist():
     titles = {t.title for t in TEMPLATES.values()}
-    assert titles == {
+    assert titles >= {
         "A4 Report", "A3 Technical Document", "Presentation", "Portfolio Page",
         "Project Cover", "Meeting Minutes", "Project Report", "Proposal",
         "Invoice", "Email Signature",
     }
+
+
+def test_the_identity_catalogue_is_registered():
+    """Two files, one registry — coverage() and the API must see both."""
+    from brand.templates.identity_templates import IDENTITY_TEMPLATES
+
+    assert set(IDENTITY_TEMPLATES) <= set(TEMPLATES)
+    assert {t.title for t in IDENTITY_TEMPLATES.values()} >= {
+        "Business Card", "Letterhead", "Presentation Deck", "Portfolio Spread",
+        "Competition Board", "Social Post", "Website Homepage",
+    }
+
+
+def test_template_ids_are_unique_and_prefixed():
+    for tid in TEMPLATES:
+        assert re.fullmatch(r"B[TI]\d{2}-[a-z0-9-]+", tid), tid
 
 
 def test_every_template_declares_a_family_and_a_purpose():

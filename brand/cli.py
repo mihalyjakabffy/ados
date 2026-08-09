@@ -27,11 +27,19 @@ from pathlib import Path
 from brand.models.brand import Brand
 
 
+#: Brands that ship with the system, addressable by name.
+EXAMPLES = {"studio-nord": "brand.examples.studio_nord:STUDIO_NORD",
+            "studio-om": "brand.examples.studio_om:STUDIO_OM"}
+
+
 def _load_brand(path: str | None) -> Brand:
     if path is None:
         from brand.examples.studio_nord import STUDIO_NORD
 
         return STUDIO_NORD
+    if path in EXAMPLES:
+        module, name = EXAMPLES[path].split(":")
+        return getattr(__import__(module, fromlist=[name]), name)
     return Brand.from_json(Path(path).read_text())
 
 
@@ -134,6 +142,74 @@ def cmd_render(args) -> int:
     path = doc.write(out)
     print(f"  {path}  ({len(doc.content)} bytes, {len(doc.tokens_used)} tokens)")
     return 0
+
+
+def cmd_logo(args) -> int:
+    from brand.assets.logo import LogoSystem
+
+    brand = _load_brand(args.brand)
+    system = LogoSystem(brand)
+    for logo in system.build_all():
+        path = logo.write(args.out)
+        print(f"  {path}  {logo.width_mm:.1f} × {logo.height_mm:.1f} mm"
+              f"{'' if logo.outlined else '  (live text — face not bundled)'}")
+        for note in logo.notes:
+            print(f"      ↳ {note}")
+    print(f"\n  clear space {system.clear_space_mm():g} mm · "
+          f"minimum width {system.min_width_mm():g} mm")
+    return 0
+
+
+def cmd_guidelines(args) -> int:
+    from brand.export import html_to_pdf
+    from brand.guidelines import render_guidelines
+
+    brand = _load_brand(args.brand)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_guidelines(brand))
+    print(f"  {out}  ({out.stat().st_size} bytes, 18 sections)")
+    if args.pdf:
+        result = html_to_pdf(out, out.with_suffix(".pdf"))
+        print(f"  {result.path}" if result.ok else f"  ↳ {result.reason}")
+    return 0
+
+
+def cmd_export(args) -> int:
+    from brand.export import to_css_variables, to_json, to_yaml
+
+    brand = _load_brand(args.brand)
+    tokens = brand.resolve_tokens()
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, text in (
+        ("tokens.css", to_css_variables(tokens)),
+        ("tokens.json", to_json(tokens)),
+        ("tokens.flat.json", to_json(tokens, flat=True)),
+        ("brand.yaml", to_yaml(brand)),
+    ):
+        (out / name).write_text(text)
+        print(f"  {out / name}")
+    return 0
+
+
+def cmd_audit(args) -> int:
+    from brand.validation.consistency import audit_package
+
+    audit = audit_package(args.package, _load_brand(args.brand))
+    print(f"\n  {audit.summary()}\n")
+    for f in audit.report.sorted():
+        print(f"  [{f.severity.value:5}] {f.field}\n          {f.message}")
+        if f.suggestion:
+            print(f"          → {f.suggestion}")
+    return 0 if audit.ok else 1
+
+
+def cmd_package(args) -> int:
+    from brand.examples.build_studio_om import build
+
+    result = build(Path(args.out_dir))
+    return 0 if result["audit"].ok else 1
 
 
 def cmd_schema(args) -> int:
@@ -258,7 +334,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add_brand_arg(p):
-        p.add_argument("--brand", help="Brand JSON file (default: STUDIO NORD)")
+        p.add_argument("--brand", help="Brand JSON file, or an example "
+                       "name: studio-nord, studio-om")
 
     p = sub.add_parser("propose", help="brief → structured proposal")
     p.add_argument("brief")
@@ -290,6 +367,31 @@ def main(argv: list[str] | None = None) -> int:
     add_brand_arg(p)
     p.add_argument("--out")
     p.set_defaults(func=cmd_render)
+
+    p = sub.add_parser("logo", help="generate the logo system as SVG")
+    add_brand_arg(p)
+    p.add_argument("--out", default="logo")
+    p.set_defaults(func=cmd_logo)
+
+    p = sub.add_parser("guidelines", help="generate the 18-section guidelines")
+    add_brand_arg(p)
+    p.add_argument("--out", default="brand-guidelines.html")
+    p.add_argument("--pdf", action="store_true")
+    p.set_defaults(func=cmd_guidelines)
+
+    p = sub.add_parser("export", help="tokens as CSS, JSON and YAML")
+    add_brand_arg(p)
+    p.add_argument("--out-dir", default="export")
+    p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("audit", help="audit a generated package")
+    p.add_argument("package")
+    add_brand_arg(p)
+    p.set_defaults(func=cmd_audit)
+
+    p = sub.add_parser("package", help="build the STUDIO OM brand package")
+    p.add_argument("--out-dir", default="brand/examples/studio-om")
+    p.set_defaults(func=cmd_package)
 
     p = sub.add_parser("schema", help="emit the JSON Schema")
     p.add_argument("--out")

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8">
+<title>Competition Board — STUDIO OM</title>
+<style>
+:root {
+  --font: Inter, Arial, sans-serif;
+  --mono: IBM Plex Mono, monospace;
+  --xs: 1.8mm; --sm: 2.5mm;
+  --md: 3.5mm; --lg: 5.0mm;
+  --xl: 7.0mm; --display: 14.0mm;
+  --w-reg: 400; --w-med: 500;
+  --lead: 1.45; --track: 3.0%;
+  --ink: #1a1a18; --ink-2: #4d5149;
+  --paper: #f2f0eb; --surface: #fbfaf7;
+  --line: #d6d2c8; --accent: #64726b;
+  --s1: 5.0mm; --s2: 10.0mm; --s3: 20.0mm;
+  --margin: 20.0mm; --gutter: 10.0mm;
+  --rule: 0.18mm; --frame: 0.18mm;
+  --clear: 1.0;
+}
+@page { size: 841mm 594mm; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--paper); }
+body { font-family: var(--font); font-size: var(--sm); color: var(--ink);
+        line-height: var(--lead); font-weight: var(--w-reg); }
+.page { width: 841mm; height: 594mm; padding: var(--margin);
+         background: var(--paper); position: relative; overflow: hidden;
+         page-break-after: always; }
+.caps { text-transform: uppercase; letter-spacing: var(--track); }
+.med { font-weight: var(--w-med); }
+.mono { font-family: var(--mono); }
+.dim { color: var(--ink-2); }
+.rule { border: 0; border-top: var(--rule) solid var(--ink); margin: var(--s1) 0; }
+.hair { border: 0; border-top: var(--rule) solid var(--line); margin: var(--s1) 0; }
+.frame { border: var(--frame) solid var(--ink); }
+.imgbox { border: var(--frame) solid var(--line); background: var(--surface);
+           display: flex; align-items: center; justify-content: center;
+           color: var(--ink-2); font-size: var(--xs); }
+.wordmark { font-size: var(--md); font-weight: var(--w-med);
+             text-transform: uppercase; letter-spacing: var(--track); }
+
+header { display:flex; justify-content:space-between; align-items:baseline; }
+h1 { font-size: calc(var(--display) * 1.6); font-weight: var(--w-med); margin:0; }
+.grid { display:grid; grid-template-columns: repeat(6, 1fr);
+        grid-auto-rows: minmax(120mm, auto); gap: var(--gutter); margin-top: var(--s3); }
+.imgbox.big { grid-column: span 4; grid-row: span 2; }
+.text { grid-column: span 2; }
+.text h3 { font-size: var(--xl); margin:0 0 var(--s1); }
+.text p { font-size: var(--lg); }
+.imgbox { grid-column: span 2; }
+footer { position:absolute; left:var(--margin); right:var(--margin);
+         bottom:var(--margin); font-size: var(--sm); }
+
+</style></head><body>
+<div class="page">
+  <header><h1 class="caps">Malthouse</h1>
+    <span class="mono dim">ENTRY 0417</span></header>
+  <hr class="rule">
+  <div class="grid">
+    <div class="imgbox big">Primary image — 4 columns</div>
+    <div class="text"><h3 class="caps">One argument</h3>
+      <p>Keep the shell. Replace the roof. Cut one opening.</p></div>
+    <div class="imgbox">Plan</div><div class="imgbox">Section</div>
+    <div class="imgbox">Detail</div>
+  </div>
+  <footer class="caps dim">STUDIO OM ·
+    illustrative — not a construction document</footer>
+</div></body></html>

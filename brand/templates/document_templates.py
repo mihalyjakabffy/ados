@@ -395,6 +395,19 @@ TEMPLATES: dict[str, DocumentTemplate] = {
 }
 
 
+def _register_identity_templates() -> None:
+    """Merge the stationery/presentation/marketing catalogue in.
+
+    Imported lazily and at the bottom of the module because
+    ``identity_templates`` builds on the types declared here. One registry
+    rather than two means ``coverage()``, the API and the consistency check
+    each see the whole system without knowing it was written in two files.
+    """
+    from brand.templates import identity_templates
+
+    TEMPLATES.update(identity_templates.IDENTITY_TEMPLATES)
+
+
 def get_template(template_id: str) -> DocumentTemplate:
     try:
         return TEMPLATES[template_id]
@@ -428,3 +441,6 @@ def all_bound_tokens() -> set[str]:
     for template in TEMPLATES.values():
         out.update(template.bindings)
     return out
+
+
+_register_identity_templates()

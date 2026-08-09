@@ -124,7 +124,9 @@ def test_preview_endpoint_returns_html(client):
 
 def test_templates_endpoint_reports_coverage(client):
     body = client.get(f"/api/v2/brands/{BRAND_ID}/templates").json()
-    assert len(body["templates"]) == 10
+    from brand.templates.document_templates import TEMPLATES
+
+    assert len(body["templates"]) == len(TEMPLATES) >= 18
     assert all(t["renders"] for t in body["templates"])
 
 

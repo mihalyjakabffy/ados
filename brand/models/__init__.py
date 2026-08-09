@@ -25,6 +25,13 @@ from brand.models.brand import (
     BrandStatus,
 )
 from brand.models.communication import Communication, Person, Tone
+from brand.models.digital import (
+    DigitalDirection,
+    MotionLevel,
+    NavStyle,
+    SocialDirection,
+    WebDirection,
+)
 from brand.models.identity import Identity, PersonalityAxis, PracticeScale
 from brand.models.tokens import (
     TOKEN_NAMESPACES,
@@ -37,6 +44,12 @@ from brand.models.tokens import (
 from brand.models.visual_identity import (
     ColourSystem,
     ColourTreatment,
+    CornerTreatment,
+    GraphicLanguage,
+    GraphicPrimitive,
+    GridConfig,
+    LogoConstruction,
+    RoleClass,
     FontClass,
     FontFace,
     Grid,
@@ -52,6 +65,17 @@ from brand.models.visual_identity import (
 )
 
 __all__ = [
+    "RoleClass",
+    "LogoConstruction",
+    "GridConfig",
+    "GraphicPrimitive",
+    "GraphicLanguage",
+    "CornerTreatment",
+    "WebDirection",
+    "SocialDirection",
+    "NavStyle",
+    "MotionLevel",
+    "DigitalDirection",
     "ArchitecturalLanguage",
     "Brand",
     "BrandApplications",

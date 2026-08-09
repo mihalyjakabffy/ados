@@ -69,6 +69,10 @@ class BrandResolver:
         self._surface(b, brand)
         self._render(b, brand)
         self._diagram(b, brand)
+        self._graphic(b, brand)
+        self._photo(b, brand)
+        self._web(b, brand)
+        self._social(b, brand)
         self._voice(b, brand)
         self._assets(b, brand)
 
@@ -230,10 +234,13 @@ class BrandResolver:
         # becomes rather than deriving it — and getting it wrong.
         from brand import colour as _c
 
-        for name in ("color.brand.primary", "color.brand.accent",
-                     "color.text.primary", "color.text.secondary"):
-            b.add(f"{name}.mono", _c.to_greyscale_hex(pairs[name][1]), Unit.HEX,
+        for name, (_, value) in pairs.items():
+            b.add(f"{name}.mono", _c.to_greyscale_hex(value), Unit.HEX,
                   source=f"derived from {name}",
+                  constraint="ADOS-3.8.010 — drawings are monochrome")
+        for i, value in enumerate(c.neutral):
+            b.add(f"color.neutral.{i}.mono", _c.to_greyscale_hex(value), Unit.HEX,
+                  source=f"derived from color.neutral.{i}",
                   constraint="ADOS-3.8.010 — drawings are monochrome")
 
     def _spacing(self, b: TokenBuilder, brand: Brand) -> None:
@@ -256,6 +263,17 @@ class BrandResolver:
               source="visual_identity.grid.baseline_mm",
               constraint="ADOS-3.3.030")
         b.add("grid.module", g.module_mm, Unit.MM, source="visual_identity.grid.module_mm")
+        for name, cfg in sorted(g.configurations.items()):
+            b.add(f"grid.{name}.columns", cfg.columns, Unit.COUNT,
+                  source=f"visual_identity.grid.configurations.{name}")
+            b.add(f"grid.{name}.gutter", cfg.gutter_mm, Unit.MM,
+                  source=f"visual_identity.grid.configurations.{name}")
+            b.add(f"grid.{name}.margin", cfg.margin_mm, Unit.MM,
+                  source=f"visual_identity.grid.configurations.{name}")
+            if cfg.measure_mm is not None:
+                b.add(f"grid.{name}.measure", cfg.measure_mm, Unit.MM,
+                      source=f"visual_identity.grid.configurations.{name}",
+                      constraint="ADOS-3.6.010 — 45-75 characters")
 
     def _stroke(self, b: TokenBuilder, brand: Brand) -> None:
         lw = brand.architectural_language.drawing.lineweights
@@ -347,6 +365,103 @@ class BrandResolver:
               source="architectural_language.diagrams.palette "
                      "(brand palette where empty)")
 
+    def _graphic(self, b: TokenBuilder, brand: Brand) -> None:
+        """The identity with the logo removed.
+
+        Stroke tiers are resolved to millimetres here rather than left as
+        names, so a consumer drawing a rule does not have to know that
+        'annotation' means 0.18 mm — and cannot get it wrong.
+        """
+        g = brand.visual_identity.graphic_language
+        lw = brand.architectural_language.drawing.lineweights
+        tier_mm = {
+            "cut": lw.cut_mm, "primary": lw.primary_mm,
+            "secondary": lw.secondary_mm, "background": lw.background_mm,
+            "annotation": lw.annotation_mm, "dimension": lw.dimension_mm,
+        }
+        b.add("graphic.corner", g.corner.value, Unit.STRING,
+              source="visual_identity.graphic_language.corner")
+        b.add("graphic.rule", tier_mm[g.rule_tier], Unit.MM,
+              source=f"graphic_language.rule_tier → lineweights.{g.rule_tier}")
+        b.add("graphic.rule.emphasis", tier_mm[g.emphasis_rule_tier], Unit.MM,
+              source=f"graphic_language.emphasis_rule_tier → "
+                     f"lineweights.{g.emphasis_rule_tier}")
+        b.add("graphic.frame", tier_mm[g.frame_stroke_tier], Unit.MM,
+              source=f"graphic_language.frame_stroke_tier → "
+                     f"lineweights.{g.frame_stroke_tier}")
+        b.add("graphic.image_frame", g.image_frame, Unit.STRING,
+              source="visual_identity.graphic_language.image_frame")
+        b.add("graphic.caption_position", g.image_caption_position, Unit.STRING,
+              source="visual_identity.graphic_language.image_caption_position")
+        b.add("graphic.separator",
+              g.separator_spacing_modules * brand.visual_identity.grid.module_mm,
+              Unit.MM,
+              source="graphic_language.separator_spacing_modules × grid.module")
+        b.add("graphic.primitives",
+              [{"key": p.key, "name": p.name, "stroke_mm": tier_mm[p.stroke_tier],
+                "modules": p.modules} for p in g.primitives],
+              Unit.STRING,
+              source="visual_identity.graphic_language.primitives")
+
+    def _photo(self, b: TokenBuilder, brand: Brand) -> None:
+        im = brand.visual_identity.imagery
+        b.add("photo.treatment", im.colour_treatment.value, Unit.STRING,
+              source="visual_identity.imagery.colour_treatment")
+        b.add("photo.saturation", im.saturation, Unit.RATIO,
+              source="visual_identity.imagery.saturation")
+        b.add("photo.perspective", im.perspective, Unit.STRING,
+              source="visual_identity.imagery.perspective")
+        b.add("photo.verticals_corrected", im.verticals_corrected, Unit.STRING,
+              source="visual_identity.imagery.verticals_corrected")
+        b.add("photo.human_presence", im.human_presence, Unit.STRING,
+              source="visual_identity.imagery.human_presence")
+        b.add("photo.cropping", im.cropping, Unit.STRING,
+              source="visual_identity.imagery.cropping")
+        b.add("photo.sequence", list(im.sequencing), Unit.STRING,
+              source="visual_identity.imagery.sequencing")
+        b.add("photo.detail_ratio", im.detail_ratio, Unit.RATIO,
+              source="visual_identity.imagery.detail_ratio")
+        b.add("photo.aspect_ratios", list(im.aspect_ratios), Unit.STRING,
+              source="visual_identity.imagery.aspect_ratios")
+        b.add("photo.bleed", im.bleed, Unit.STRING,
+              source="visual_identity.imagery.bleed")
+
+    def _web(self, b: TokenBuilder, brand: Brand) -> None:
+        w = brand.digital.web
+        b.add("web.sections", list(w.sections), Unit.STRING,
+              source="digital.web.sections")
+        b.add("web.nav", w.nav.value, Unit.STRING, source="digital.web.nav")
+        b.add("web.hero", w.hero, Unit.STRING, source="digital.web.hero")
+        b.add("web.project_card", w.project_card, Unit.STRING,
+              source="digital.web.project_card")
+        b.add("web.columns", w.grid_columns, Unit.COUNT,
+              source="digital.web.grid_columns")
+        b.add("web.max_width", w.max_content_width_px, Unit.COUNT,
+              source="digital.web.max_content_width_px")
+        b.add("web.image_treatment", w.image_treatment, Unit.STRING,
+              source="digital.web.image_treatment")
+        b.add("web.motion", w.motion.value, Unit.STRING, source="digital.web.motion")
+        b.add("web.transition_ms", w.transition_ms, Unit.COUNT,
+              source="digital.web.transition_ms")
+        b.add("web.hover", w.hover, Unit.STRING, source="digital.web.hover")
+        b.add("web.dark_mode", w.dark_mode, Unit.STRING,
+              source="digital.web.dark_mode")
+
+    def _social(self, b: TokenBuilder, brand: Brand) -> None:
+        s = brand.digital.social
+        b.add("social.platforms", list(s.platforms), Unit.STRING,
+              source="digital.social.platforms")
+        b.add("social.formats", list(s.post_formats), Unit.STRING,
+              source="digital.social.post_formats")
+        b.add("social.post_types", list(s.post_types), Unit.STRING,
+              source="digital.social.post_types")
+        b.add("social.caption_max", s.caption_max_words, Unit.COUNT,
+              source="digital.social.caption_max_words")
+        b.add("social.watermark", s.watermark, Unit.STRING,
+              source="digital.social.watermark")
+        b.add("social.grid_discipline", s.grid_discipline, Unit.STRING,
+              source="digital.social.grid_discipline")
+
     def _voice(self, b: TokenBuilder, brand: Brand) -> None:
         c = brand.communication
         b.add("voice.tone", c.tone.value, Unit.STRING, source="communication.tone")
@@ -375,3 +490,34 @@ class BrandResolver:
               Unit.STRING, source="visual_identity.logo.wordmark_text")
         b.add("asset.logo.monochrome_only", logo.usage_rules.monochrome_only,
               Unit.STRING, source="visual_identity.logo.usage_rules.monochrome_only")
+        c = logo.construction
+        b.add("asset.logo.module", c.module_mm, Unit.MM,
+              source="visual_identity.logo.construction.module_mm",
+              constraint="ADOS-3.3.030 — the mark is built on the sheet lattice")
+        b.add("asset.logo.cap", c.cap_modules * c.module_mm, Unit.MM,
+              source="logo.construction.cap_modules × module")
+        b.add("asset.logo.field", c.field_modules * c.module_mm, Unit.MM,
+              source="logo.construction.field_modules × module")
+        b.add("asset.logo.aperture_stroke",
+              c.aperture_stroke_modules * c.module_mm, Unit.MM,
+              source="logo.construction.aperture_stroke_modules × module")
+        b.add("asset.logo.gap", c.letter_gap_modules * c.module_mm, Unit.MM,
+              source="logo.construction.letter_gap_modules × module")
+        b.add("asset.logo.tracking", c.tracking_percent, Unit.PERCENT,
+              source="visual_identity.logo.construction.tracking_percent")
+        b.add("asset.logo.monogram",
+              logo.monogram_text or _initials(brand.identity.name), Unit.STRING,
+              source="visual_identity.logo.monogram_text")
+        b.add("asset.logo.concept", logo.concept, Unit.STRING,
+              source="visual_identity.logo.concept")
+        b.add("asset.logo.incorrect_uses", list(logo.incorrect_uses), Unit.STRING,
+              source="visual_identity.logo.incorrect_uses")
+
+
+def _initials(name: str) -> str:
+    """Initials of a practice name, used when no monogram is declared.
+
+    ``STUDIO OM`` gives ``SO``, which is wrong for that practice — which is
+    exactly why ``monogram_text`` exists and why this is only the fallback.
+    """
+    return "".join(word[0] for word in name.split() if word)[:4].upper()

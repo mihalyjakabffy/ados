@@ -75,6 +75,45 @@ class LogoUsageRules(BaseModel):
     )
 
 
+class LogoConstruction(BaseModel):
+    """The geometry the logo generator draws from.
+
+    These live on the brand rather than inside the generator because a mark
+    whose proportions are hard-coded in the code that draws it is a mark the
+    practice does not own. Everything is expressed in **modules** — the same
+    lattice the sheets are set on — so the logo is constructed on the grid the
+    rest of the identity uses rather than on a private one.
+    """
+
+    model_config = _Frozen
+
+    module_mm: float = Field(
+        default=5.0, gt=0,
+        description="The construction unit. Defaults to the ADOS sub-module.",
+    )
+    cap_modules: float = Field(
+        default=2.0, gt=0,
+        description="Wordmark cap height, in modules.",
+    )
+    field_modules: float = Field(
+        default=6.0, gt=0,
+        description="Side of the square field the symbol is constructed in.",
+    )
+    aperture_stroke_modules: float = Field(
+        default=1.0, gt=0,
+        description="Wall thickness of the aperture device, in modules.",
+    )
+    letter_gap_modules: float = Field(
+        default=1.0, ge=0,
+        description="Gap between the symbol and the wordmark.",
+    )
+    tracking_percent: float = Field(
+        default=6.0, ge=-5.0, le=40.0,
+        description="Wordmark tracking. Looser than body tracking: a wordmark "
+        "is read as a shape once, not as words repeatedly.",
+    )
+
+
 class Logo(BaseModel):
     model_config = _Frozen
 
@@ -84,6 +123,26 @@ class Logo(BaseModel):
         default=None, description="The mark without the wordmark.",
     )
     wordmark_text: str = Field(default="", max_length=120)
+    monogram_text: str = Field(
+        default="", max_length=8,
+        description="The short form. Empty means the initials of the wordmark.",
+    )
+    construction: LogoConstruction = Field(default_factory=LogoConstruction)
+    concept: str = Field(
+        default="", max_length=600,
+        description="What the mark is doing, in one paragraph. Carried on the "
+        "brand so the guidelines are generated rather than written twice.",
+    )
+    incorrect_uses: tuple[str, ...] = Field(
+        default=(
+            "Do not rotate the mark.",
+            "Do not outline, emboss or shadow it.",
+            "Do not stretch or condense it.",
+            "Do not re-set the wordmark in another face.",
+            "Do not place it on a tone darker than the permitted backgrounds.",
+            "Do not reduce it below the stated minimum width.",
+        ),
+    )
     usage_rules: LogoUsageRules = Field(default_factory=LogoUsageRules)
 
 
@@ -272,6 +331,27 @@ class Spacing(BaseModel):
         return v
 
 
+class GridConfig(BaseModel):
+    """One format's column configuration.
+
+    A single column count cannot serve A4 and a competition board: at A4 six
+    columns give a 20 mm measure that nothing fits in, and at A1 four columns
+    give a measure no one can read a line of. The system is one lattice with
+    per-format column counts, not one grid stretched.
+    """
+
+    model_config = _Frozen
+
+    columns: int = Field(ge=1, le=24)
+    gutter_mm: float = Field(ge=0)
+    margin_mm: float = Field(ge=0)
+    measure_mm: float | None = Field(
+        default=None, gt=0,
+        description="Target text measure. ADOS-3.6.010 wants 45-75 characters; "
+        "at a 2.5 mm cap that is roughly 90-150 mm.",
+    )
+
+
 class Grid(BaseModel):
     model_config = _Frozen
 
@@ -280,11 +360,87 @@ class Grid(BaseModel):
     margin_mm: float = Field(default=20.0, ge=0)
     baseline_mm: float = Field(default=5.0, gt=0)
     module_mm: float = Field(default=10.0, gt=0)
+    configurations: dict[str, GridConfig] = Field(
+        default_factory=dict,
+        description="Per-format overrides, keyed by format name (A4, A3, "
+        "slide, board, portfolio). The fields above are the default.",
+    )
+
+    def for_format(self, name: str) -> GridConfig:
+        """The configuration for a format, falling back to the default."""
+        if name in self.configurations:
+            return self.configurations[name]
+        return GridConfig(
+            columns=self.columns, gutter_mm=self.gutter_mm,
+            margin_mm=self.margin_mm,
+        )
 
 
 # ---------------------------------------------------------------------------
 # Imagery
 # ---------------------------------------------------------------------------
+
+
+class GraphicPrimitive(BaseModel):
+    """One repeatable mark in the identity's graphic vocabulary.
+
+    The test of an identity is whether it is recognisable with the logo
+    removed. That recognition comes from a small set of marks used
+    consistently — a frame, a rule, a corner tick — not from the mark itself,
+    which appears once per document.
+    """
+
+    model_config = _Frozen
+
+    key: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=300)
+    stroke_tier: str = Field(
+        default="secondary",
+        pattern=r"^(cut|primary|secondary|background|annotation|dimension)$",
+        description="Which lineweight it is drawn at. Named rather than "
+        "measured so the primitive follows the drawing language.",
+    )
+    modules: float = Field(
+        default=1.0, gt=0, description="Size in modules where it has one.",
+    )
+
+
+class CornerTreatment(str, Enum):
+    SQUARE = "square"
+    ROUNDED = "rounded"
+
+
+class GraphicLanguage(BaseModel):
+    """The identity with the logo taken away.
+
+    Everything here is a *rule about marks*, not a mark: the stroke tiers come
+    from the drawing language so that a rule on a report and a rule on a plan
+    are the same weight, and the corner treatment is one decision applied
+    everywhere rather than a per-artefact choice.
+    """
+
+    model_config = _Frozen
+
+    corner: CornerTreatment = Field(
+        default=CornerTreatment.SQUARE,
+        description="Square by default. A radius is a value that has to be "
+        "held identical in six output formats and never is.",
+    )
+    rule_tier: str = Field(default="annotation", max_length=20)
+    emphasis_rule_tier: str = Field(default="primary", max_length=20)
+    frame_stroke_tier: str = Field(default="secondary", max_length=20)
+    image_frame: bool = Field(
+        default=True,
+        description="Images sit inside a drawn frame rather than bleeding. "
+        "A sheet is read by its frame.",
+    )
+    image_caption_position: str = Field(
+        default="below-left", pattern=r"^(below-left|below-right|inside|none)$",
+    )
+    separator_spacing_modules: float = Field(default=2.0, gt=0)
+    primitives: tuple[GraphicPrimitive, ...] = Field(default=())
+    notes: str = Field(default="", max_length=600)
 
 
 class ColourTreatment(str, Enum):
@@ -306,6 +462,36 @@ class Imagery(BaseModel):
     colour_treatment: ColourTreatment = Field(default=ColourTreatment.NATURAL)
     saturation: float = Field(default=1.0, ge=0.0, le=2.0)
     aspect_ratios: tuple[str, ...] = Field(default=("3:2", "1:1"))
+    perspective: str = Field(
+        default="frontal", max_length=80,
+        description="The default viewpoint. 'frontal' and 'one-point' read as "
+        "measured; a three-quarter view reads as a photograph of an object.",
+    )
+    verticals_corrected: bool = Field(
+        default=True,
+        description="Converging verticals read as a snapshot of a building "
+        "rather than a record of one.",
+    )
+    human_presence: str = Field(
+        default="incidental",
+        pattern=r"^(none|incidental|inhabited|staged)$",
+    )
+    cropping: str = Field(
+        default="full-frame", max_length=120,
+        description="How images are cut. 'full-frame' means the frame is the "
+        "photographer's, not the layout's.",
+    )
+    sequencing: tuple[str, ...] = Field(
+        default=(),
+        description="The order a project is shown in — context, approach, "
+        "threshold, interior, detail. A portfolio spread is a sequence, and "
+        "an unstated sequence is re-invented per project.",
+    )
+    detail_ratio: float = Field(
+        default=0.25, ge=0.0, le=1.0,
+        description="Share of images that are detail shots. Materiality is "
+        "carried by the close view; a set of only wide shots reads as CGI.",
+    )
     bleed: bool = Field(
         default=False,
         description="False on every technical sheet: an image running to the "
@@ -322,3 +508,4 @@ class VisualIdentity(BaseModel):
     spacing: Spacing = Field(default_factory=Spacing)
     grid: Grid = Field(default_factory=Grid)
     imagery: Imagery = Field(default_factory=Imagery)
+    graphic_language: GraphicLanguage = Field(default_factory=GraphicLanguage)

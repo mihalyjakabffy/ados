@@ -1,0 +1,490 @@
+{
+  "brief": "STUDIO OM is a contemporary architecture studio working across architecture, interior architecture, adaptive reuse, residential and small-scale public projects, and conceptual research. The identity should feel precise, quiet, material and rigorous \u2014 intellectual rather than corporate, contextual rather than signature, and contemporary without being trendy.",
+  "source": "rules",
+  "confidence": 0.8500000000000001,
+  "rationale": "The brief reads as precise, civic, experimental, material. A Inter sets the text because a neutral face lets the drawing be the thing that is looked at, and the accent #6b6f76 is low-chroma for the same reason: on a technical sheet a saturated accent competes with the linework. Renders default to documentary. Line weights are the ADOS tiers, unchanged \u2014 the hierarchy is derived from how far an element is from the cut plane, not from house style.",
+  "assumptions": [
+    "line weights defaulted to the ADOS tiers (0.70 / 0.35 / 0.18); a practice with a heavier hand should raise the cut weight"
+  ],
+  "open_questions": [
+    "Is a typeface already licensed? Every point size is derived from its measured cap height.",
+    "Is there an existing mark to carry forward, or is this a new identity?"
+  ],
+  "validation": {
+    "brand": "STUDIO OM 1.0.0 (proposed)",
+    "ok": true,
+    "counts": {
+      "INFO": 2,
+      "WARN": 0,
+      "ERROR": 0,
+      "BLOCK": 0
+    },
+    "findings": [
+      {
+        "status": "info",
+        "severity": "INFO",
+        "category": "architectural",
+        "field": "visual_identity.colour.neutral[1]",
+        "message": "#e8e6e1 sits \u0394L* 9 from the nearest ladder step (T0).",
+        "suggestion": "Greys that land between rungs reproduce as neither. Snap the ramp to the ladder if these greys are used as fills.",
+        "rule": "ADOS-3.7.010"
+      },
+      {
+        "status": "info",
+        "severity": "INFO",
+        "category": "structural",
+        "field": "visual_identity.logo.primary.path",
+        "message": "No primary logo asset.",
+        "suggestion": "Templates fall back to the wordmark set in the primary face, which is valid but is not a mark.",
+        "rule": ""
+      }
+    ]
+  },
+  "difference_from_approved": {
+    "personality": {
+      "proposed": [
+        "precise",
+        "civic",
+        "experimental",
+        "material"
+      ],
+      "approved": [
+        "precise",
+        "quiet",
+        "material",
+        "rigorous"
+      ]
+    },
+    "typeface": {
+      "proposed": "Inter",
+      "approved": "Inter"
+    },
+    "accent": {
+      "proposed": "#6b6f76",
+      "approved": "#64726b"
+    },
+    "cut_mm": {
+      "proposed": 0.7,
+      "approved": 1.0
+    }
+  },
+  "proposed_brand": {
+    "brand_id": "5c985b6c-4b75-4de1-993f-19b7e6a7809b",
+    "version": "1.0.0",
+    "status": "proposed",
+    "parent_version": null,
+    "content_hash": "4f8b305ab7b1b152ba467b0ce7e4ebdff0ccb6b6dd8b46f846a15fe34087f518",
+    "created_at": "2026-08-09T20:17:29.888340Z",
+    "changelog": "",
+    "ados_edition": "1.0",
+    "origin": "agent",
+    "identity": {
+      "name": "STUDIO OM",
+      "descriptor": "Architecture and adaptive reuse",
+      "tagline": "",
+      "positioning": "STUDIO OM is a contemporary architecture studio working across architecture, interior architecture, adaptive reuse, residential and small-scale public projects, and conceptual research. The identity should feel precise, quiet, material and rigorous \u2014 intellectual rather than corporate, contextual rather than signature, and contemporary without being trendy.",
+      "mission": "",
+      "vision": "",
+      "values": [],
+      "personality": [
+        "precise",
+        "civic",
+        "experimental",
+        "material"
+      ],
+      "keywords": [
+        "adaptive reuse",
+        "public"
+      ],
+      "practice_scale": "small",
+      "founded": null,
+      "locations": []
+    },
+    "visual_identity": {
+      "logo": {
+        "primary": {
+          "path": "",
+          "format": "svg",
+          "min_width_mm": 20.0,
+          "aspect_ratio": null
+        },
+        "secondary": null,
+        "symbol": null,
+        "wordmark_text": "",
+        "monogram_text": "",
+        "construction": {
+          "module_mm": 5.0,
+          "cap_modules": 2.0,
+          "field_modules": 6.0,
+          "aperture_stroke_modules": 1.0,
+          "letter_gap_modules": 1.0,
+          "tracking_percent": 6.0
+        },
+        "concept": "",
+        "incorrect_uses": [
+          "Do not rotate the mark.",
+          "Do not outline, emboss or shadow it.",
+          "Do not stretch or condense it.",
+          "Do not re-set the wordmark in another face.",
+          "Do not place it on a tone darker than the permitted backgrounds.",
+          "Do not reduce it below the stated minimum width."
+        ],
+        "usage_rules": {
+          "clear_space_factor": 1.0,
+          "permitted_backgrounds": [
+            "T0",
+            "T1"
+          ],
+          "monochrome_only": true,
+          "prohibited": [
+            "rotation",
+            "outline",
+            "shadow",
+            "gradient",
+            "stretch"
+          ]
+        }
+      },
+      "typography": {
+        "primary_font": {
+          "family": "Inter",
+          "classification": "neo-grotesk",
+          "cap_height_ratio": 0.7275,
+          "fallback": "Arial",
+          "weights": [
+            400,
+            500,
+            600
+          ],
+          "licensed": true
+        },
+        "secondary_font": null,
+        "mono_font": {
+          "family": "IBM Plex Mono",
+          "classification": "mono",
+          "cap_height_ratio": 0.698,
+          "fallback": "Consolas",
+          "weights": [
+            400
+          ],
+          "licensed": true
+        },
+        "heading_styles": {
+          "h1": {
+            "role_class": "primary",
+            "step": "t7",
+            "face": "primary",
+            "weight": 500,
+            "uppercase": true,
+            "tracking_percent": 2.0
+          },
+          "h2": {
+            "role_class": "primary",
+            "step": "t5",
+            "face": "primary",
+            "weight": 500,
+            "uppercase": true,
+            "tracking_percent": 2.0
+          },
+          "h3": {
+            "role_class": "primary",
+            "step": "t4",
+            "face": "primary",
+            "weight": 500,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          },
+          "h4": {
+            "role_class": "primary",
+            "step": "t3",
+            "face": "primary",
+            "weight": 500,
+            "uppercase": true,
+            "tracking_percent": 2.0
+          }
+        },
+        "body_styles": {
+          "body": {
+            "role_class": "primary",
+            "step": "t2",
+            "face": "primary",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          },
+          "lead": {
+            "role_class": "primary",
+            "step": "t3",
+            "face": "primary",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          },
+          "caption": {
+            "role_class": "tertiary",
+            "step": "t1",
+            "face": "primary",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          },
+          "legal": {
+            "role_class": "tertiary",
+            "step": "t1",
+            "face": "primary",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          }
+        },
+        "numeric_styles": {
+          "identifier": {
+            "role_class": "primary",
+            "step": "t2",
+            "face": "mono",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          },
+          "dimension": {
+            "role_class": "primary",
+            "step": "t2",
+            "face": "primary",
+            "weight": 400,
+            "uppercase": false,
+            "tracking_percent": 0.0
+          }
+        },
+        "baseline_mm": 5.0,
+        "line_height_factor": 1.42
+      },
+      "colour": {
+        "primary": "#111111",
+        "secondary": "#565349",
+        "accent": "#6b6f76",
+        "background": "#f6f6f5",
+        "surface": "#ffffff",
+        "text_primary": "#111111",
+        "text_secondary": "#565349",
+        "border": "#d5d1c8",
+        "neutral": [
+          "#ffffff",
+          "#e8e6e1",
+          "#c4c1ba",
+          "#8d8a84",
+          "#4c4a46",
+          "#1c1b19"
+        ],
+        "semantic": {
+          "success": "#2f6f4f",
+          "warning": "#8a6a1f",
+          "error": "#8a2f2f",
+          "info": "#2f5f8a"
+        }
+      },
+      "spacing": {
+        "base_unit_mm": 5.0,
+        "scale": [
+          1.0,
+          2.0,
+          4.0,
+          8.0
+        ],
+        "margin_mm": 10.0
+      },
+      "grid": {
+        "columns": 6,
+        "gutter_mm": 10.0,
+        "margin_mm": 20.0,
+        "baseline_mm": 5.0,
+        "module_mm": 10.0,
+        "configurations": {}
+      },
+      "imagery": {
+        "photography": "",
+        "render_style": "",
+        "composition": [],
+        "colour_treatment": "desaturated",
+        "saturation": 0.65,
+        "aspect_ratios": [
+          "3:2",
+          "1:1"
+        ],
+        "perspective": "frontal",
+        "verticals_corrected": true,
+        "human_presence": "incidental",
+        "cropping": "full-frame",
+        "sequencing": [],
+        "detail_ratio": 0.25,
+        "bleed": false
+      },
+      "graphic_language": {
+        "corner": "square",
+        "rule_tier": "annotation",
+        "emphasis_rule_tier": "primary",
+        "frame_stroke_tier": "secondary",
+        "image_frame": true,
+        "image_caption_position": "below-left",
+        "separator_spacing_modules": 2.0,
+        "primitives": [],
+        "notes": ""
+      }
+    },
+    "architectural_language": {
+      "drawing": {
+        "lineweights": {
+          "cut_mm": 0.7,
+          "primary_mm": 0.35,
+          "secondary_mm": 0.25,
+          "background_mm": 0.18,
+          "annotation_mm": 0.18,
+          "dimension_mm": 0.18
+        },
+        "line_types": [
+          "L-CONT",
+          "L-DASH",
+          "L-DOT",
+          "L-CENT"
+        ],
+        "hatch_density": "fine",
+        "hatch_tokens": [
+          "H-CONC",
+          "H-MSNR",
+          "H-INSU-R",
+          "H-TIMB-S",
+          "H-METL"
+        ],
+        "annotation_position": "leadered",
+        "annotation_uppercase": true,
+        "hierarchy": [
+          "cut",
+          "projection",
+          "background",
+          "furniture",
+          "landscape",
+          "figures",
+          "annotation",
+          "dimension"
+        ],
+        "show_furniture": true,
+        "show_figures": true,
+        "notes": ""
+      },
+      "diagrams": {
+        "style": "minimal",
+        "projection": "axonometric",
+        "palette": [
+          "#111111",
+          "#6b6f76"
+        ],
+        "stroke_mm": 0.35,
+        "fill_tones": [
+          "T0",
+          "T1",
+          "T3"
+        ],
+        "label_step": "t2",
+        "notes": ""
+      },
+      "renders": {
+        "lighting": "overcast",
+        "mood": "documentary",
+        "contrast": 0.6,
+        "saturation": 0.65,
+        "camera": {
+          "focal_length_mm": 35.0,
+          "sensor_width_mm": 36.0,
+          "height_m": 1.6,
+          "two_point_perspective": true
+        },
+        "material_expression": [
+          "grain",
+          "patina",
+          "weathering"
+        ],
+        "people": true,
+        "sky": "high overcast",
+        "notes": ""
+      },
+      "materials": {
+        "palette": [],
+        "notes": ""
+      }
+    },
+    "communication": {
+      "tone": "precise",
+      "person": "first_plural",
+      "writing_style": "",
+      "sentence_length_max": 28,
+      "vocabulary": [],
+      "forbidden_words": [
+        "bespoke",
+        "iconic",
+        "cutting-edge",
+        "solution",
+        "leverage",
+        "synergy",
+        "state-of-the-art",
+        "unique"
+      ],
+      "terminology": {},
+      "primary_language": "en-GB",
+      "secondary_languages": [],
+      "date_format": "YYYY-MM-DD",
+      "number_format": "1 234,5"
+    },
+    "digital": {
+      "web": {
+        "sections": [
+          "Hero",
+          "Projects",
+          "Studio",
+          "Approach",
+          "Contact"
+        ],
+        "nav": "minimal-top",
+        "hero": "single image, full width, no overlaid text",
+        "project_card": "image, name, year, type \u2014 no hover caption",
+        "grid_columns": 12,
+        "max_content_width_px": 1440,
+        "image_treatment": "framed",
+        "motion": "fade",
+        "transition_ms": 180,
+        "hover": "opacity to 0.7, no scale, no shadow",
+        "dark_mode": false,
+        "notes": ""
+      },
+      "social": {
+        "platforms": [
+          "instagram",
+          "linkedin"
+        ],
+        "post_formats": [
+          "1:1",
+          "4:5"
+        ],
+        "post_types": [
+          "project announcement",
+          "construction progress",
+          "finished project",
+          "drawing",
+          "diagram",
+          "competition",
+          "studio news"
+        ],
+        "caption_max_words": 60,
+        "watermark": false,
+        "grid_discipline": "one project per three posts, in sequence",
+        "notes": ""
+      }
+    },
+    "applications": {
+      "documents": true,
+      "presentations": true,
+      "drawings": true,
+      "portfolio": true,
+      "website": false,
+      "social": false
+    }
+  }
+}

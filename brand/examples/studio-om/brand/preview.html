@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STUDIO OM — brand 1.0.0</title>
+<style>
+:root {
+  --font: Inter, Arial, sans-serif;
+  --mono: IBM Plex Mono, monospace;
+  --bg: #f2f0eb;
+  --surface: #fbfaf7;
+  --text: #1a1a18;
+  --text-2: #4d5149;
+  --border: #d6d2c8;
+  --accent: #64726b;
+  --unit: 5.0mm;
+  --gap: 10.0mm;
+  --block: 20.0mm;
+  --tracking: 3.0%;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0; font-family: var(--font); color: var(--text);
+  background: var(--bg); line-height: 1.45;
+  font-size: 15px;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: var(--block) var(--gap) 40mm; }
+h1 { font-size: 34px; font-weight: 500; margin: 0;
+      text-transform: uppercase; letter-spacing: var(--tracking); }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: var(--tracking);
+      color: var(--text-2); font-weight: 500;
+      margin: var(--block) 0 var(--unit); padding-bottom: 4px;
+      border-bottom: 1px solid var(--border); }
+p { margin: 0 0 var(--unit); max-width: 62ch; }
+.muted { color: var(--text-2); }
+.mono { font-family: var(--mono); font-size: 13px; }
+.row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: baseline; }
+.card { background: var(--surface); border: 1px solid var(--border); padding: var(--gap); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+td, th { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--border);
+          vertical-align: baseline; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking);
+      color: var(--text-2); font-weight: 500; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+             gap: var(--unit); }
+.swatch .chip { height: 56px; border: 1px solid var(--border); }
+.swatch .label { font-size: 11px; margin-top: 4px; }
+.swatch .mono { font-size: 11px; color: var(--text-2); }
+.specimen { margin-bottom: 6px; white-space: nowrap; overflow: hidden;
+             text-overflow: ellipsis; }
+.weights { display: grid; gap: 6px; }
+.weightrow { display: grid; grid-template-columns: 120px 1fr 90px; gap: var(--unit);
+              align-items: center; font-size: 12px; }
+.rule { background: var(--text); }
+.hier { display: flex; gap: 2px; align-items: flex-end; height: 60px; }
+.hier div { flex: 1; background: var(--text); position: relative; }
+.hier span { position: absolute; bottom: -18px; left: 0; font-size: 10px;
+              color: var(--text-2); text-transform: uppercase; }
+.pill { display: inline-block; padding: 2px 8px; border: 1px solid var(--border);
+         font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking); }
+.ok { border-color: var(--accent); }
+.f-BLOCK, .f-ERROR { border-left: 3px solid #7e2f2c; }
+.f-WARN { border-left: 3px solid #7a6320; }
+.f-INFO { border-left: 3px solid var(--border); }
+.finding { padding: 6px 0 6px 10px; margin-bottom: 6px; font-size: 13px; }
+.finding .where { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+/* Not inverted, and no dark-mode ground: this is a print identity, and
+   previewing it against a colour the brand has not declared previews a brand
+   the practice does not have. */
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>STUDIO OM</h1>
+  <p class="muted">Architecture, interiors and adaptive reuse
+      · Opening and mass</p>
+  <p class="mono muted">brand 1.0.0 ·
+     published · ADOS 1.0 ·
+     4aadb1166c69</p>
+</header>
+<div class="row" style="margin-top:8px"><span class="pill ok">validates clean</span></div>
+<section>
+  <h2>Typography</h2>
+  <table><tr><th>Role</th><th>Family</th><th>Class</th><th>Cap ratio</th><th>Fallback</th></tr>
+  <tr><td>Primary</td><td>Inter</td><td>neo-grotesk</td><td class="mono">0.7275</td><td>Arial</td></tr><tr><td>Secondary</td><td>Source Serif 4</td><td>editorial-serif</td><td class="mono">0.6700</td><td>Georgia</td></tr><tr><td>Mono</td><td>IBM Plex Mono</td><td>mono</td><td class="mono">0.6980</td><td>Consolas</td></tr></table>
+  <div style="margin-top:var(--gap)"><div class="specimen" style="font-size:72.7px">Aa Bb Cc 0123 — display</div><div class="mono muted" style="margin-bottom:10px">t7 · 14.0 mm cap · 54.55 pt</div><div class="specimen" style="font-size:36.4px">Aa Bb Cc 0123 — xl</div><div class="mono muted" style="margin-bottom:10px">t5 · 7.0 mm cap · 27.27 pt</div><div class="specimen" style="font-size:26.0px">Aa Bb Cc 0123 — lg</div><div class="mono muted" style="margin-bottom:10px">t4 · 5.0 mm cap · 19.48 pt</div><div class="specimen" style="font-size:18.2px">Aa Bb Cc 0123 — md</div><div class="mono muted" style="margin-bottom:10px">t3 · 3.5 mm cap · 13.64 pt</div><div class="specimen" style="font-size:13.0px">Aa Bb Cc 0123 — sm</div><div class="mono muted" style="margin-bottom:10px">t2 · 2.5 mm cap · 9.74 pt</div><div class="specimen" style="font-size:9.3px">Aa Bb Cc 0123 — xs</div><div class="mono muted" style="margin-bottom:10px">t1 · 1.8 mm cap · 7.01 pt</div></div>
+  <p class="mono muted">Point sizes are derived from cap height and the face's
+     measured cap-height ratio. They are not chosen.</p>
+</section>
+<section>
+  <h2>Colour</h2>
+  <div class="swatches"><div class="swatch"><div class="chip" style="background:#1a1a18"></div><div class="label">Primary</div><div class="mono">#1a1a18 · L* 9</div></div><div class="swatch"><div class="chip" style="background:#4d5149"></div><div class="label">Secondary</div><div class="mono">#4d5149 · L* 34</div></div><div class="swatch"><div class="chip" style="background:#64726b"></div><div class="label">Accent</div><div class="mono">#64726b · L* 47</div></div><div class="swatch"><div class="chip" style="background:#f2f0eb"></div><div class="label">Background</div><div class="mono">#f2f0eb · L* 95</div></div><div class="swatch"><div class="chip" style="background:#fbfaf7"></div><div class="label">Surface</div><div class="mono">#fbfaf7 · L* 98</div></div><div class="swatch"><div class="chip" style="background:#1a1a18"></div><div class="label">Text</div><div class="mono">#1a1a18 · L* 9</div></div><div class="swatch"><div class="chip" style="background:#4d5149"></div><div class="label">Text 2</div><div class="mono">#4d5149 · L* 34</div></div><div class="swatch"><div class="chip" style="background:#d6d2c8"></div><div class="label">Border</div><div class="mono">#d6d2c8 · L* 84</div></div></div>
+  <p class="mono muted" style="margin-top:var(--unit)">
+     text on background 15.3:1 · secondary 7.1:1 · floor 7:1</p>
+  <h2>Neutral ramp</h2>
+  <div style="display:flex"><div style="flex:1;height:36px;background:#fffff9"></div><div style="flex:1;height:36px;background:#cfccc3"></div><div style="flex:1;height:36px;background:#9e9b92"></div><div style="flex:1;height:36px;background:#706d64"></div><div style="flex:1;height:36px;background:#454239"></div><div style="flex:1;height:36px;background:#1e1b12"></div></div>
+  <h2>As plotted (monochrome)</h2>
+  <div style="display:flex"><div style="flex:1;height:36px;background:#1a1a1a"></div><div style="flex:1;height:36px;background:#505050"></div><div style="flex:1;height:36px;background:#6f6f6f"></div></div>
+  <p class="mono muted">Every drawing output is greyscale. Two brand colours
+     that collapse to the same grey carry no information on a plotted sheet.</p>
+</section>
+<section>
+  <h2>Grid</h2>
+  <div style="display:flex;gap:calc(10.0mm / 2)"><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div><div style="flex:1;background:var(--surface);border:1px solid var(--border);height:110px"></div></div>
+  <p class="mono muted" style="margin-top:var(--unit)">
+     6 columns · gutter 10.0 mm ·
+     margin 20.0 mm ·
+     baseline 5.0 mm ·
+     module 10.0 mm</p>
+</section>
+<section>
+  <h2>Drawing language</h2>
+  <div class="weights"><div class="weightrow"><span>Cut</span><div class="rule" style="height:4.00mm"></div><span class="mono">1.0 mm</span></div><div class="weightrow"><span>Seen</span><div class="rule" style="height:1.40mm"></div><span class="mono">0.35 mm</span></div><div class="weightrow"><span>Secondary</span><div class="rule" style="height:1.00mm"></div><span class="mono">0.25 mm</span></div><div class="weightrow"><span>Beyond</span><div class="rule" style="height:0.72mm"></div><span class="mono">0.18 mm</span></div><div class="weightrow"><span>Annotation</span><div class="rule" style="height:0.72mm"></div><span class="mono">0.18 mm</span></div><div class="weightrow"><span>Dimension</span><div class="rule" style="height:0.72mm"></div><span class="mono">0.18 mm</span></div></div>
+  <p class="mono muted" style="margin-top:6px">Shown at ×4. Weight encodes
+     distance from the cut plane and must decrease monotonically.</p>
+
+  <h2>Graphic hierarchy</h2>
+  <div class="hier"><div style="height:100%"><span>cut</span></div><div style="height:90%"><span>projection</span></div><div style="height:80%"><span>background</span></div><div style="height:70%"><span>furniture</span></div><div style="height:60%"><span>landscape</span></div><div style="height:50%"><span>annotation</span></div><div style="height:40%"><span>dimension</span></div></div>
+
+  <h2>Diagrams and renders</h2>
+  <table>
+    <tr><th>Diagram</th><td>minimal ·
+        axonometric · stroke 0.25 mm ·
+        tones T0, T1, T3</td></tr>
+    <tr><th>Lighting</th><td>soft daylight</td></tr>
+    <tr><th>Mood</th><td>material focused</td></tr>
+    <tr><th>Contrast / saturation</th><td>0.4 / 0.62</td></tr>
+    <tr><th>Camera</th><td>35.0 mm at
+        1.6 m, verticals held</td></tr>
+    <tr><th>Materials</th><td>board-marked concrete, reclaimed brick, oiled oak, oxidised steel, lime plaster</td></tr>
+  </table>
+</section>
+<section>
+  <h2>Communication</h2>
+  <div class="card">
+    <div style="font-size:22px;margin-bottom:8px">Opening and mass</div>
+    <p>A practice that works from what is already standing. Every project begins with a survey rather than a sketch, and the existing building is treated as the primary material — measured, kept where it performs, and cut where it does not.</p>
+  </div>
+  <table style="margin-top:var(--unit)">
+    <tr><th>Tone</th><td>precise · first plural</td></tr>
+    <tr><th>Sentence cap</th><td>24 words</td></tr>
+    <tr><th>Language</th><td>en-GB</td></tr>
+    <tr><th>Not used</th><td>bespoke, iconic, cutting-edge, innovative, solution, leverage, synergy, transforming, state-of-the-art, unique, seamless, curated</td></tr>
+  </table>
+  <table style="margin-top:var(--unit)"><tr><th>Preferred term</th><th></th></tr><tr><td>adaptive reuse</td><td class='muted'>not: refurbishment</td></tr><tr><td>existing fabric</td><td class='muted'>not: the old building</td></tr><tr><td>embodied carbon</td><td class='muted'>not: carbon footprint</td></tr><tr><td>survey</td><td class='muted'>not: site visit</td></tr><tr><td>opening</td><td class='muted'>not: hole</td></tr></table>
+</section>
+<section>
+  <h2>Documents this brand can produce</h2>
+  <table><tr><th>Template</th><th>Id</th><th>Family</th><th>State</th></tr><tr><td>Business Card</td><td class='mono'>BI01-business-card</td><td>correspondence</td><td>renders</td></tr><tr><td>Letterhead</td><td class='mono'>BI02-letterhead</td><td>correspondence</td><td>renders</td></tr><tr><td>Email Signature (HTML)</td><td class='mono'>BI03-email-signature</td><td>correspondence</td><td>renders</td></tr><tr><td>Presentation Deck</td><td class='mono'>BI04-presentation-deck</td><td>presentation</td><td>renders</td></tr><tr><td>Portfolio Spread</td><td class='mono'>BI05-portfolio-spread</td><td>board</td><td>renders</td></tr><tr><td>Competition Board</td><td class='mono'>BI06-competition-board</td><td>board</td><td>renders</td></tr><tr><td>Social Post</td><td class='mono'>BI07-social-post</td><td>correspondence</td><td>renders</td></tr><tr><td>Website Homepage</td><td class='mono'>BI08-website-home</td><td>presentation</td><td>renders</td></tr><tr><td>A4 Report</td><td class='mono'>BT01-a4-report</td><td>document</td><td>renders</td></tr><tr><td>A3 Technical Document</td><td class='mono'>BT02-a3-technical</td><td>document</td><td>renders</td></tr><tr><td>Presentation</td><td class='mono'>BT03-presentation</td><td>presentation</td><td>renders</td></tr><tr><td>Portfolio Page</td><td class='mono'>BT04-portfolio-page</td><td>board</td><td>renders</td></tr><tr><td>Project Cover</td><td class='mono'>BT05-project-cover</td><td>sheet</td><td>renders</td></tr><tr><td>Meeting Minutes</td><td class='mono'>BT06-meeting-minutes</td><td>document</td><td>renders</td></tr><tr><td>Project Report</td><td class='mono'>BT07-project-report</td><td>document</td><td>renders</td></tr><tr><td>Proposal</td><td class='mono'>BT08-proposal</td><td>document</td><td>renders</td></tr><tr><td>Invoice</td><td class='mono'>BT09-invoice</td><td>document</td><td>renders</td></tr><tr><td>Email Signature</td><td class='mono'>BT10-email-signature</td><td>correspondence</td><td>renders</td></tr></table>
+</section>
+<section><h2>Validation</h2><p class="muted">No findings. The brand conforms to ADOS.</p></section>
+<footer style="margin-top:var(--block);padding-top:var(--unit);
+      border-top:1px solid var(--border)" class="mono muted">
+  197 resolved tokens · brand 1.0.0 ·
+  published · generated by the ADOS Brand System
+</footer>
+</div>
+</body>
+</html>

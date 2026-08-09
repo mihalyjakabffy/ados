@@ -1,0 +1,11 @@
+{
+  "brand": "STUDIO OM 1.0.0 (published)",
+  "ok": true,
+  "counts": {
+    "INFO": 0,
+    "WARN": 0,
+    "ERROR": 0,
+    "BLOCK": 0
+  },
+  "findings": []
+}

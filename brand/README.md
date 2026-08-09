@@ -30,6 +30,12 @@ python -m brand.cli tokens --flat
 python -m brand.cli preview --out preview.html
 python -m brand.cli render BT05-project-cover --out cover.pdf
 python -m brand.cli propose "A quiet, material practice doing adaptive reuse."
+
+python -m brand.cli logo --brand studio-om --out logo/
+python -m brand.cli guidelines --brand studio-om --pdf
+python -m brand.cli export --brand studio-om
+python -m brand.cli package                  # the whole STUDIO OM package
+python -m brand.cli audit brand/examples/studio-om --brand studio-om
 ```
 
 ```python
@@ -37,7 +43,7 @@ from brand import Brand, BrandAgent
 
 brand  = Brand.create(name="Studio Nord", primary_font="Inter")
 report = brand.check()                  # structural · consistency · architectural
-tokens = brand.resolve_tokens()         # 122 tokens, each with provenance
+tokens = brand.resolve_tokens()         # every value with its provenance
 doc    = brand.apply_to(template)
 
 proposal = BrandAgent().generate_proposal(brief)
@@ -55,12 +61,18 @@ brand    = proposal.approve(approved_by="MJ")   # the human step
 | `resolution/` | `BrandResolver` (brand → tokens) and `pts_bridge` (tokens → the PTS builders) |
 | `versioning/` | Semantic versions, lineage, and the immutability of a published version |
 | `agents/` | `BrandAgent`, subclassing the repository's `BaseAgent` |
-| `templates/` | Ten declarative template categories and two renderers |
+| `templates/` | Eighteen declarative templates in two catalogues, and two renderers |
 | `preview/` | A self-contained HTML preview — the artefact a human approves against |
 | `store/` | File-backed and SQL-backed repositories behind one protocol |
 | `schemas/` | JSON Schema, generated from the models |
+| `assets/` | The logo system — SVG variants generated from the brand's own typeface and module |
+| `export/` | CSS variables, JSON, YAML, the colour table, PNG/PDF via the browser, and the asset inventory |
+| `guidelines/` | The eighteen-section brand guidelines, generated from the tokens |
 | `consumers.py` | Phase-5 interfaces: Archicad attributes, render parameters |
-| `examples/studio_nord.py` | The worked example |
+| `examples/studio_nord.py` | A small worked example |
+| `examples/studio_om.py` | **STUDIO OM** — a full practice identity |
+| `examples/build_studio_om.py` | Builds the complete STUDIO OM package |
+| `examples/studio-om/` | That package: 40 assets, audited |
 
 Persistence lives in `schemas/brand_models.py` and `alembic/versions/011_brand_system.py`, following
 the repository's convention that ORM classes share one `Base` under `schemas/`. The HTTP surface is
@@ -94,13 +106,14 @@ forward.
 
 ## The token namespace
 
-Sixteen closed namespaces (`brand/models/tokens.py`). A resolver emitting a name outside them raises,
+Twenty closed namespaces (`brand/models/tokens.py`). A resolver emitting a name outside them raises,
 which is what stops the vocabulary drifting into near-synonyms.
 
 ```
 font.*     line_height.*  letter_spacing.*  color.*   space.*   grid.*
 stroke.*   tone.*         radius.*          shadow.*  opacity.*
-render.*   diagram.*      voice.*           asset.*   meta.*
+render.*   diagram.*      graphic.*         photo.*   web.*     social.*
+voice.*    asset.*        meta.*
 ```
 
 Every token carries its unit, the brand field it came from, and — where ADOS bounded it — the rule:
@@ -153,6 +166,14 @@ better than substituting a proportional face and shipping an invoice whose colum
 | `BT08-proposal` | Proposal | document | HTML |
 | `BT09-invoice` | Invoice | document | HTML |
 | `BT10-email-signature` | Email Signature | correspondence | HTML |
+| `BI01-business-card` | Business Card | correspondence | HTML |
+| `BI02-letterhead` | Letterhead | correspondence | HTML |
+| `BI03-email-signature` | Email Signature (table-based) | correspondence | HTML |
+| `BI04-presentation-deck` | Presentation Deck — six slide kinds | presentation | HTML |
+| `BI05-portfolio-spread` | Portfolio Spread | board | HTML |
+| `BI06-competition-board` | Competition Board | board | HTML |
+| `BI07-social-post` | Social Post | correspondence | HTML |
+| `BI08-website-home` | Website Homepage | presentation | HTML |
 
 `BT05` is the load-bearing one. It is built by `docs/templates/pdf/ptspdf.py` — the same code that
 produces the verified PTS sheets — driven by a brand overlay. Change the brand's cut weight and the
@@ -175,10 +196,48 @@ sheet still claimed conformance. An overlay touching anything else raises.
 `ptspdf.token_overlay()` is a context manager, not a setter, because the module's tokens are global
 and an overlay that outlived its build would brand the next one.
 
+## The logo system
+
+The mark is **generated**, not drawn. Proportions come from
+`visual_identity.logo.construction` in modules — the same lattice the sheets
+are set on — and the letterforms are real glyph outlines pulled from the
+practice's own font binary with fontTools, so the wordmark *is* the typeface
+rather than a `<text>` element that renders differently wherever the font is
+missing. Change the module and the mark rebuilds; change the face and the
+wordmark is re-set in it.
+
+Seven variants: primary, secondary, monogram, symbol, compact, stacked,
+reversed. The reversed lockup is constructed by inverting the palette and
+re-drawing, never by string-replacing colours in a finished SVG — a
+replacement that stops matching fails silently and ships a mark that is simply
+not reversed.
+
+## The consistency check
+
+`brand/validation/consistency.py` audits a *generated package* against the
+brand it claims to come from. `BrandValidator` says a brand is sound; this
+says the files on disk actually derive from it — separable failures, and the
+second only becomes checkable once assets exist.
+
+```bash
+python -m brand.cli audit <package-dir> --brand studio-om
+```
+
+It catches planted colours, undeclared font families, dangling custom
+properties, layout dimensions off the lattice, assets with no inventory
+record, missing logo variants, files off the naming pattern, and colours
+declared twice.
+
+Two deliberate scope decisions, both learned from false positives in the first
+run: colour and font checks apply only to formats that *render* (a hex in a
+JSON file is data), and the lattice rule distinguishes placement (`gap`,
+`margin` — full sub-module) from internal clearance (`padding` — half), which
+is the distinction ADOS itself makes.
+
 ## Tests
 
 ```bash
-python -m pytest tests_brand -q      # 157 tests
+python -m pytest tests_brand -q      # 192 tests
 ```
 
 Runs in CI alongside `tests_rules` and `construmind/tests`. No database, no storage, no API key: the

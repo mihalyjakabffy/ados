@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from brand.models.architectural_language import ArchitecturalLanguage
 from brand.models.communication import Communication
+from brand.models.digital import DigitalDirection
 from brand.models.identity import Identity
 from brand.models.visual_identity import (
     ColourSystem,
@@ -120,6 +121,7 @@ class Brand(BaseModel):
         default_factory=ArchitecturalLanguage
     )
     communication: Communication = Field(default_factory=Communication)
+    digital: DigitalDirection = Field(default_factory=DigitalDirection)
     applications: BrandApplications = Field(default_factory=BrandApplications)
 
     # ------------------------------------------------------------------

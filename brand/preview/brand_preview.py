@@ -125,8 +125,8 @@ th {{ font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking
 .pill {{ display: inline-block; padding: 2px 8px; border: 1px solid var(--border);
          font-size: 11px; text-transform: uppercase; letter-spacing: var(--tracking); }}
 .ok {{ border-color: var(--accent); }}
-.f-BLOCK, .f-ERROR {{ border-left: 3px solid #8a2f2f; }}
-.f-WARN {{ border-left: 3px solid #8a6a1f; }}
+.f-BLOCK, .f-ERROR {{ border-left: 3px solid {v('color.semantic.error')}; }}
+.f-WARN {{ border-left: 3px solid {v('color.semantic.warning')}; }}
 .f-INFO {{ border-left: 3px solid var(--border); }}
 .finding {{ padding: 6px 0 6px 10px; margin-bottom: 6px; font-size: 13px; }}
 .finding .where {{ font-family: var(--mono); font-size: 11px; color: var(--text-2); }}

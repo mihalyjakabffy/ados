@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8">
+<title>Portfolio Spread — STUDIO OM</title>
+<style>
+:root {
+  --font: Inter, Arial, sans-serif;
+  --mono: IBM Plex Mono, monospace;
+  --xs: 1.8mm; --sm: 2.5mm;
+  --md: 3.5mm; --lg: 5.0mm;
+  --xl: 7.0mm; --display: 14.0mm;
+  --w-reg: 400; --w-med: 500;
+  --lead: 1.45; --track: 3.0%;
+  --ink: #1a1a18; --ink-2: #4d5149;
+  --paper: #f2f0eb; --surface: #fbfaf7;
+  --line: #d6d2c8; --accent: #64726b;
+  --s1: 5.0mm; --s2: 10.0mm; --s3: 20.0mm;
+  --margin: 20.0mm; --gutter: 10.0mm;
+  --rule: 0.18mm; --frame: 0.18mm;
+  --clear: 1.0;
+}
+@page { size: 420mm 297mm; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--paper); }
+body { font-family: var(--font); font-size: var(--sm); color: var(--ink);
+        line-height: var(--lead); font-weight: var(--w-reg); }
+.page { width: 420mm; height: 297mm; padding: var(--margin);
+         background: var(--paper); position: relative; overflow: hidden;
+         page-break-after: always; }
+.caps { text-transform: uppercase; letter-spacing: var(--track); }
+.med { font-weight: var(--w-med); }
+.mono { font-family: var(--mono); }
+.dim { color: var(--ink-2); }
+.rule { border: 0; border-top: var(--rule) solid var(--ink); margin: var(--s1) 0; }
+.hair { border: 0; border-top: var(--rule) solid var(--line); margin: var(--s1) 0; }
+.frame { border: var(--frame) solid var(--ink); }
+.imgbox { border: var(--frame) solid var(--line); background: var(--surface);
+           display: flex; align-items: center; justify-content: center;
+           color: var(--ink-2); font-size: var(--xs); }
+.wordmark { font-size: var(--md); font-weight: var(--w-med);
+             text-transform: uppercase; letter-spacing: var(--track); }
+
+h1 { font-size: var(--xl); font-weight: var(--w-med); margin: 0; }
+.lead { display:grid; grid-template-columns: 2fr 1fr; gap: var(--gutter);
+        margin: var(--s2) 0; }
+.facts { display:grid; grid-template-columns: auto 1fr; gap: 0 var(--s1);
+         margin:0; font-size: var(--xs); }
+.facts dt { text-transform:uppercase; letter-spacing:var(--track); color:var(--ink-2); }
+.facts dd { margin:0; }
+.tiles { display:grid; grid-template-columns: repeat(4, 1fr); gap: var(--gutter);
+         height: 150mm; }
+footer { position:absolute; left:var(--margin); right:var(--margin);
+         bottom:var(--margin); font-size:var(--xs); }
+
+</style></head><body>
+<div class="page">
+  <header style="display:flex;justify-content:space-between;align-items:baseline">
+    <h1 class="caps">Malthouse</h1>
+    <span class="mono dim">2317</span>
+  </header>
+  <hr class="hair">
+  <div class="lead">
+    <p>A 1904 malthouse with a sound brick shell and a failed roof. We kept the shell, replaced the roof in timber, and cut one new opening.</p>
+    <dl class="facts">
+      <dt>Location</dt><dd>Budapest</dd>
+      <dt>Year</dt><dd>2025</dd>
+      <dt>Area</dt><dd>1 240 m²</dd>
+      <dt>Status</dt><dd>Completed</dd>
+    </dl>
+  </div>
+  <div class="tiles"><div class="imgbox">context</div><div class="imgbox">approach</div><div class="imgbox">threshold</div><div class="imgbox">interior</div></div>
+  <footer class="dim caps">STUDIO OM ·
+    Architecture, interiors and adaptive reuse</footer>
+</div></body></html>
