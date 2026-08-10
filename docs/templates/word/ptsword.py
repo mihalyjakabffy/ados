@@ -59,6 +59,7 @@ def token_overlay(overlay: dict | None = None, *, font: str | None = None,
                   font_mono: str | None = None,
                   font_alt: str | None = None,
                   font_mono_alt: str | None = None,
+                  font_files: dict[str, Path] | None = None,
                   properties: dict[str, str] | None = None):
     """Build with a brand's values merged over the file, then restore.
 
@@ -73,13 +74,15 @@ def token_overlay(overlay: dict | None = None, *, font: str | None = None,
     A context manager rather than a setter because these are module globals:
     an overlay that outlived its build would brand the next one.
     """
-    global T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES
-    saved = (T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES)
+    global T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, FONT_FILES, DOC_PROPERTIES
+    saved = (T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, FONT_FILES,
+             DOC_PROPERTIES)
     T = _deep_merge(T, overlay or {})
     FONT = font or FONT
     FONT_MONO = font_mono or FONT_MONO
     FONT_ALT = font_alt or FONT_ALT
     FONT_MONO_ALT = font_mono_alt or FONT_MONO_ALT
+    FONT_FILES = font_files if font_files is not None else FONT_FILES
     if properties:
         DOC_PROPERTIES = [
             (name, properties.get(name, value)) for name, value in DOC_PROPERTIES
@@ -87,7 +90,8 @@ def token_overlay(overlay: dict | None = None, *, font: str | None = None,
     try:
         yield T
     finally:
-        T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, DOC_PROPERTIES = saved
+        (T, FONT, FONT_MONO, FONT_ALT, FONT_MONO_ALT, FONT_FILES,
+         DOC_PROPERTIES) = saved
 
 
 def _deep_merge(base: dict, overlay: dict) -> dict:
@@ -436,6 +440,12 @@ def build_footer(doc: Document, section, page_numbers: bool = True) -> None:
     row = _apparatus_table(doc, section.footer, [total * 0.7, total * 0.3], "top")
 
     left = _apparatus_para(doc, row.cells[0])
+    # The originator leads the footer. Until this was here the practice's name
+    # existed only in a custom property that nothing displayed — the document
+    # carried the brand and did not show it, which is the same as not carrying
+    # it. A field, not typed text, so it still follows the property.
+    add_docproperty(left, "PTS_Originator", "Originator name")
+    left.add_run("  ·  ")
     add_docproperty(left, "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000", style="mono inline")
     left.add_run("  ·  ")
     add_docproperty(left, "PTS_Revision", "P01")
@@ -613,6 +623,141 @@ def _stamp_table_widths(doc: Document) -> None:
                 cell.width = Twips(w)
 
 
+#: Family -> font file to embed. Empty means embed nothing, which is the
+#: unbranded default: the PTS pack ships as a template a practice installs the
+#: fonts for. A brand supplies real paths through ``token_overlay``.
+FONT_FILES: dict[str, Path] = {}
+
+CT_OBFUSCATED_FONT = "application/vnd.openxmlformats-officedocument.obfuscatedFont"
+
+#: One fixed key per family. The value is arbitrary — it is the XOR key, not a
+#: secret — but keeping it stable makes two builds of the same template
+#: byte-identical, which the PTS packs rely on.
+_FONT_KEYS = {
+    "regular": "{1D9D4F1A-7C5B-4E2A-9A31-6B0E5C7A2D40}",
+    "mono": "{2E8C3B2B-6D4A-4F1B-8B42-7C1F6D8B3E51}",
+}
+
+
+def obfuscate_font(data: bytes, font_key: str) -> bytes:
+    """The ECMA-376 §17.8.1 font obfuscation.
+
+    Word will not load an embedded font that is not obfuscated. The scheme is
+    not encryption and is not meant to be: the first 32 bytes of the file are
+    XORed with the 16 bytes of the fontKey GUID, applied twice. The GUID's hex
+    digits are read into bytes and then reversed, which is the part everyone
+    gets wrong.
+
+    Being an XOR, the function is its own inverse — which is how the round-trip
+    test checks it without a copy of Word.
+    """
+    clean = font_key.strip("{}").replace("-", "")
+    key = bytes.fromhex(clean)[::-1]
+    out = bytearray(data)
+    for i in range(min(32, len(out))):
+        out[i] ^= key[i % 16]
+    return bytes(out)
+
+
+def _embed_fonts(items: dict[str, bytes]) -> None:
+    """Add the declared font files to the package, in place.
+
+    Without this a .dotx is a *request* for a typeface. On a machine that does
+    not have it — a phone previewing an attachment, a consultant's laptop —
+    Word substitutes, and ``w:altName`` is advisory: readers that honour it
+    give a sans, readers that ignore it give a serif, and either way every
+    measurement shifts and the document is no longer the one that was designed
+    (PTS-03 §1.1).
+
+    An embedded font that a reader cannot use is ignored, not fatal, so this
+    can only improve on the substitute.
+    """
+    if not FONT_FILES:
+        return
+
+    roles = {FONT: "regular", FONT_MONO: "mono"}
+    rels: list[str] = []
+    declarations: dict[str, str] = {}
+
+    for index, (family, role) in enumerate(
+        ((f, roles[f]) for f in (FONT, FONT_MONO) if f in FONT_FILES), start=1
+    ):
+        path = Path(FONT_FILES[family])
+        if not path.exists():                              # pragma: no cover
+            continue
+        key = _FONT_KEYS[role]
+        part = f"word/fonts/font{index}.odttf"
+        items[part] = obfuscate_font(path.read_bytes(), key)
+        rel_id = f"rIdFont{index}"
+        rels.append(
+            f'<Relationship Id="{rel_id}" Type="http://schemas.openxmlformats.org/'
+            f'officeDocument/2006/relationships/font" Target="fonts/font{index}.odttf"/>'
+        )
+        declarations[family] = (
+            f'<w:embedRegular r:id="{rel_id}" w:fontKey="{key}" '
+            f'w:subsetted="0"/>'
+        )
+
+    if not declarations:                                   # pragma: no cover
+        return
+
+    # fontTable needs the relationship namespace to carry r:id at all.
+    ft = items["word/fontTable.xml"].decode("utf-8")
+    if "xmlns:r=" not in ft:
+        ft = ft.replace(
+            "<w:fonts ",
+            '<w:fonts xmlns:r="http://schemas.openxmlformats.org/'
+            'officeDocument/2006/relationships" ',
+            1,
+        )
+    for family, declaration in declarations.items():
+        # w:embedRegular follows the descriptive children in CT_Font's sequence,
+        # so it is appended immediately before the element closes.
+        ft = ft.replace(
+            f'<w:font w:name="{family}">', f'<w:font w:name="{family}">', 1
+        )
+        ft = re.sub(
+            rf'(<w:font w:name="{re.escape(family)}">)(.*?)(</w:font>)',
+            lambda m: m.group(1) + m.group(2) + declaration + m.group(3),
+            ft, count=1, flags=re.S,
+        )
+    items["word/fontTable.xml"] = ft.encode("utf-8")
+
+    rels_part = "word/_rels/fontTable.xml.rels"
+    existing = items.get(rels_part, b"").decode("utf-8")
+    if existing:                                           # pragma: no cover
+        items[rels_part] = existing.replace(
+            "</Relationships>", "".join(rels) + "</Relationships>"
+        ).encode("utf-8")
+    else:
+        items[rels_part] = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/'
+            'package/2006/relationships">' + "".join(rels) + "</Relationships>"
+        ).encode("utf-8")
+
+    ct = items["[Content_Types].xml"].decode("utf-8")
+    if 'Extension="odttf"' not in ct:
+        ct = ct.replace(
+            "<Types ",
+            "<Types ", 1,
+        ).replace(
+            "</Types>",
+            f'<Default Extension="odttf" ContentType="{CT_OBFUSCATED_FONT}"/>'
+            "</Types>",
+        )
+    items["[Content_Types].xml"] = ct.encode("utf-8")
+
+    # Tell Word the document brings its own fonts.
+    settings = items["word/settings.xml"].decode("utf-8")
+    if "embedTrueTypeFonts" not in settings:
+        settings = settings.replace(
+            "</w:settings>",
+            "<w:embedTrueTypeFonts/><w:saveSubsetFonts w:val=\"0\"/></w:settings>",
+        )
+    items["word/settings.xml"] = settings.encode("utf-8")
+
+
 def _font_table(xml: str) -> str:
     """Declare a substitute for each specified face.
 
@@ -686,6 +831,8 @@ def save_as_dotx(doc: Document, out_path: Path | io.BytesIO) -> None:
     settings = re.sub(r"<w:zoom(?![^>]*w:percent)([^>]*?)/>",
                       r'<w:zoom\1 w:percent="100"/>', settings)
     items["word/settings.xml"] = settings.encode("utf-8")
+
+    _embed_fonts(items)
 
     target = out_path
     if hasattr(out_path, "write"):          # an open binary stream

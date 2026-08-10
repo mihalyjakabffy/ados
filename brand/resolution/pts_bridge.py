@@ -194,14 +194,13 @@ def _properties(brand: Brand, overlay: PtsOverlay) -> None:
     identifier and issue date belong to a project, not to a practice, and
     filling them here would put a stale value where the reader expects a blank.
     """
+    # The practice *name* only. This property is displayed in the page footer
+    # of every Word template, beside the container identifier, the revision and
+    # the status — a full address line there would wrap the footer onto two
+    # lines on every page. The address belongs on the letterhead, which is one
+    # page and has room for it.
     overlay.properties = {
-        "PTS_Originator": ", ".join(
-            part for part in (
-                brand.identity.name,
-                brand.identity.descriptor,
-                ", ".join(brand.identity.locations),
-            ) if part
-        ),
+        "PTS_Originator": brand.identity.name,
         "PTS_Conformance": overlay.identity["conformance"],
     }
 

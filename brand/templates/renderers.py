@@ -347,6 +347,7 @@ def render_word_dotx(
         font_mono=overlay.families.get("mono"),
         font_alt=overlay.families.get("primary_fallback"),
         font_mono_alt=overlay.families.get("mono_fallback"),
+        font_files=_font_files(overlay),
         properties=overlay.properties,
     ):
         getattr(word_build, builder)(_StreamDir(buffer))
@@ -372,6 +373,25 @@ _WORD_BUILDERS: dict[str, str] = {
     "BW07-revision-log": "t10_revision_log",
     "BW08-transmittal": "t11_transmittal",
 }
+
+
+def _font_files(overlay) -> dict:
+    """Family → file, for the faces the package can embed.
+
+    ``overlay.fonts`` is keyed by role and only contains faces with a bundled
+    file; ``overlay.families`` gives the name each role resolved to. Embedding
+    is what turns a .dotx from a *request* for a typeface into a document that
+    sets it — without it the file renders in whatever the reader substitutes,
+    which on a phone is a serif.
+    """
+    from pathlib import Path as _Path
+
+    out = {}
+    for role in ("primary", "mono"):
+        family, path = overlay.families.get(role), overlay.fonts.get(role)
+        if family and path and _Path(path).exists():
+            out[family] = _Path(path)
+    return out
 
 
 class _StreamDir:

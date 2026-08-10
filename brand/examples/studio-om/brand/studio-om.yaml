@@ -5,7 +5,7 @@ version: 1.0.0
 status: published
 parent_version: null
 content_hash: 4aadb1166c690b4599ebd50d0f128c1d44281901bc8c0a0a4001739af50758ba
-created_at: '2026-08-09T20:31:45.061917Z'
+created_at: '2026-08-10T07:46:00.820047Z'
 changelog: Initial identity, generated through the ADOS Brand System.
 ados_edition: '1.0'
 origin: manual

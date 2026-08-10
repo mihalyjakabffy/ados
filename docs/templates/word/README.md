@@ -61,8 +61,8 @@ setter, because these are module globals and an overlay that outlived its build 
 next one.
 
 What a brand may supply: the three semantic line weights, the uppercase tracking, the module, the
-typeface families **and their `w:altName` substitutes**, and defaults for the document properties.
-What it may not: anything ADOS derives.
+typeface families with their `w:altName` substitutes **and the font files themselves**, and defaults
+for the document properties. What it may not: anything ADOS derives.
 
 ```python
 from brand.templates.document_templates import get_template
@@ -83,9 +83,14 @@ The templates specify **Inter** for text and **IBM Plex Mono** for identifiers. 
 them a substitute is used, every measurement shifts, and the document is no longer the one that was
 designed.
 
-The font table declares `altName` substitutes — Arial for Inter, Consolas for IBM Plex Mono — so an
-uninstalled face degrades to a sans rather than to a serif. That is damage limitation, not a
-substitute for installing the fonts.
+The font table declares `altName` substitutes — Arial for Inter, Consolas for IBM Plex Mono. That is
+damage limitation and it is **advisory**: some readers honour it and give a sans, some ignore it and
+give a serif. A phone previewing an attachment does the latter.
+
+A **brand-aware build embeds the fonts** (`ptsword.obfuscate_font`, ECMA-376 §17.8.1), which is what
+turns a `.dotx` from a request for a typeface into a document set in it. The unbranded pack does not
+embed: it ships as a template a practice installs the fonts for, and it must stay the file the 174
+checks were written against.
 
 - Inter — https://rsms.me/inter/
 - IBM Plex Mono — https://www.ibm.com/plex/

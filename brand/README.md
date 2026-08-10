@@ -181,7 +181,13 @@ family by `docs/templates/word/ptsword.py` — the same code that produces the v
 the eight `.dotx` templates — each driven by a brand overlay. Change the brand's cut weight and the
 plotted line changes; change the typeface and the Word font table follows, `w:altName` included.
 
-The branded `.dotx` files are checked by the PTS verifier itself: `tests_brand` runs
+A branded `.dotx` also **embeds its fonts** (ECMA-376 §17.8.1 obfuscation) and prints the practice
+name in the page footer as a field. Both exist because the first pass had neither: the brand was in
+the file — in the font table and a custom property — and not on the page, which for a reader is the
+same as not being there, and the document rendered in whatever serif the reader happened to
+substitute.
+
+The branded files are checked by the PTS verifier itself: `tests_brand` runs
 `docs/templates/word/verify.py` against the *branded* output and requires all 174 checks to pass, so
 branding a template cannot quietly break it.
 
@@ -250,7 +256,7 @@ is the distinction ADOS itself makes.
 ## Tests
 
 ```bash
-python -m pytest tests_brand -q      # 199 tests
+python -m pytest tests_brand -q      # 206 tests
 ```
 
 Runs in CI alongside `tests_rules` and `construmind/tests`. No database, no storage, no API key: the

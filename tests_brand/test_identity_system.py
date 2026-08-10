@@ -596,3 +596,151 @@ def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
 def test_the_package_contains_the_word_templates(package):
     _, out = package
     assert len(list((out / "word").glob("*.dotx"))) == 8
+
+
+# ---------------------------------------------------------------------------
+# Font embedding — the difference between requesting a typeface and setting one
+# ---------------------------------------------------------------------------
+
+
+def _dotx(brand, template_id="BW01-specification"):
+    import io
+    import zipfile
+
+    from brand.templates.document_templates import get_template
+    from brand.templates.renderers import render_word_dotx
+
+    doc = render_word_dotx(
+        get_template(template_id), brand.resolve_tokens(), brand=brand
+    )
+    return zipfile.ZipFile(io.BytesIO(doc.content))
+
+
+def test_the_obfuscation_round_trips_to_the_source_font():
+    """ECMA-376 §17.8.1, checked without a copy of Word.
+
+    The scheme is an XOR, so it is its own inverse: de-obfuscating must return
+    the original bytes, magic number and all. That does not prove Word accepts
+    it, but it proves the transform is self-consistent and that the file is a
+    whole TrueType font rather than a truncated one.
+    """
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[1] / "docs/templates/word")
+    )
+    import ptsword
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "docs/templates/pdf/fonts/Inter-Regular.ttf"
+    ).read_bytes()
+    key = "{1D9D4F1A-7C5B-4E2A-9A31-6B0E5C7A2D40}"
+    obfuscated = ptsword.obfuscate_font(source, key)
+    assert obfuscated[:4] != source[:4], "the first bytes must be scrambled"
+    assert ptsword.obfuscate_font(obfuscated, key) == source
+    assert source[:4] == b"\x00\x01\x00\x00"
+
+
+def test_a_branded_dotx_embeds_its_fonts(om):
+    """Without this the file is a *request* for Inter, not a document set in it.
+
+    On a machine that does not have the face — a phone previewing an
+    attachment — the reader substitutes, and ``w:altName`` is advisory: some
+    readers honour it and give a sans, some ignore it and give a serif. Either
+    way every measurement shifts.
+    """
+    zf = _dotx(om)
+    fonts = [n for n in zf.namelist() if n.startswith("word/fonts/")]
+    assert len(fonts) == 2, "the text face and the mono face"
+    assert "word/_rels/fontTable.xml.rels" in zf.namelist()
+    assert 'Extension="odttf"' in zf.read("[Content_Types].xml").decode()
+
+    table = zf.read("word/fontTable.xml").decode()
+    assert table.count("w:embedRegular") == 2
+    assert "xmlns:r=" in table, "r:id needs the relationship namespace declared"
+    assert "embedTrueTypeFonts" in zf.read("word/settings.xml").decode()
+
+
+def test_the_embedded_font_is_the_declared_face(om):
+    """Not just *a* font — the one the brand names."""
+    import re
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[1] / "docs/templates/word")
+    )
+    import ptsword
+
+    zf = _dotx(om)
+    table = zf.read("word/fontTable.xml").decode()
+    key = re.search(r'w:fontKey="(\{[^"]+\})"', table).group(1)
+    recovered = ptsword.obfuscate_font(zf.read("word/fonts/font1.odttf"), key)
+    expected = (
+        Path(__file__).resolve().parents[1]
+        / "docs/templates/pdf/fonts/Inter-Regular.ttf"
+    ).read_bytes()
+    assert recovered == expected
+
+
+def test_an_unbranded_build_embeds_nothing(tmp_path):
+    """The PTS pack ships as a template a practice installs fonts for.
+
+    Embedding is what a *brand* adds, and the unbranded default must stay the
+    file the 174 checks were written against.
+    """
+    import sys
+    import zipfile
+    from pathlib import Path
+
+    word_dir = Path(__file__).resolve().parents[1] / "docs/templates/word"
+    sys.path.insert(0, str(word_dir))
+    import build as word_build
+
+    word_build.t05_specification(tmp_path)
+    zf = zipfile.ZipFile(tmp_path / "PTS-T05-Specification.dotx")
+    assert not [n for n in zf.namelist() if n.startswith("word/fonts/")]
+
+
+def test_the_practice_appears_on_the_page(om):
+    """In the footer, as a field — not only in a property nothing displays.
+
+    This is the defect the first pass shipped: the brand was *in* the file and
+    not *on* it, which for a reader is the same as not being there.
+    """
+    zf = _dotx(om, "BW06-request-for-information")
+    footer = zf.read("word/footer1.xml").decode()
+    assert "PTS_Originator" in footer
+    assert "DOCPROPERTY" in footer, "a field, so it follows the property"
+    props = zf.read("docProps/custom.xml").decode()
+    assert f"<vt:lpwstr>{om.identity.name}</vt:lpwstr>" in props
+
+
+def test_the_footer_originator_stays_short(om):
+    """A page footer is one line.
+
+    The address belongs on the letterhead, which is one page and has room for
+    it; in a footer beside the container id, revision and status it wraps every
+    page in the document.
+    """
+    from brand.resolution.pts_bridge import build_overlay
+
+    originator = build_overlay(om).properties["PTS_Originator"]
+    assert originator == om.identity.name
+    assert len(originator) <= 40
+
+
+def test_font_files_do_not_leak_between_builds(om):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(
+        0, str(Path(__file__).resolve().parents[1] / "docs/templates/word")
+    )
+    import ptsword
+
+    before = dict(ptsword.FONT_FILES)
+    _dotx(om)
+    assert ptsword.FONT_FILES == before
