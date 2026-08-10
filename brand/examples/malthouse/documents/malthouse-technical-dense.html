@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Malthouse — STUDIO OM</title>
+<style>
+
+:root {
+  --font-primary: Inter, Arial, sans-serif;
+  --size-xs: 1.8mm;
+  --size-sm: 2.5mm;
+  --size-md: 3.5mm;
+  --size-lg: 5.0mm;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --leading: 1.45;
+  --tracking-caps: 3.0%;
+  --bg: #f2f0eb;
+  --surface: #fbfaf7;
+  --text: #1a1a18;
+  --text-2: #4d5149;
+  --border: #d6d2c8;
+  --accent: #64726b;
+  --gutter: 10.0mm;
+  --margin: 20.0mm;
+  --baseline: 5.0mm;
+  --space-1: 5.0mm;
+  --space-2: 10.0mm;
+  --space-3: 20.0mm;
+  --columns: 6;
+  --rule: 0.18mm;
+}
+@page { size: 210.0mm 297.0mm; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); }
+body {
+  font-family: var(--font-primary);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.document { display: flex; flex-direction: column; gap: var(--space-3); }
+.page {
+  position: relative;
+  width: var(--page-w);
+  height: var(--page-h);
+  padding: var(--margin);
+  margin: 0 auto;
+  background: var(--bg);
+  outline: var(--rule) solid var(--border);
+}
+.canvas { position: relative; width: 100%; height: 100%; }
+.slot {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  min-height: var(--h);
+  font-size: var(--em);
+}
+.slot p { margin: 0; }
+.rank-display {
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading);
+}
+.rank-lead { font-weight: var(--weight-medium); }
+.rank-label {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-2);
+}
+.rank-caption { color: var(--text-2); }
+.metric { display: flex; flex-direction: column; }
+.metric .label {
+  order: -1;
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+.metric .value { font-weight: var(--weight-medium); }
+.metric .source {
+  font-size: var(--size-xs);
+  color: var(--text-2);
+}
+.inline-label {
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  margin-right: var(--space-1);
+}
+.figure {
+  background: var(--surface);
+  border: var(--rule) solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: var(--h);
+  padding: var(--space-1);
+}
+.figure .path { font-size: var(--size-xs); color: var(--text-2); }
+.figure .caption { color: var(--text); }
+.folio {
+  position: absolute;
+  left: var(--margin);
+  bottom: var(--space-1);
+  width: calc(100% - var(--margin) - var(--margin));
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  border-top: var(--rule) solid var(--border);
+  padding-top: var(--space-1);
+}
+/* Paged-media rules belong in paged media. `break-after: page` on screen
+   makes Chromium lay the document out in pages during a full-page capture,
+   which puts a second copy of the running foot at the top of every clip —
+   found by screenshotting a page and looking at it. The page edge is a
+   screen affordance too: on paper the paper is the edge. */
+@media print {
+  .document { display: block; gap: 0; }
+  .page { outline: none; margin: 0; break-after: page; }
+  .page:last-child { break-after: auto; }
+}
+/* No dark-mode override, for the same reason as the template renderer: a
+   document that changes colour with the reader's system setting is not the
+   document that was issued. */
+
+</style>
+</head>
+<body>
+<main class="document">
+<article class="page" data-archetype="cover" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-display slot-project-title" style="--x:0mm;--y:0mm;--w:170mm;--h:20mm;--em:9.621mm" data-block="" data-step="t5"><p>The Malthouse</p></div>
+    <div class="slot rank-lead slot-standfirst" style="--x:0mm;--y:25mm;--w:170mm;--h:70mm;--em:6.872mm" data-block="nar-01" data-step="t4"><p>A 1904 malthouse on the edge of the town&#x27;s former industrial quarter, built to germinate barley on three timber floors and abandoned in 1987. The brick shell is sound and the cast-iron columns are intact. The roof is not: two bays collapsed in the winter of 2019 and the remainder was condemned in the survey that followed.</p></div>
+    <div class="slot rank-label slot-issue" style="--x:0mm;--y:100mm;--w:170mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>project-report · e6642718</p></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>1 / 10</span></div>
+</article>
+<article class="page" data-archetype="text-led" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>PROBLEM</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:25mm;--em:3.436mm" data-block="nar-02" data-step="t2"><p>The building is listed, the floor plates carry a live load of 1.5 kN/m² against the 4.0 required for public assembly, and the envelope has no insulation of any kind. Any scheme that meets the brief has to add structure and fabric without concealing the two things the listing protects: the column grid and the daylight from the north.</p></div>
+    <div class="slot rank-caption slot-figure" style="--x:0mm;--y:30mm;--w:126.25mm;--h:195mm;--em:2.474mm" data-block="img-02" data-step="t1"><div class="figure"><span class="path">projects/malthouse/02-interior-before.jpg</span><span class="caption">Second floor before: timber joists, no roof above.</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>2 / 10</span></div>
+</article>
+<article class="page" data-archetype="text-led" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>INTERVENTION</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:25mm;--em:3.436mm" data-block="nar-03" data-step="t2"><p>A new steel frame stands inside the shell on independent pads, carrying the new floors clear of the historic masonry. The original timber floors are retained where sound and read as a second, lighter layer beneath the new. Insulation is applied internally to the gables only, leaving the north elevation as found and taking the heat loss on the plant instead.</p></div>
+    <div class="slot rank-caption slot-figure" style="--x:0mm;--y:30mm;--w:170mm;--h:135mm;--em:2.474mm" data-block="drw-01" data-step="t1"><div class="figure"><span class="path">projects/malthouse/A3-201-section.pdf</span><span class="caption">Long section 1:100. New frame shown at the cut weight.</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>3 / 10</span></div>
+</article>
+<article class="page" data-archetype="text-led" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>INTERVENTION</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:25mm;--em:3.436mm" data-block="nar-04" data-step="t2"><p>The roof is rebuilt to the original profile in glue-laminated timber, with a continuous rooflight along the ridge where the kiln vents were. The new frame is left exposed and unpainted, so that what is new is legible as new at a glance and no one has to consult a drawing to read the building.</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:30mm;--w:126.25mm;--h:20mm;--em:3.436mm" data-block="fct-01" data-step="t2"><p><span class="inline-label">Character</span>Adaptive reuse, structure left legible</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:55mm;--w:126.25mm;--h:20mm;--em:3.436mm" data-block="fct-02" data-step="t2"><p><span class="inline-label">Atmosphere</span>Quiet, north-lit, material</p></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>4 / 10</span></div>
+</article>
+<article class="page" data-archetype="metric-band" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:170mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>EVIDENCE</p></div>
+    <div class="slot rank-lead slot-metric" style="--x:0mm;--y:15mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="met-01" data-step="t4"><div class="metric"><span class="label">Construction cost</span><span class="value">4 074 000 GBP</span><span class="source">design_state 8f3a1c04 · constraints.budget</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:0mm;--y:45mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="met-03" data-step="t4"><div class="metric"><span class="label">Public floor area</span><span class="value">947 m2</span><span class="source">design_state 8f3a1c04 · constraints.area_targets</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:0mm;--y:75mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="met-05" data-step="t4"><div class="metric"><span class="label">Operational energy</span><span class="value">78 kWh/m2/yr</span><span class="source">design_state 8f3a1c04 · constraints.code_checks</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:87.5mm;--y:15mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="met-02" data-step="t4"><div class="metric"><span class="label">Gross internal area</span><span class="value">2 164 m2</span><span class="source">design_state 8f3a1c04 · constraints.area_targets</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:87.5mm;--y:45mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="met-04" data-step="t4"><div class="metric"><span class="label">Embodied carbon</span><span class="value">412 kgCO2e/m2</span><span class="source">design_state 8f3a1c04 · constraints.code_checks</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>5 / 10</span></div>
+</article>
+<article class="page" data-archetype="text-led" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>OUTCOME</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:20mm;--em:3.436mm" data-block="nar-05" data-step="t2"><p>The building reopened as a workshop and exhibition space with a public route through the full depth of the plan. Measured energy use in the first full year came in below the design estimate, and the retained structure avoided the embodied carbon of a replacement frame.</p></div>
+    <div class="slot rank-caption slot-figure" style="--x:0mm;--y:25mm;--w:126.25mm;--h:195mm;--em:2.474mm" data-block="img-03" data-step="t1"><div class="figure"><span class="path">projects/malthouse/03-interior-after.jpg</span><span class="caption">The same bay with the new frame and rooflight.</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>6 / 10</span></div>
+</article>
+<article class="page" data-archetype="full-image" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-caption slot-figure" style="--x:0mm;--y:0mm;--w:170mm;--h:120mm;--em:2.474mm" data-block="img-01" data-step="t1"><div class="figure"><span class="path">projects/malthouse/01-context.jpg</span><span class="caption">The malthouse from the yard, before work.</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>7 / 10</span></div>
+</article>
+<article class="page" data-archetype="text-led" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>CONTEXT</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:20mm;--em:3.436mm" data-block="fct-07" data-step="t2"><p><span class="inline-label">Storeys</span>3</p></div>
+    <div class="slot rank-body slot-body" style="--x:43.75mm;--y:25mm;--w:126.25mm;--h:20mm;--em:3.436mm" data-block="fct-08" data-step="t2"><p><span class="inline-label">Spaces</span>24</p></div>
+    <div class="slot rank-caption slot-figure" style="--x:0mm;--y:50mm;--w:170mm;--h:120mm;--em:2.474mm" data-block="img-04" data-step="t1"><div class="figure"><span class="path">projects/malthouse/04-detail.jpg</span><span class="caption">New steel meeting retained cast iron, 40 mm clear.</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>8 / 10</span></div>
+</article>
+<article class="page" data-archetype="metric-band" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:170mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>DETAIL</p></div>
+    <div class="slot rank-lead slot-metric" style="--x:0mm;--y:15mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="fct-03" data-step="t4"><div class="metric"><span class="label">Floor</span><span class="value">Reclaimed maple over acoustic deck</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:0mm;--y:45mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="fct-05" data-step="t4"><div class="metric"><span class="label">Roof</span><span class="value">Glue-laminated spruce</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:87.5mm;--y:15mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="fct-04" data-step="t4"><div class="metric"><span class="label">Frame</span><span class="value">Hot-rolled steel, unpainted</span></div></div>
+    <div class="slot rank-lead slot-metric" style="--x:87.5mm;--y:45mm;--w:82.5mm;--h:25mm;--em:6.872mm" data-block="fct-06" data-step="t4"><div class="metric"><span class="label">Walls</span><span class="value">Retained brick, unlined to the north</span></div></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>9 / 10</span></div>
+</article>
+<article class="page" data-archetype="credit" style="--page-w:210mm;--page-h:297mm">
+  <div class="canvas">
+    <div class="slot rank-label slot-section-label" style="--x:0mm;--y:0mm;--w:38.75mm;--h:10mm;--em:3.436mm" data-block="" data-step="t2"><p>PROVENANCE</p></div>
+    <div class="slot rank-caption slot-entry" style="--x:43.75mm;--y:0mm;--w:126.25mm;--h:10mm;--em:2.474mm" data-block="crd-01" data-step="t1"><p><span class="inline-label">Prepared by</span></p></div>
+  </div>
+  <div class="folio"><span>The Malthouse</span><span>STUDIO OM · 1.0.0 · technical-dense</span><span>10 / 10</span></div>
+</article>
+</main>
+</body>
+</html>

@@ -68,11 +68,15 @@ brand    = proposal.approve(approved_by="MJ")   # the human step
 | `assets/` | The logo system — SVG variants generated from the brand's own typeface and module |
 | `export/` | CSS variables, JSON, YAML, the colour table, PNG/PDF via the browser, and the asset inventory |
 | `guidelines/` | The eighteen-section brand guidelines, generated from the tokens |
+| `content/` | The **content model** — a project's information, typed and independent of any document |
+| `creative/` | The **Creative Layer** — directions, page archetypes, the deterministic composer, evaluation |
 | `consumers.py` | Phase-5 interfaces: Archicad attributes, render parameters |
 | `examples/studio_nord.py` | A small worked example |
 | `examples/studio_om.py` | **STUDIO OM** — a full practice identity |
 | `examples/build_studio_om.py` | Builds the complete STUDIO OM package |
 | `examples/studio-om/` | That package: 48 assets, audited |
+| `examples/malthouse.py` | **The Malthouse** — one project, as content |
+| `examples/build_malthouse.py` | Composes it in three directions |
 
 Persistence lives in `schemas/brand_models.py` and `alembic/versions/011_brand_system.py`, following
 the repository's convention that ORM classes share one `Base` under `schemas/`. The HTTP surface is
@@ -253,10 +257,80 @@ JSON file is data), and the lattice rule distinguishes placement (`gap`,
 `margin` — full sub-module) from internal clearance (`padding` — half), which
 is the distinction ADOS itself makes.
 
+## The Creative Layer
+
+The Brand System says how a practice's documents look. The Creative Layer says
+what goes on the page, and it is what lets the same project data become a
+report, a portfolio spread or a case study without anybody writing three
+templates.
+
+```bash
+python -m brand.examples.build_malthouse     # one project, three documents
+```
+
+```
+DesignState ─► extract ─► ContentModel ─┬─► compose(editorial-quiet) ─► PagePlan ─► HTML
+                                        ├─► compose(technical-dense) ─► PagePlan ─► HTML
+                                        └─► compose(image-led)       ─► PagePlan ─► HTML
+```
+
+**`content/`** holds a project's information as typed blocks. Every block
+declares what it *is* (narrative, metric, image, drawing), where it sits in
+the argument (context, problem, intervention, outcome, evidence) and how much
+it matters (1–5, authored, never inferred). Metrics additionally carry
+provenance and cannot be constructed without it — a number in a client
+document whose origin nobody can state is a liability. The extractor lifts
+every derivable fact from a `DesignState` with its origin attached; it does
+**not** invent prose, because `DesignState` has no narrative field and
+deriving sentences from `semantic.style` would put words nobody wrote in front
+of a client.
+
+**`creative/direction.py`** holds what varies between two documents made from
+the same content and the same brand: emphasis, density, pacing. It contains no
+typography, no colour, no grid and no spacing — those are the brand's, already
+versioned and consumed by twenty-six templates, and a second declaration of
+them would diverge. The schema is closed three ways: `extra="forbid"`, an
+import-time guard that refuses a field named like the brand's, and a validator
+that rejects a hex, a dimension, a typeface name or `ADOS-7.2.020`'s banned
+lexicon in the two free-text fields.
+
+**`creative/composer.py`** does not generate. `ADOS-7.5.010` already specifies
+the layout solver, and specifies it as deterministic — "no randomised
+restarts, no time-based termination". So the composer enumerates every
+(archetype × consumption count) candidate, discards the infeasible against the
+hard constraints, ranks the survivors against the direction's targets using
+ADOS-7.5.040's own objective weights, and breaks ties by ADOS-7.5.050. Seven
+of the fifteen hard constraints have a document analogue and are applied; the
+other eight are about leaders, dimension chains and views, and applying them
+would produce findings nobody could act on. Two narrowings and one split are
+argued in the module docstring rather than made quietly.
+
+**`creative/evaluate.py`** reports findings plus **coverage**, and no score. A
+single number invites optimising against the number and discards the only
+useful output. "Thirteen of sixteen checkable properties verified; audience
+fit, originality and whether the argument persuades were not assessed" is both
+more honest and more useful than a percentage.
+
+What the layer produces for the Malthouse — 24 blocks, 278 words, five figures:
+
+| Direction | Pages | Mean fill | Page shapes |
+|---|---|---|---|
+| `editorial-quiet` | 8 | 0.41 | cover · text-led ×3 · metric-band · full-image · metric-band · credit |
+| `technical-dense` | 10 | 0.41 | cover · text-led ×3 · metric-band · text-led · full-image · text-led · metric-band · credit |
+| `image-led` | 7 | 0.52 | cover · text-led ×3 · full-image · metric-band · credit |
+
+Each is byte-identical on a rebuild, which `test_a_second_run_is_byte_identical`
+checks from scratch — fresh content model, fresh brand, fresh token set. That
+assertion is the difference between a creative system and a random one.
+
+Figures render as wireframe boxes carrying their path, aspect and caption. No
+image is catalogued anywhere in the system yet; a box that says what belongs
+in it is honest about that, and a broken image icon is not.
+
 ## Tests
 
 ```bash
-python -m pytest tests_brand -q      # 206 tests
+python -m pytest tests_brand -q      # 244 tests
 ```
 
 Runs in CI alongside `tests_rules` and `construmind/tests`. No database, no storage, no API key: the
@@ -272,5 +346,10 @@ key actually gets.
 - **Font files are not resolved from a brand.** A brand naming a family with no file in
   `docs/templates/pdf/fonts/` keeps the bundled face and gets a warning rather than a silent
   substitution.
+- **No image inventory.** `Imagery` describes a practice's photography but no image is
+  catalogued, so the composer cannot choose one and a figure has to be declared by the caller.
+  This is the blocker for genuinely image-led layouts.
+- **The Creative Layer emits HTML only.** `PagePlan` → `ptspdf` and → `ptsword` are additive
+  once the deterministic core holds, and both builders already accept brand overlays.
 - **`_detect_name` is a regex.** Fine for "We are called X"; it will miss most other phrasings, and
   the CLI takes `--name` for exactly that reason.

@@ -100,15 +100,14 @@ def render_html(
 # ---------------------------------------------------------------------------
 
 
-def _stylesheet(tok, template: DocumentTemplate) -> str:
-    """Every declaration comes from a token. There are no literals here.
+def _token_block(tok) -> str:
+    """The ``:root`` custom properties, straight from the brand.
 
-    The two exceptions are ``0`` and the structural keywords (``grid``,
-    ``solid``), which are not values a brand has an opinion about.
+    Shared by every HTML path in this module — the template renderer and the
+    page-plan renderer — so that a brand change reaches both, and so that
+    neither can quietly acquire a value of its own.
     """
-    w, h = _PAGE_MM.get(template.page, (210, 297))
-    return f"""
-:root {{
+    return f""":root {{
   --font-primary: {tok('font.family.primary')}, {tok('font.fallback.primary')}, sans-serif;
   --size-xs: {tok('font.size.xs')}mm;
   --size-sm: {tok('font.size.sm')}mm;
@@ -132,7 +131,18 @@ def _stylesheet(tok, template: DocumentTemplate) -> str:
   --space-3: {tok('space.3')}mm;
   --columns: {tok('grid.columns')};
   --rule: {tok('stroke.annotation')}mm;
-}}
+}}"""
+
+
+def _stylesheet(tok, template: DocumentTemplate) -> str:
+    """Every declaration comes from a token. There are no literals here.
+
+    The two exceptions are ``0`` and the structural keywords (``grid``,
+    ``solid``), which are not values a brand has an opinion about.
+    """
+    w, h = _PAGE_MM.get(template.page, (210, 297))
+    return f"""
+{_token_block(tok)}
 @page {{ size: {w}mm {h}mm; margin: var(--margin); }}
 * {{ box-sizing: border-box; }}
 html, body {{ margin: 0; padding: 0; background: var(--bg); }}
@@ -256,6 +266,254 @@ def _placeholder_sections(template: DocumentTemplate) -> list[tuple[str, Any]]:
         else:
             out.append((s.key, f"[{s.heading or s.key}]"))
     return out
+
+
+# ---------------------------------------------------------------------------
+# The composed document
+# ---------------------------------------------------------------------------
+
+
+def render_page_plan(plan, tokens: TokenSet) -> RenderedDocument:
+    """Render a :class:`~brand.creative.plan.PagePlan` to HTML.
+
+    The Creative Layer's one renderer path, and deliberately the *existing*
+    one: it shares :func:`_token_block` with the template renderer, so both
+    take their type, colour and spacing from the same place and neither can
+    acquire a value of its own. Adding a third engine to draw pages would have
+    meant a third place that knows how a page is built.
+
+    Everything positional comes from the plan, in millimetres, already
+    resolved against the brand's grid and checked against the hard
+    constraints. The renderer decides nothing — which is what makes the output
+    reproducible: run the composer twice and these bytes are identical.
+
+    Figures render as **wireframe boxes** carrying their path, aspect and
+    caption rather than as ``<img>``. No image is catalogued anywhere in the
+    system yet — the gap the architecture proposal records at §C.3 — so a
+    figure has a place, a shape and a caption but no pixels. A box that says
+    what belongs in it is honest about that; a broken image icon is not.
+    """
+    used: list[str] = []
+
+    def tok(name: str):
+        used.append(name)
+        return tokens[name].value
+
+    # Point size is derived from a measured cap height, never chosen
+    # (ADOS-2.4.020). The ratio comes from the brand's own body face.
+    cap_ratio = float(tok("font.size.sm")) / (
+        float(tok("font.size.sm.pt")) * 25.4 / 72.0
+    )
+
+    language = str(tokens.value("voice.language", "en-GB"))
+    css = _plan_stylesheet(tok, plan)
+    pages = "\n".join(
+        _page_html(page, plan, cap_ratio, tokens) for page in plan.pages
+    )
+
+    page = f"""<!doctype html>
+<html lang="{html.escape(language)}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(plan.project_name)} — {html.escape(str(tok('meta.brand.name')))}</title>
+<style>
+{css}
+</style>
+</head>
+<body>
+<main class="document">
+{pages}
+</main>
+</body>
+</html>
+"""
+    return RenderedDocument(
+        template_id=f"plan-{plan.direction}",
+        medium=Medium.HTML,
+        content=page,
+        brand_id=tokens.brand_id,
+        brand_version=tokens.brand_version,
+        tokens_used=tuple(dict.fromkeys(used)),
+    )
+
+
+def _plan_stylesheet(tok, plan) -> str:
+    first = plan.pages[0].grid if plan.pages else None
+    w = first.page_width_mm if first else 210
+    h = first.page_height_mm if first else 297
+    return f"""
+{_token_block(tok)}
+@page {{ size: {w}mm {h}mm; margin: 0; }}
+* {{ box-sizing: border-box; }}
+html, body {{ margin: 0; padding: 0; background: var(--bg); }}
+body {{
+  font-family: var(--font-primary);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}}
+.document {{ display: flex; flex-direction: column; gap: var(--space-3); }}
+.page {{
+  position: relative;
+  width: var(--page-w);
+  height: var(--page-h);
+  padding: var(--margin);
+  margin: 0 auto;
+  background: var(--bg);
+  outline: var(--rule) solid var(--border);
+}}
+.canvas {{ position: relative; width: 100%; height: 100%; }}
+.slot {{
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  min-height: var(--h);
+  font-size: var(--em);
+}}
+.slot p {{ margin: 0; }}
+.rank-display {{
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  line-height: var(--leading);
+}}
+.rank-lead {{ font-weight: var(--weight-medium); }}
+.rank-label {{
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-2);
+}}
+.rank-caption {{ color: var(--text-2); }}
+.metric {{ display: flex; flex-direction: column; }}
+.metric .label {{
+  order: -1;
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}}
+.metric .value {{ font-weight: var(--weight-medium); }}
+.metric .source {{
+  font-size: var(--size-xs);
+  color: var(--text-2);
+}}
+.inline-label {{
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  margin-right: var(--space-1);
+}}
+.figure {{
+  background: var(--surface);
+  border: var(--rule) solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: var(--h);
+  padding: var(--space-1);
+}}
+.figure .path {{ font-size: var(--size-xs); color: var(--text-2); }}
+.figure .caption {{ color: var(--text); }}
+.folio {{
+  position: absolute;
+  left: var(--margin);
+  bottom: var(--space-1);
+  width: calc(100% - var(--margin) - var(--margin));
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--size-xs);
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  border-top: var(--rule) solid var(--border);
+  padding-top: var(--space-1);
+}}
+/* Paged-media rules belong in paged media. `break-after: page` on screen
+   makes Chromium lay the document out in pages during a full-page capture,
+   which puts a second copy of the running foot at the top of every clip —
+   found by screenshotting a page and looking at it. The page edge is a
+   screen affordance too: on paper the paper is the edge. */
+@media print {{
+  .document {{ display: block; gap: 0; }}
+  .page {{ outline: none; margin: 0; break-after: page; }}
+  .page:last-child {{ break-after: auto; }}
+}}
+/* No dark-mode override, for the same reason as the template renderer: a
+   document that changes colour with the reader's system setting is not the
+   document that was issued. */
+"""
+
+
+def _page_html(page, plan, cap_ratio: float, tokens: TokenSet) -> str:
+    g = page.grid
+    slots = "\n".join(_slot_html(s, cap_ratio) for s in page.slots)
+    folio = (
+        f'  <div class="folio"><span>{html.escape(plan.project_name)}</span>'
+        f"<span>{html.escape(str(tokens.value('meta.brand.name')))} · "
+        f"{html.escape(plan.brand_version)} · {html.escape(plan.direction)}</span>"
+        f"<span>{page.index + 1} / {plan.page_count}</span></div>"
+    )
+    return (
+        f'<article class="page" data-archetype="{html.escape(page.archetype)}" '
+        f'style="--page-w:{_mm(g.page_width_mm)};--page-h:{_mm(g.page_height_mm)}">\n'
+        f'  <div class="canvas">\n{slots}\n  </div>\n{folio}\n</article>'
+    )
+
+
+def _slot_html(slot, cap_ratio: float) -> str:
+    style = (
+        f"--x:{_mm(slot.x_mm)};--y:{_mm(slot.y_mm)};"
+        f"--w:{_mm(slot.width_mm)};--h:{_mm(slot.height_mm)};"
+        f"--em:{_mm(round(slot.cap_mm / cap_ratio, 3))}"
+    )
+    classes = f"slot rank-{slot.rank} slot-{slot.component}"
+    inner = _slot_inner(slot)
+    return (
+        f'    <div class="{classes}" style="{style}" '
+        f'data-block="{html.escape(slot.block)}" data-step="{slot.step}">'
+        f"{inner}</div>"
+    )
+
+
+def _slot_inner(slot) -> str:
+    text = html.escape(slot.text)
+    if slot.component in _FIGURE_COMPONENTS:
+        return (
+            f'<div class="figure">'
+            f'<span class="path">{html.escape(slot.path)}</span>'
+            f'<span class="caption">{text}</span>'
+            f"</div>"
+        )
+    if slot.component in ("metric", "lead-value"):
+        label = (
+            f'<span class="label">{html.escape(slot.label)}</span>'
+            if slot.label else ""
+        )
+        source = (
+            f'<span class="source">{html.escape(slot.provenance)}</span>'
+            if slot.provenance else ""
+        )
+        return f'<div class="metric">{label}<span class="value">{text}</span>{source}</div>'
+    if slot.label:
+        return (
+            f'<p><span class="inline-label">{html.escape(slot.label)}</span>'
+            f"{text}</p>"
+        )
+    return f"<p>{text}</p>"
+
+
+#: Slot components whose content is a picture rather than type.
+_FIGURE_COMPONENTS = frozenset({"hero", "figure", "figure-a", "figure-b", "view"})
+
+
+def _mm(value: float) -> str:
+    """A millimetre literal with no trailing zeros, so two runs match byte for byte."""
+    text = f"{float(value):.4f}".rstrip("0").rstrip(".")
+    return f"{text or '0'}mm"
 
 
 # ---------------------------------------------------------------------------

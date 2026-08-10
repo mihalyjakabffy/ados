@@ -166,6 +166,91 @@ def module_mm() -> float:
     return float(_need(ados_tokens(), "sheet", "module_mm"))
 
 
+# ---------------------------------------------------------------------------
+# Density and the layout solver (ADOS Volume 7)
+#
+# These are what the Creative Layer's composer reads. They exist in the
+# standard already: ADOS-7.5 specifies a deterministic solver with an explicit
+# objective and tie-break, and ADOS-3.7/3.11 give the density limits its hard
+# constraints check. The composer must not carry its own copies of these
+# numbers — a second set would be a second standard.
+# ---------------------------------------------------------------------------
+
+
+def fill_ratio_bounds() -> tuple[float, float]:
+    """Permitted fill ratio for a composed page — ``H13`` / ``ADOS-3.7.010``."""
+    d = _need(ados_tokens(), "density")
+    return float(d["fill_ratio_min"]), float(d["fill_ratio_max"])
+
+
+def fill_ratio_target() -> float:
+    """The value a direction's ``text_density`` defaults towards."""
+    return float(_need(ados_tokens(), "density", "fill_ratio_target"))
+
+
+def local_coverage_max() -> float:
+    """Ink coverage ceiling in one window — ``H12`` / ``ADOS-3.7.020``."""
+    return float(_need(ados_tokens(), "density", "local_coverage_max"))
+
+
+def coverage_window_mm() -> float:
+    """Side of the window ``local_coverage_max`` is measured over."""
+    return float(_need(ados_tokens(), "density", "coverage_window_mm"))
+
+
+def alignment_edges_max_per_axis() -> int:
+    """Distinct alignment edges allowed — ``H14`` / ``ADOS-3.11.040``."""
+    return int(_need(ados_tokens(), "density", "alignment_edges_max_per_axis"))
+
+
+def emphasis_area_max() -> float:
+    """Share of a page that may be emphasised (``ADOS-3.7.030``)."""
+    return float(_need(ados_tokens(), "density", "emphasis_area_max"))
+
+
+def solver_lattice_mm() -> float:
+    """The placement lattice the solver works on (``ADOS-7.5.010``)."""
+    return float(_need(ados_tokens(), "solver", "lattice_mm"))
+
+
+def solver_objective_weights() -> dict[str, float]:
+    """The objective's declared weights (``ADOS-7.5.040``)."""
+    return {
+        k: float(v)
+        for k, v in _need(ados_tokens(), "solver", "objective_weights").items()
+    }
+
+
+def solver_tie_break() -> list[str]:
+    """The tie-break order, applied when two candidates score equally.
+
+    Stated in the standard rather than left to sort stability, because a sort
+    that is stable by accident is a sort that changes when the input order
+    changes (``ADOS-7.5.050``).
+    """
+    return list(_need(ados_tokens(), "solver", "tie_break"))
+
+
+def solver_escalation_order() -> list[str]:
+    """What to do with an infeasible layout, in order (``ADOS-7.5.070``).
+
+    Step 4 — *split the sheet* — is the one a document composer reaches for
+    most: a page that will not hold its content becomes two pages, never a
+    page with smaller text on it.
+    """
+    return list(_need(ados_tokens(), "solver", "escalation_order"))
+
+
+def solver_prohibited_remedies() -> list[str]:
+    """Things the solver may not do to make an infeasible page fit.
+
+    Reducing text size or line width would trade a legibility rule for a
+    density one, and the standard forbids it outright: an infeasible page is
+    reported, not shrunk (``ADOS-7.5.070``).
+    """
+    return list(_need(ados_tokens(), "solver", "prohibited_remedies"))
+
+
 def submodule_mm() -> float:
     """The placement lattice and baseline pitch (``ADOS-3.3.030``)."""
     return float(_need(ados_tokens(), "sheet", "submodule_mm"))

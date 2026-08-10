@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""
+brand/examples/build_malthouse.py
+
+Builds the Malthouse in three directions, through the Creative Layer.
+
+    python -m brand.examples.build_malthouse [outdir]
+
+The acceptance test for the Creative Layer, run as a program — the counterpart
+of ``build_studio_om`` for the layer above it:
+
+    DesignState ──► extract ──► ContentModel
+                                     │
+              ┌──────────────────────┼──────────────────────┐
+              ▼                      ▼                      ▼
+      editorial-quiet         technical-dense           image-led
+              │                      │                      │
+              └──── compose (deterministic, ranked) ────────┘
+                                     │
+                                 PagePlan
+                                     │
+                        render_page_plan ──► HTML
+                                     │
+                    evaluate + asset inventory + consistency audit
+
+One content model. One brand. Three directions. Three documents that differ in
+page count, page shapes and density — and each identical to the byte on a
+second run, which the build checks rather than claims.
+
+Nothing here decides what anything looks like. The brand supplies every value;
+the direction supplies emphasis, density and pacing; the composer supplies
+arithmetic.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+from brand.creative.composer import compose
+from brand.creative.directions import DIRECTIONS
+from brand.creative.evaluate import evaluate
+from brand.examples.malthouse import malthouse_content
+from brand.examples.studio_om import studio_om
+from brand.export.exporters import AssetInventory
+from brand.templates.renderers import render_page_plan
+from brand.validation.consistency import audit_package
+
+
+def build(out: Path) -> dict[str, Any]:
+    out.mkdir(parents=True, exist_ok=True)
+    content = malthouse_content()
+    brand = studio_om()
+    tokens = brand.resolve_tokens()
+    inventory = AssetInventory(brand, out)
+
+    (out / "content-model.json").write_text(
+        json.dumps(content.to_dict(), indent=2, ensure_ascii=False) + "\n"
+    )
+    inventory.add(
+        out / "content-model.json", type="content", name="Malthouse content model",
+        blocks=len(content.blocks), words=content.words,
+    )
+
+    rows: list[dict[str, Any]] = []
+    for direction in DIRECTIONS.values():
+        plan = compose(content, direction, brand)
+        document = render_page_plan(plan, tokens)
+
+        html_path = document.write(out / "documents" / f"malthouse-{direction.id}.html")
+        inventory.add(
+            html_path, type="document", name=f"Malthouse — {direction.id}",
+            direction=direction.id, pages=plan.page_count,
+            plan_hash=plan.plan_hash,
+        )
+
+        plan_path = out / "plans" / f"{direction.id}.json"
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        plan_path.write_text(
+            json.dumps(plan.to_dict(), indent=2, ensure_ascii=False) + "\n"
+        )
+        inventory.add(plan_path, type="page-plan", name=f"Page plan — {direction.id}")
+
+        report = evaluate(plan, direction, tokens)
+        report_path = out / "plans" / f"{direction.id}-evaluation.json"
+        report_path.write_text(
+            json.dumps(report.to_dict(), indent=2, ensure_ascii=False) + "\n"
+        )
+        inventory.add(
+            report_path, type="evaluation", name=f"Evaluation — {direction.id}"
+        )
+
+        # The claim, checked rather than asserted: rebuild everything from
+        # scratch and compare the bytes.
+        rerun = render_page_plan(
+            compose(malthouse_content(), direction, studio_om()),
+            studio_om().resolve_tokens(),
+        )
+        rows.append({
+            "direction": direction.id,
+            "plan": plan,
+            "evaluation": report,
+            "reproducible": str(rerun.content) == str(document.content),
+        })
+
+    (out / "README.md").write_text(_readme(content, brand, rows))
+    inventory.write()
+    audit = audit_package(out, brand, tokens)
+    (out / "consistency-audit.json").write_text(
+        json.dumps(audit.to_dict(), indent=2, ensure_ascii=False) + "\n"
+    )
+    return {"rows": rows, "audit": audit, "content": content}
+
+
+def _readme(content, brand, rows: list[dict[str, Any]]) -> str:
+    table = "\n".join(
+        f"| `{r['direction']}` | {r['plan'].page_count} | "
+        f"{r['plan'].mean_fill_ratio:.2f} | "
+        f"{' · '.join(r['plan'].archetype_sequence)} | "
+        f"{'yes' if r['reproducible'] else '**no**'} |"
+        for r in rows
+    )
+    findings = "\n".join(
+        f"- `{r['direction']}` — {r['evaluation'].summary()}" for r in rows
+    )
+    return f"""# The Malthouse — one content model, three documents
+
+Generated by `python -m brand.examples.build_malthouse`. Nothing here was
+authored by hand.
+
+**Content:** {len(content.blocks)} blocks, {content.words} words,
+content hash `{content.content_hash[:12]}`.
+**Brand:** {brand.identity.name} {brand.version}.
+
+| Direction | Pages | Mean fill | Page shapes | Byte-identical on rebuild |
+|---|---|---|---|---|
+{table}
+
+The last column is the point. Three documents that differ in length, shape and
+density, each one reproducible exactly — so changing the direction is a
+decision somebody made rather than an outcome somebody got.
+
+## Evaluation
+
+{findings}
+
+There is no score. Findings plus coverage: a single number invites optimising
+against the number and throws away the only useful output, which is *which
+field, what is wrong, and how to fix it*.
+
+## Contents
+
+- `content-model.json` — the project's content, independent of any document
+- `plans/*.json` — each page plan, including every rejected candidate and why
+- `plans/*-evaluation.json` — findings and coverage
+- `documents/*.html` — the rendered documents
+- `asset-inventory.json`, `consistency-audit.json` — provenance and the audit
+
+## What is not here
+
+Photographs. No image is catalogued anywhere in the system yet, so a figure
+renders as a box carrying its path, aspect and caption. That gap is real and
+naming it is more useful than a broken image icon.
+"""
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = argv if argv is not None else sys.argv[1:]
+    out = Path(argv[0]) if argv else Path(__file__).resolve().parent / "malthouse"
+    print(f"\n  Composing the Malthouse into {out}\n")
+    result = build(out)
+    for row in result["rows"]:
+        mark = "=" if row["reproducible"] else "!"
+        print(f"    [{mark}] {row['plan'].summary()}")
+    audit = result["audit"]
+    print(
+        f"\n  {len(result['rows'])} documents · "
+        f"audit {'clean' if audit.ok else 'has findings'}\n"
+    )
+    for finding in audit.report.sorted()[:8]:
+        print(f"    [{finding.severity.value:5}] {finding.field}: {finding.message}")
+    reproducible = all(r["reproducible"] for r in result["rows"])
+    if not reproducible:
+        print("\n  A rebuild did not reproduce the bytes. That is a defect.\n")
+    return 0 if (audit.ok and reproducible) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

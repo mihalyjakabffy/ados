@@ -1,0 +1,102 @@
+{
+  "brand": "STUDIO OM",
+  "brand_id": "0a000000-0000-4000-8000-000000000002",
+  "brand_version": "1.0.0",
+  "brand_status": "published",
+  "content_hash": "4aadb1166c690b4599ebd50d0f128c1d44281901bc8c0a0a4001739af50758ba",
+  "ados_edition": "1.0",
+  "asset_count": 10,
+  "assets": [
+    {
+      "name": "Malthouse content model",
+      "type": "content",
+      "path": "content-model.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "blocks": 24,
+      "words": 278
+    },
+    {
+      "name": "Malthouse \u2014 editorial-quiet",
+      "type": "document",
+      "path": "documents/malthouse-editorial-quiet.html",
+      "format": "html",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "direction": "editorial-quiet",
+      "pages": 8,
+      "plan_hash": "bd742407ad71147d88a29e119f3a7ec60cc886474fd31b995005888d0fffc86d"
+    },
+    {
+      "name": "Page plan \u2014 editorial-quiet",
+      "type": "page-plan",
+      "path": "plans/editorial-quiet.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    },
+    {
+      "name": "Evaluation \u2014 editorial-quiet",
+      "type": "evaluation",
+      "path": "plans/editorial-quiet-evaluation.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    },
+    {
+      "name": "Malthouse \u2014 technical-dense",
+      "type": "document",
+      "path": "documents/malthouse-technical-dense.html",
+      "format": "html",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "direction": "technical-dense",
+      "pages": 10,
+      "plan_hash": "34128da6681f1999f51ec2078d44538e8b24bf99ae07f90b45724cbc61f6a1c3"
+    },
+    {
+      "name": "Page plan \u2014 technical-dense",
+      "type": "page-plan",
+      "path": "plans/technical-dense.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    },
+    {
+      "name": "Evaluation \u2014 technical-dense",
+      "type": "evaluation",
+      "path": "plans/technical-dense-evaluation.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    },
+    {
+      "name": "Malthouse \u2014 image-led",
+      "type": "document",
+      "path": "documents/malthouse-image-led.html",
+      "format": "html",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0",
+      "direction": "image-led",
+      "pages": 7,
+      "plan_hash": "ae6c62d84f245706cec19b15d03c4b020f4605aee644827d469c9fb7610f6332"
+    },
+    {
+      "name": "Page plan \u2014 image-led",
+      "type": "page-plan",
+      "path": "plans/image-led.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    },
+    {
+      "name": "Evaluation \u2014 image-led",
+      "type": "evaluation",
+      "path": "plans/image-led-evaluation.json",
+      "format": "json",
+      "brand": "STUDIO OM",
+      "brand_version": "1.0.0"
+    }
+  ]
+}
