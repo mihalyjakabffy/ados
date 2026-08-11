@@ -1,0 +1,326 @@
+[
+  {
+    "token": "color.background",
+    "hex": "#f2f0eb",
+    "rgb": "242 240 235",
+    "cmyk_uncalibrated": "0 1 3 5",
+    "L_star": 94.8,
+    "mono": "#f0f0f0",
+    "source": "visual_identity.colour.background"
+  },
+  {
+    "token": "color.background.mono",
+    "hex": "#f0f0f0",
+    "rgb": "240 240 240",
+    "cmyk_uncalibrated": "0 0 0 6",
+    "L_star": 94.8,
+    "mono": "#f0f0f0",
+    "source": "derived from color.background"
+  },
+  {
+    "token": "color.border",
+    "hex": "#d6d2c8",
+    "rgb": "214 210 200",
+    "cmyk_uncalibrated": "0 2 7 16",
+    "L_star": 84.3,
+    "mono": "#d2d2d2",
+    "source": "visual_identity.colour.border"
+  },
+  {
+    "token": "color.border.mono",
+    "hex": "#d2d2d2",
+    "rgb": "210 210 210",
+    "cmyk_uncalibrated": "0 0 0 18",
+    "L_star": 84.2,
+    "mono": "#d2d2d2",
+    "source": "derived from color.border"
+  },
+  {
+    "token": "color.brand.accent",
+    "hex": "#64726b",
+    "rgb": "100 114 107",
+    "cmyk_uncalibrated": "12 0 6 55",
+    "L_star": 46.7,
+    "mono": "#6f6f6f",
+    "source": "visual_identity.colour.accent"
+  },
+  {
+    "token": "color.brand.accent.mono",
+    "hex": "#6f6f6f",
+    "rgb": "111 111 111",
+    "cmyk_uncalibrated": "0 0 0 56",
+    "L_star": 46.8,
+    "mono": "#6f6f6f",
+    "source": "derived from color.brand.accent"
+  },
+  {
+    "token": "color.brand.primary",
+    "hex": "#1a1a18",
+    "rgb": "26 26 24",
+    "cmyk_uncalibrated": "0 0 8 90",
+    "L_star": 9.2,
+    "mono": "#1a1a1a",
+    "source": "visual_identity.colour.primary"
+  },
+  {
+    "token": "color.brand.primary.mono",
+    "hex": "#1a1a1a",
+    "rgb": "26 26 26",
+    "cmyk_uncalibrated": "0 0 0 90",
+    "L_star": 9.3,
+    "mono": "#1a1a1a",
+    "source": "derived from color.brand.primary"
+  },
+  {
+    "token": "color.brand.secondary",
+    "hex": "#4d5149",
+    "rgb": "77 81 73",
+    "cmyk_uncalibrated": "5 0 10 68",
+    "L_star": 33.9,
+    "mono": "#505050",
+    "source": "visual_identity.colour.secondary"
+  },
+  {
+    "token": "color.brand.secondary.mono",
+    "hex": "#505050",
+    "rgb": "80 80 80",
+    "cmyk_uncalibrated": "0 0 0 69",
+    "L_star": 34.0,
+    "mono": "#505050",
+    "source": "derived from color.brand.secondary"
+  },
+  {
+    "token": "color.neutral.0",
+    "hex": "#fffff9",
+    "rgb": "255 255 249",
+    "cmyk_uncalibrated": "0 0 2 0",
+    "L_star": 99.9,
+    "mono": "#ffffff",
+    "source": "visual_identity.colour.neutral[0]"
+  },
+  {
+    "token": "color.neutral.0.mono",
+    "hex": "#ffffff",
+    "rgb": "255 255 255",
+    "cmyk_uncalibrated": "0 0 0 0",
+    "L_star": 100.0,
+    "mono": "#ffffff",
+    "source": "derived from color.neutral.0"
+  },
+  {
+    "token": "color.neutral.1",
+    "hex": "#cfccc3",
+    "rgb": "207 204 195",
+    "cmyk_uncalibrated": "0 1 6 19",
+    "L_star": 82.1,
+    "mono": "#cccccc",
+    "source": "visual_identity.colour.neutral[1]"
+  },
+  {
+    "token": "color.neutral.1.mono",
+    "hex": "#cccccc",
+    "rgb": "204 204 204",
+    "cmyk_uncalibrated": "0 0 0 20",
+    "L_star": 82.0,
+    "mono": "#cccccc",
+    "source": "derived from color.neutral.1"
+  },
+  {
+    "token": "color.neutral.2",
+    "hex": "#9e9b92",
+    "rgb": "158 155 146",
+    "cmyk_uncalibrated": "0 2 8 38",
+    "L_star": 64.0,
+    "mono": "#9b9b9b",
+    "source": "visual_identity.colour.neutral[2]"
+  },
+  {
+    "token": "color.neutral.2.mono",
+    "hex": "#9b9b9b",
+    "rgb": "155 155 155",
+    "cmyk_uncalibrated": "0 0 0 39",
+    "L_star": 64.0,
+    "mono": "#9b9b9b",
+    "source": "derived from color.neutral.2"
+  },
+  {
+    "token": "color.neutral.3",
+    "hex": "#706d64",
+    "rgb": "112 109 100",
+    "cmyk_uncalibrated": "0 3 11 56",
+    "L_star": 46.0,
+    "mono": "#6d6d6d",
+    "source": "visual_identity.colour.neutral[3]"
+  },
+  {
+    "token": "color.neutral.3.mono",
+    "hex": "#6d6d6d",
+    "rgb": "109 109 109",
+    "cmyk_uncalibrated": "0 0 0 57",
+    "L_star": 46.0,
+    "mono": "#6d6d6d",
+    "source": "derived from color.neutral.3"
+  },
+  {
+    "token": "color.neutral.4",
+    "hex": "#454239",
+    "rgb": "69 66 57",
+    "cmyk_uncalibrated": "0 4 17 73",
+    "L_star": 28.0,
+    "mono": "#424242",
+    "source": "visual_identity.colour.neutral[4]"
+  },
+  {
+    "token": "color.neutral.4.mono",
+    "hex": "#424242",
+    "rgb": "66 66 66",
+    "cmyk_uncalibrated": "0 0 0 74",
+    "L_star": 28.0,
+    "mono": "#424242",
+    "source": "derived from color.neutral.4"
+  },
+  {
+    "token": "color.neutral.5",
+    "hex": "#1e1b12",
+    "rgb": "30 27 18",
+    "cmyk_uncalibrated": "0 10 40 88",
+    "L_star": 9.8,
+    "mono": "#1b1b1b",
+    "source": "visual_identity.colour.neutral[5]"
+  },
+  {
+    "token": "color.neutral.5.mono",
+    "hex": "#1b1b1b",
+    "rgb": "27 27 27",
+    "cmyk_uncalibrated": "0 0 0 89",
+    "L_star": 9.8,
+    "mono": "#1b1b1b",
+    "source": "derived from color.neutral.5"
+  },
+  {
+    "token": "color.semantic.error",
+    "hex": "#7e2f2c",
+    "rgb": "126 47 44",
+    "cmyk_uncalibrated": "0 63 65 51",
+    "L_star": 31.0,
+    "mono": "#494949",
+    "source": "visual_identity.colour.semantic.error"
+  },
+  {
+    "token": "color.semantic.error.mono",
+    "hex": "#494949",
+    "rgb": "73 73 73",
+    "cmyk_uncalibrated": "0 0 0 71",
+    "L_star": 31.0,
+    "mono": "#494949",
+    "source": "derived from color.semantic.error"
+  },
+  {
+    "token": "color.semantic.info",
+    "hex": "#2f5570",
+    "rgb": "47 85 112",
+    "cmyk_uncalibrated": "58 24 0 56",
+    "L_star": 34.5,
+    "mono": "#515151",
+    "source": "visual_identity.colour.semantic.info"
+  },
+  {
+    "token": "color.semantic.info.mono",
+    "hex": "#515151",
+    "rgb": "81 81 81",
+    "cmyk_uncalibrated": "0 0 0 68",
+    "L_star": 34.5,
+    "mono": "#515151",
+    "source": "derived from color.semantic.info"
+  },
+  {
+    "token": "color.semantic.success",
+    "hex": "#3f5f4a",
+    "rgb": "63 95 74",
+    "cmyk_uncalibrated": "34 0 22 63",
+    "L_star": 37.4,
+    "mono": "#585858",
+    "source": "visual_identity.colour.semantic.success"
+  },
+  {
+    "token": "color.semantic.success.mono",
+    "hex": "#585858",
+    "rgb": "88 88 88",
+    "cmyk_uncalibrated": "0 0 0 65",
+    "L_star": 37.4,
+    "mono": "#585858",
+    "source": "derived from color.semantic.success"
+  },
+  {
+    "token": "color.semantic.warning",
+    "hex": "#7a6320",
+    "rgb": "122 99 32",
+    "cmyk_uncalibrated": "0 19 74 52",
+    "L_star": 43.0,
+    "mono": "#666666",
+    "source": "visual_identity.colour.semantic.warning"
+  },
+  {
+    "token": "color.semantic.warning.mono",
+    "hex": "#666666",
+    "rgb": "102 102 102",
+    "cmyk_uncalibrated": "0 0 0 60",
+    "L_star": 43.2,
+    "mono": "#666666",
+    "source": "derived from color.semantic.warning"
+  },
+  {
+    "token": "color.surface",
+    "hex": "#fbfaf7",
+    "rgb": "251 250 247",
+    "cmyk_uncalibrated": "0 0 2 2",
+    "L_star": 98.3,
+    "mono": "#fafafa",
+    "source": "visual_identity.colour.surface"
+  },
+  {
+    "token": "color.surface.mono",
+    "hex": "#fafafa",
+    "rgb": "250 250 250",
+    "cmyk_uncalibrated": "0 0 0 2",
+    "L_star": 98.3,
+    "mono": "#fafafa",
+    "source": "derived from color.surface"
+  },
+  {
+    "token": "color.text.primary",
+    "hex": "#1a1a18",
+    "rgb": "26 26 24",
+    "cmyk_uncalibrated": "0 0 8 90",
+    "L_star": 9.2,
+    "mono": "#1a1a1a",
+    "source": "visual_identity.colour.text_primary"
+  },
+  {
+    "token": "color.text.primary.mono",
+    "hex": "#1a1a1a",
+    "rgb": "26 26 26",
+    "cmyk_uncalibrated": "0 0 0 90",
+    "L_star": 9.3,
+    "mono": "#1a1a1a",
+    "source": "derived from color.text.primary"
+  },
+  {
+    "token": "color.text.secondary",
+    "hex": "#4d5149",
+    "rgb": "77 81 73",
+    "cmyk_uncalibrated": "5 0 10 68",
+    "L_star": 33.9,
+    "mono": "#505050",
+    "source": "visual_identity.colour.text_secondary"
+  },
+  {
+    "token": "color.text.secondary.mono",
+    "hex": "#505050",
+    "rgb": "80 80 80",
+    "cmyk_uncalibrated": "0 0 0 69",
+    "L_star": 34.0,
+    "mono": "#505050",
+    "source": "derived from color.text.secondary"
+  }
+]

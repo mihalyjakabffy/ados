@@ -1,0 +1,88 @@
+{
+  "plan_hash": "34128da6681f1999f51ec2078d44538e8b24bf99ae07f90b45724cbc61f6a1c3",
+  "coverage": "13 of 16 checkable properties verified; audience fit, originality, whether the argument persuades were not assessed.",
+  "checked": [
+    "H13 fill-ratio ceiling",
+    "H12 local ink coverage",
+    "H14 alignment edges",
+    "H15 cap-height floor",
+    "H6 sub-module lattice",
+    "every content block placed",
+    "brand version pinned",
+    "fill-ratio floor",
+    "density against the direction's target",
+    "measure in characters",
+    "words per page against the direction",
+    "pacing against the direction",
+    "candidates considered and rejected"
+  ],
+  "not_checked": [
+    "audience fit",
+    "originality",
+    "whether the argument persuades"
+  ],
+  "brand": "The Malthouse · technical-dense",
+  "ok": true,
+  "counts": {
+    "INFO": 1,
+    "WARN": 5,
+    "ERROR": 0,
+    "BLOCK": 0
+  },
+  "findings": [
+    {
+      "status": "warn",
+      "severity": "WARN",
+      "category": "consistency",
+      "field": "page 1",
+      "message": "fill ratio 0.39 below the 0.40 guideline — the page is mostly empty",
+      "suggestion": "Not a failure: whitespace is a device, and the last page of any document is underfull by arithmetic. Worth a look if it is not the last page.",
+      "rule": "ADOS-3.7.010 (advisory here)"
+    },
+    {
+      "status": "warn",
+      "severity": "WARN",
+      "category": "consistency",
+      "field": "page 4",
+      "message": "fill ratio 0.20 below the 0.40 guideline — the page is mostly empty",
+      "suggestion": "Not a failure: whitespace is a device, and the last page of any document is underfull by arithmetic. Worth a look if it is not the last page.",
+      "rule": "ADOS-3.7.010 (advisory here)"
+    },
+    {
+      "status": "warn",
+      "severity": "WARN",
+      "category": "consistency",
+      "field": "page 5",
+      "message": "fill ratio 0.27 below the 0.40 guideline — the page is mostly empty",
+      "suggestion": "Not a failure: whitespace is a device, and the last page of any document is underfull by arithmetic. Worth a look if it is not the last page.",
+      "rule": "ADOS-3.7.010 (advisory here)"
+    },
+    {
+      "status": "warn",
+      "severity": "WARN",
+      "category": "consistency",
+      "field": "page 9",
+      "message": "fill ratio 0.23 below the 0.40 guideline — the page is mostly empty",
+      "suggestion": "Not a failure: whitespace is a device, and the last page of any document is underfull by arithmetic. Worth a look if it is not the last page.",
+      "rule": "ADOS-3.7.010 (advisory here)"
+    },
+    {
+      "status": "warn",
+      "severity": "WARN",
+      "category": "consistency",
+      "field": "plan",
+      "message": "mean fill ratio 0.41 against the direction's target of 0.78",
+      "suggestion": "Either the content does not suit this direction or the direction's target does not suit this content. Both are editorial decisions, not defects.",
+      "rule": ""
+    },
+    {
+      "status": "info",
+      "severity": "INFO",
+      "category": "consistency",
+      "field": "plan",
+      "message": "4 of 7 pacing positions matched: asked for [cover · text-led · text-led · metric-band · drawing · text-led · credit], composed [cover · text-led · text-led · text-led · metric-band · text-led · full-image · text-led · metric-band · credit]",
+      "suggestion": "Pacing is a preference the objective weighs, not a constraint. A mismatch usually means the content does not have the shape the direction assumes.",
+      "rule": ""
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+# The built sheets are the deliverable, not an artefact of the build: the root
+# ignore of *.pdf is lifted for them, as it is for the .dotx files in ../word.
+!sheets/*.pdf

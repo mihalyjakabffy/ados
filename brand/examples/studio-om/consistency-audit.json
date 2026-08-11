@@ -1,0 +1,32 @@
+{
+  "root": "/home/user/Architectural-operating-system-for-design-iteration/brand/examples/studio-om",
+  "brand": "STUDIO OM 1.0.0 (published)",
+  "files_checked": 49,
+  "ok": true,
+  "counts": {
+    "INFO": 2,
+    "WARN": 0,
+    "ERROR": 0,
+    "BLOCK": 0
+  },
+  "findings": [
+    {
+      "status": "info",
+      "severity": "INFO",
+      "category": "consistency",
+      "field": "visual_identity.colour",
+      "message": "#1a1a18 is declared under 2 names: color.brand.primary, color.text.primary",
+      "suggestion": "Intentional where one ink serves two roles. Unintentional duplicates mean a later change will move one and not the other.",
+      "rule": ""
+    },
+    {
+      "status": "info",
+      "severity": "INFO",
+      "category": "consistency",
+      "field": "visual_identity.colour",
+      "message": "#4d5149 is declared under 2 names: color.brand.secondary, color.text.secondary",
+      "suggestion": "Intentional where one ink serves two roles. Unintentional duplicates mean a later change will move one and not the other.",
+      "rule": ""
+    }
+  ]
+}

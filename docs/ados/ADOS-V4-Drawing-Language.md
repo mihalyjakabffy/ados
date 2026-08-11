@@ -699,15 +699,35 @@ attention, and cannot be revised without re-laying-out the drawing. The tag cost
 
 ### ADOS-4.7.020 — Marker bubble content ⚠
 
-**Decision.** Every reference bubble shall be a 14 mm diameter circle divided by a horizontal line,
-carrying the **view identifier above** and the **container identifier below**, both at 3.5 mm cap
-height (`ADOS-2.4.020`).
+**Decision.** Every reference bubble shall be a **20 mm** diameter circle divided by a horizontal
+line on the centre, carrying the **view identifier above** at 3.5 mm cap height and the **container
+identifier below** at 2.5 mm cap height (`ADOS-2.4.020`). Each field's baseline shall sit 5 mm from
+the centre line.
 
 **Rationale.** Fixed field positions mean the reader does not parse; they saccade to a known
-position. Upper = which view, lower = which sheet, matching the search sequence.
+position. Upper = which view, lower = which sheet, matching the search sequence. The upper field
+carries the larger step because it is the field the reader searches on.
 
-**Validation.** `V-4.7.020`: bubble diameter 14 mm ±0.5; two fields present; text 3.5 mm; both
-fields resolve.
+**Derivation of the diameter.** The lower field is the constraint. A container short form
+(`ADOS-2.5.020`) is six characters; at the 2.5 mm cap of `ADOS-2.4.020` that is 11.5 mm of set
+width in a normal-width grotesque. Text inside a circle is bounded not by the diameter but by the
+chord at the **baseline**, which is the narrowest line the glyph box touches. With the baseline at
+0.25 d below the centre, that chord is
+
+```
+c = 2 · √( (d/2)² − (0.25 d)² ) = 0.866 d
+```
+
+Requiring `c ≥ 11.5 + 2 × 1.25` — the string plus the clear zone `ADOS-3.4.080` puts round it,
+which at a 2.5 mm cap is `0.5 × 2.5 = 1.25 mm` — gives `d ≥ 16.1 mm`. The next value on the 5 mm
+sub-module lattice
+(`ADOS-3.3.030`) is **20 mm**, which is also two whole modules; 14 mm was neither on the lattice nor
+large enough, and a 14 mm bubble containing a six-character identifier at 3.5 mm cap (16.1 mm of set
+width) cannot be drawn at all.
+
+**Validation.** `V-4.7.020`: bubble diameter 20 mm ±0.5; two fields present; upper field 3.5 mm cap,
+lower field 2.5 mm cap; the set width of each field is at least 2.5 mm shorter than the chord at its
+own baseline; both fields resolve.
 
 ### ADOS-4.7.030 — Section marker geometry
 
@@ -952,7 +972,7 @@ permitted set; no hatch within ±5° of a bounding edge.
 |---|---|---|
 | `H-CONC` | 45° single at 1.5 mm pitch with random aggregate dots | In-situ concrete |
 | `H-MSNR` | Coursed rectangles at scale, or 45° double at 2.0 mm below 1:50 | Masonry |
-| `H-INSU-R` | Cross-hatch 45°/135° at 1.0 mm pitch | Rigid insulation |
+| `H-INSU-R` | Cross-hatch 45°/135° at 1.5 mm pitch | Rigid insulation |
 | `H-INSU-Q` | Continuous wave, 3 mm amplitude | Quilt insulation |
 | `H-TIMB-S` | Diagonal 30° at 1.0 mm with end-grain circles at section | Timber, sawn |
 | `H-TIMB-E` | Two crossed diagonals in a rectangle | Timber, engineered |
@@ -1050,7 +1070,13 @@ above, vertical sections viewed with up as up. A detail shall not be rotated to 
             <typical applicability or location>   ADOS-2.3.030
 ```
 
-with the view identifier in a 14 mm bubble at the left of the title.
+with the view identifier in a **15 mm** bubble at the left of the title.
+
+The three bubble sizes are a family and are distinguishable at a glance without being read:
+10 mm carries a grid reference (`ADOS-4.4.020`), 15 mm names a view on the sheet the reader is
+holding, 20 mm sends the reader to another sheet (`ADOS-4.7.020`). Only the last carries two fields,
+which is why only the last needs the diameter derived; the other two are sized to be told apart.
+All three are whole sub-modules of `ADOS-3.3.030`.
 
 **Validation.** `V-4.11.040`: title block-per-view present with all fields.
 
@@ -1359,8 +1385,8 @@ a total of 30. Every symbol satisfies `ADOS-4.9.040`.
 |---|---|---|---|
 | 1 | `SY-NORTH` | Circle with a filled half-arrow | North point |
 | 2 | `SY-GRID` | 10 mm circle with a label | Grid reference |
-| 3 | `SY-SECT` | Cut line with arrows and a 14 mm bubble | Section marker |
-| 4 | `SY-DET` | Enclosure with leader to a 14 mm bubble | Detail marker |
+| 3 | `SY-SECT` | Cut line with arrows and a 20 mm bubble | Section marker |
+| 4 | `SY-DET` | Enclosure with leader to a 20 mm bubble | Detail marker |
 | 5 | `SY-IELEV` | Quartered circle with arrows | Interior elevation marker |
 | 6 | `SY-NOTE` | 5 mm hexagon with a number | Sheet note tag |
 | 7 | `SY-REV` | 5 mm triangle with a revision code | Revision tag |

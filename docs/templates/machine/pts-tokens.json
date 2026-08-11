@@ -1,0 +1,302 @@
+{
+  "$comment": "PTS 1.0 template tokens. The buildable geometry of the Practice Template System. Build templates from this file, not from the prose. All lengths in millimetres unless stated. Values marked 'derived_from' trace to an ADOS rule; do not edit one without the other.",
+  "edition": "1.0",
+  "extends": "../../ados/machine/ados-tokens.json",
+
+  "pts": {
+    "module": { "M": 10, "sub": 5, "derived_from": "ADOS-3.3.030" },
+
+    "families": {
+      "sheet": { "orientation": "landscape", "formats": ["A0", "A1", "A2", "A3"], "default": "A1" },
+      "document": { "orientation": "portrait", "formats": ["A4"], "default": "A4" },
+      "board": { "orientation": "landscape", "formats": ["A1", "A0"], "default": "A1" }
+    },
+
+    "sheet": {
+      "margins": { "binding": 20, "top": 10, "right": 10, "bottom": 10, "derived_from": "ADOS-3.3.020" },
+      "banner_height": 10,
+      "gridref_height": 5,
+      "gridref_interval": 50,
+      "band_gutter": 10,
+      "formats": {
+        "A0": {
+          "size": [1189, 841], "frame": [1159, 821], "template": "large",
+          "band_width": 180, "draw": [969, 806],
+          "columns": { "count": 5, "width": 185, "gutter": 10, "total": 965, "residual": 4 },
+          "title_block": "TB-L", "title_block_origin": [999, 10]
+        },
+        "A1": {
+          "size": [841, 594], "frame": [811, 574], "template": "large",
+          "band_width": 180, "draw": [621, 559],
+          "columns": { "count": 6, "width": 95, "gutter": 10, "total": 620, "residual": 1 },
+          "column_origins": [0, 105, 210, 315, 420, 525],
+          "title_block": "TB-L", "title_block_origin": [651, 10]
+        },
+        "A2": {
+          "size": [594, 420], "frame": [564, 400], "template": "small",
+          "band_height": 60, "draw": [564, 325],
+          "columns": { "count": 6, "width": 85, "gutter": 10, "total": 560, "residual": 4 },
+          "title_block": "TB-S", "title_block_origin": [404, 10],
+          "deviation": "ADOS-3.3.010 places A2 in the large-format group; PTS assigns it to small format because the 180 mm band consumes 32 % of the frame width at A2. Registered in the Deviation Register."
+        },
+        "A3": {
+          "size": [420, 297], "frame": [390, 277], "template": "small",
+          "band_height": 60, "draw": [390, 202],
+          "columns": { "count": 4, "width": 90, "gutter": 10, "total": 390, "residual": 0 },
+          "title_block": "TB-S", "title_block_origin": [230, 10],
+          "table_capacity": { "header_row": 10, "row_pitch": 5, "data_rows": 38, "residual": 2 }
+        }
+      },
+      "zones": {
+        "Z-DRAW": "views",
+        "Z-TITLE": "title block",
+        "Z-REV": "revision register, min 60, grows up, min 6 rows",
+        "Z-NOTES": "scope, read-with, notes, legend, standard-notes reference",
+        "Z-KEY": "key plan, min 60 x 60 large format, 40 x 40 small",
+        "Z-BANNER": "status banner",
+        "Z-GRIDREF": "frame zone references"
+      },
+      "notes_subcolumns": { "count": 2, "width": 85, "gutter": 10 }
+    },
+
+    "document": {
+      "size": [210, 297],
+      "margins": { "left": 20, "right": 40, "top": 25, "bottom": 17 },
+      "marginal_column": { "x": 20, "width": 25, "carries": ["clause numbers", "revision bars", "reviewer marks"] },
+      "gutter": 5,
+      "text_column": { "x": 50, "width": 120, "characters": 67, "derived_from": "ADOS-3.4.090" },
+      "baseline": { "first": 30, "pitch": 5, "last": 270, "count": 49 },
+      "header": { "baseline": 15, "rule_y": 20, "rule_width": 0.18, "rule_extent": [20, 170] },
+      "footer": { "rule_y": 272, "baseline": 280, "rule_width": 0.18, "rule_extent": [20, 170] },
+      "page_number_format": "Page n / m"
+    },
+
+    "board": {
+      "size": [841, 594],
+      "margins": { "all": 35 },
+      "frame": [771, 524],
+      "columns": { "count": 6, "width": 120, "gutter": 10, "total": 770, "residual": 1 },
+      "baseline": { "pitch": 5, "count": 104, "residual": 4 },
+      "title_block": "TB-B",
+      "title_block_size": [180, 40],
+      "type": { "body": "t5", "heading": "t7", "title": "t8" },
+      "derivation": "h = d * 4.945e-3 ; d = 1500 mm -> 7.4 mm ; d = 3000 mm -> 14.8 mm",
+      "fill_ratio": { "min": 0.35, "max": 0.60 },
+      "image_rules": ["no bleed", "no border", "no shadow", "align to column boundaries"]
+    },
+
+    "type": {
+      "cap_em_ratio_assumed": 0.72,
+      "calibration": "pt = cap_mm * 100 / measured_cap_height_at_100pt; round to 0.5 pt",
+      "steps": {
+        "t1": { "cap": 1.8, "pt": 7.0, "pitch": 5, "pitch_pt": 14.2, "role": "legal, provenance, tertiary annotation" },
+        "t2": { "cap": 2.5, "pt": 10.0, "pitch": 5, "pitch_pt": 14.2, "role": "body: notes, dimensions, tags, cells, footers" },
+        "t3": { "cap": 3.5, "pt": 14.0, "pitch": 10, "pitch_pt": 28.35, "role": "view titles, block headings, column headers" },
+        "t4": { "cap": 5.0, "pt": 19.5, "pitch": 10, "pitch_pt": 28.35, "role": "sheet title, section headings, status" },
+        "t5": { "cap": 7.0, "pt": 27.5, "pitch": 15, "pitch_pt": 42.5, "role": "sheet number, banner, board body" },
+        "t6": { "cap": 10.0, "pt": 39.5, "pitch": 20, "pitch_pt": 56.7, "role": "cover document title, watermark" },
+        "t7": { "cap": 14.0, "pt": 55.0, "pitch": 30, "pitch_pt": 85.0, "role": "cover project title, board headings" },
+        "t8": { "cap": 20.0, "pt": 78.5, "pitch": 40, "pitch_pt": 113.4, "role": "board title" }
+      },
+      "min_cap_act": 2.5,
+      "min_cap_secondary": 1.8,
+      "absolute_floor": 1.8,
+      "max_steps_per_sheet": 5,
+      "max_weights": 2,
+      "clear_zone": { "factor_of_cap": 0.5, "minimum": 1.0 },
+      "measure_characters": { "min": 45, "max": 75 },
+      "alignment": "left, ragged right",
+      "paragraph_separation": { "space": 5, "indent": 0 },
+      "uppercase_max_chars": 40,
+      "uppercase_tracking_percent": 2,
+      "permitted_rotations_deg": [0, 90],
+      "prohibited": ["underline", "italic for emphasis on drawings", "letter-spacing as emphasis",
+                     "outline", "shadow", "horizontal scaling", "justified setting"],
+      "families": {
+        "primary_recommended": "Söhne",
+        "primary_alternatives": ["Neue Haas Grotesk Text", "Univers Next", "ABC Diatype"],
+        "primary_open_fallback": "Inter",
+        "mono_recommended": "Söhne Mono",
+        "mono_open_fallback": "IBM Plex Mono",
+        "requirements": [
+          "grotesque or humanist sans, upright",
+          "1 l I distinct at 2.5 mm",
+          "0 distinguishable from O",
+          "5/S, 2/Z, 6/8/9 distinct",
+          "tabular lining figures",
+          "x-height >= 0.52 em",
+          "open apertures on c e s a",
+          "stroke contrast <= 1.3:1",
+          "true italic and small capitals",
+          ">= 2 weights",
+          "embeddable licence"
+        ]
+      }
+    },
+
+    "spacing": {
+      "scale": [5, 10, 20, 40],
+      "roles": {
+        "5": "within a group",
+        "10": "between groups",
+        "20": "between sections and between views",
+        "40": "between major parts"
+      },
+      "grouping_ratio_min": 2.0,
+      "derived_from": "ADOS-3.5.020"
+    },
+
+    "alignment": {
+      "lattice": 5,
+      "max_edges_per_axis": 6,
+      "optical_threshold": 0.5,
+      "numeric_columns": "right or decimal",
+      "text_columns": "left"
+    },
+
+    "ink": {
+      "text": "100% K, single channel",
+      "paper": "0%",
+      "tones": {
+        "T0": { "L": 100, "coverage": 0.00, "use": "paper, void, not applicable" },
+        "T1": { "L": 82, "coverage": 0.12, "use": "background, existing to remain, watermark, table header band" },
+        "T2": { "L": 64, "coverage": 0.26, "use": "secondary fill" },
+        "T3": { "L": 46, "coverage": 0.42, "use": "primary fill, poche, key plan current area" },
+        "T4": { "L": 28, "coverage": 0.60, "use": "emphasis fill" },
+        "T5": { "L": 10, "coverage": 0.88, "use": "cut elements too thin to read at T3" }
+      },
+      "max_tones_per_sheet": 4,
+      "text_backgrounds": ["T0", "T1"],
+      "reversed_text": false,
+      "colour": "redundant only; never the sole carrier"
+    },
+
+    "line": {
+      "tiers": { "W3": 0.70, "W2": 0.35, "W1": 0.18 },
+      "refinement": [0.25, 0.50],
+      "apparatus": [1.00, 1.40],
+      "min_issued": 0.18,
+      "min_safety_critical": 0.25,
+      "max_widths_per_sheet": 5,
+      "types": {
+        "L-CONT": [],
+        "L-DASH": [4.0, 2.0],
+        "L-DOT": [0.5, 1.5],
+        "L-CENT": [12.0, 2.0, 0.5, 2.0]
+      },
+      "permitted_rules": {
+        "sheet_frame": 1.00,
+        "title_block_division": 0.35,
+        "table_group_rule": 0.18,
+        "header_footer_hairline": 0.18
+      }
+    },
+
+    "title_block": {
+      "width": 180,
+      "derived_from": "ISO 7200 data field width",
+      "variants": {
+        "TB-L": {
+          "size": [180, 90],
+          "columns": { "left": 135, "right": 45 },
+          "row_boundaries": [0, 15, 35, 50, 65, 75, 85, 90],
+          "rows": [
+            { "y": [0, 15], "content": "project name / project code · client", "type": ["t3", "t2"] },
+            { "y": [15, 35], "content": "sheet title, up to 2 lines", "type": ["t4"] },
+            { "y": [35, 50], "content": "scale | status", "type": ["t3", "t4"] },
+            { "y": [50, 65], "content": "drawn · checked · approved · date", "type": ["t2"] },
+            { "y": [65, 75], "content": "container identifier", "type": ["t2 mono"] },
+            { "y": [75, 85], "content": "originator name, address, contact", "type": ["t2"] },
+            { "y": [85, 90], "content": "conformance · do-not-scale · copyright", "type": ["t1"] }
+          ],
+          "right_column": [
+            { "y": [35, 50], "content": "sheet number, short form", "type": ["t5"] },
+            { "y": [50, 65], "content": "revision", "type": ["t4"] },
+            { "y": [65, 75], "content": "sheet size · nominated issue size", "type": ["t2"] }
+          ]
+        },
+        "TB-S": {
+          "size": [180, 60],
+          "columns": { "left": 135, "right": 45 },
+          "row_boundaries": [0, 10, 25, 35, 45, 60]
+        },
+        "TB-D": {
+          "kind": "header and footer strip",
+          "header_baseline": 15,
+          "footer_baseline": 280
+        },
+        "TB-B": { "size": [180, 40], "position": "foot right" }
+      },
+      "identity_strip_max": [180, 20],
+      "field_binding": "every field bound to project or container data; no field typed on a sheet"
+    },
+
+    "status": {
+      "codes": ["S0", "S1", "S2", "S3", "S4", "S6", "S7", "A", "B", "WD"],
+      "watermark_statuses": ["S0", "S1", "S2", "S3", "S4", "WD"],
+      "watermark_tone": "T1",
+      "watermark_min_cap": 10,
+      "revision_preliminary": "^P[0-9]{2}$",
+      "revision_authorised": "^C[0-9]{2}$",
+      "revision_description_max_words": 20
+    },
+
+    "density": {
+      "fill_ratio": { "min": 0.40, "max": 0.85 },
+      "cover_fill_ratio": { "min": 0.25, "max": 0.45 },
+      "local_coverage_max": 0.25,
+      "coverage_window": 20,
+      "annotations_per_region_max": 50,
+      "emphasis_area_max": 0.10,
+      "view_separation_min": 20,
+      "view_boundary_clearance_min": 10,
+      "remedy_order": [
+        "move content to its correct level",
+        "remove duplicates of an authoritative value",
+        "split the view",
+        "split the sheet",
+        "change the sheet size"
+      ],
+      "prohibited_remedies": ["reduce text size", "reduce line width", "reduce spacing", "omit required content"]
+    },
+
+    "icons": {
+      "documents": "none",
+      "drawings": "the 30-symbol set of ADOS-4.16.010",
+      "board": "north point only",
+      "rationale": "a familiar word is read faster than an unfamiliar glyph; each added glyph reduces the recognisability of the others"
+    },
+
+    "templates": {
+      "T01": { "name": "Cover Sheet", "family": "sheet", "ados_type": "CS" },
+      "T02": { "name": "Project Information Sheet", "family": "sheet", "ados_type": "GN" },
+      "T03": { "name": "Drawing Sheet", "family": "sheet", "ados_type": "GA-P|EL|SE|RCP|RP" },
+      "T04": { "name": "Detail Drawing Sheet", "family": "sheet", "ados_type": "DT" },
+      "T05": { "name": "Specification Sheet", "family": "document", "ados_type": "SP-SPEC" },
+      "T06": { "name": "Door / Window Schedule", "family": "sheet", "ados_type": "DS|WS" },
+      "T07": { "name": "Meeting Minutes", "family": "document", "ados_type": "MM" },
+      "T08": { "name": "Site Visit Report", "family": "document", "ados_type": "SR" },
+      "T09": { "name": "Request for Information", "family": "document", "ados_type": "RFI" },
+      "T10": { "name": "Revision Log", "family": "sheet", "ados_type": "IX|RG" },
+      "T11": { "name": "Transmittal Sheet", "family": "document", "ados_type": "CI" },
+      "T12": { "name": "Presentation Board", "family": "board", "ados_type": "PR" }
+    },
+
+    "acceptance": {
+      "min_cap_height": 2.5,
+      "min_stroke_width": 0.18,
+      "text_clear_zone_violations": 0,
+      "zone_origin_variance": 0,
+      "title_block_field_position_variance": 0,
+      "distinct_line_widths_per_sheet_max": 5,
+      "distinct_type_sizes_per_sheet_max": 5,
+      "distinct_tones_per_sheet_max": 4,
+      "typed_title_block_fields": 0,
+      "per_element_graphic_overrides": 0,
+      "views_without_view_setting": 0,
+      "greyscale_render_passes": true,
+      "orientation_test_seconds": 5,
+      "orientation_test_correctness": 1.0
+    }
+  }
+}

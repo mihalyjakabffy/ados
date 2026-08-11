@@ -1,0 +1,1396 @@
+{
+  "$defs": {
+    "AnnotationPosition": {
+      "enum": [
+        "leadered",
+        "inline",
+        "tabulated"
+      ],
+      "title": "AnnotationPosition",
+      "type": "string"
+    },
+    "ArchitecturalLanguage": {
+      "additionalProperties": false,
+      "description": "The architectural identity layer, whole.",
+      "properties": {
+        "drawing": {
+          "$ref": "#/$defs/DrawingLanguage"
+        },
+        "diagrams": {
+          "$ref": "#/$defs/DiagramLanguage"
+        },
+        "renders": {
+          "$ref": "#/$defs/RenderLanguage"
+        },
+        "materials": {
+          "$ref": "#/$defs/MaterialLanguage"
+        }
+      },
+      "title": "ArchitecturalLanguage",
+      "type": "object"
+    },
+    "BrandApplications": {
+      "additionalProperties": false,
+      "description": "Which surfaces this brand is declared for.\n\nA surface that is not listed is not forbidden; it is simply not yet\ndesigned, and the preview says so rather than implying coverage.",
+      "properties": {
+        "documents": {
+          "default": true,
+          "title": "Documents",
+          "type": "boolean"
+        },
+        "presentations": {
+          "default": true,
+          "title": "Presentations",
+          "type": "boolean"
+        },
+        "drawings": {
+          "default": true,
+          "title": "Drawings",
+          "type": "boolean"
+        },
+        "portfolio": {
+          "default": true,
+          "title": "Portfolio",
+          "type": "boolean"
+        },
+        "website": {
+          "default": false,
+          "title": "Website",
+          "type": "boolean"
+        },
+        "social": {
+          "default": false,
+          "title": "Social",
+          "type": "boolean"
+        }
+      },
+      "title": "BrandApplications",
+      "type": "object"
+    },
+    "BrandStatus": {
+      "description": "Lifecycle of a brand version.\n\nMirrors the ADOS status vocabulary: a thing that has not been approved may\nnot be used, and saying so is the status field's whole job.",
+      "enum": [
+        "draft",
+        "proposed",
+        "approved",
+        "published",
+        "superseded",
+        "withdrawn"
+      ],
+      "title": "BrandStatus",
+      "type": "string"
+    },
+    "CameraLanguage": {
+      "additionalProperties": false,
+      "description": "Camera defaults a render pipeline can consume directly.\n\nThe repository's ``VisualState.camera`` already speaks focal length and\nsensor width; these are the brand's defaults for those same fields, which\nis why the units match rather than being 'wide' and 'tight'.",
+      "properties": {
+        "focal_length_mm": {
+          "default": 35.0,
+          "exclusiveMinimum": 0,
+          "title": "Focal Length Mm",
+          "type": "number"
+        },
+        "sensor_width_mm": {
+          "default": 36.0,
+          "exclusiveMinimum": 0,
+          "title": "Sensor Width Mm",
+          "type": "number"
+        },
+        "height_m": {
+          "default": 1.6,
+          "description": "Eye height. 1.6 m is standing.",
+          "exclusiveMinimum": 0,
+          "title": "Height M",
+          "type": "number"
+        },
+        "two_point_perspective": {
+          "default": true,
+          "description": "Verticals kept vertical. A converging vertical reads as a photograph of a building, not as a drawing of one.",
+          "title": "Two Point Perspective",
+          "type": "boolean"
+        }
+      },
+      "title": "CameraLanguage",
+      "type": "object"
+    },
+    "ColourSystem": {
+      "additionalProperties": false,
+      "description": "The palette.\n\n``primary`` is the ink the practice signs its name in; on a drawing it is\nblack, and the brand primary is what appears on everything that is not a\ndrawing. ``neutral`` is the grey ramp; it is checked against the ADOS tone\nladder rather than being free.",
+      "properties": {
+        "primary": {
+          "default": "#111111",
+          "title": "Primary",
+          "type": "string"
+        },
+        "secondary": {
+          "default": "#5a5a5a",
+          "title": "Secondary",
+          "type": "string"
+        },
+        "accent": {
+          "default": "#b8a88a",
+          "title": "Accent",
+          "type": "string"
+        },
+        "background": {
+          "default": "#ffffff",
+          "title": "Background",
+          "type": "string"
+        },
+        "surface": {
+          "default": "#f6f5f2",
+          "title": "Surface",
+          "type": "string"
+        },
+        "text_primary": {
+          "default": "#111111",
+          "title": "Text Primary",
+          "type": "string"
+        },
+        "text_secondary": {
+          "default": "#5a5a5a",
+          "title": "Text Secondary",
+          "type": "string"
+        },
+        "border": {
+          "default": "#d8d5cf",
+          "title": "Border",
+          "type": "string"
+        },
+        "neutral": {
+          "default": [
+            "#ffffff",
+            "#e8e6e1",
+            "#c4c1ba",
+            "#8d8a84",
+            "#4c4a46",
+            "#1c1b19"
+          ],
+          "description": "Light to dark. Checked against the ADOS tone ladder.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Neutral",
+          "type": "array"
+        },
+        "semantic": {
+          "$ref": "#/$defs/SemanticColours"
+        }
+      },
+      "title": "ColourSystem",
+      "type": "object"
+    },
+    "ColourTreatment": {
+      "enum": [
+        "natural",
+        "desaturated",
+        "monochrome",
+        "warm",
+        "cool"
+      ],
+      "title": "ColourTreatment",
+      "type": "string"
+    },
+    "Communication": {
+      "additionalProperties": false,
+      "properties": {
+        "tone": {
+          "$ref": "#/$defs/Tone",
+          "default": "precise"
+        },
+        "person": {
+          "$ref": "#/$defs/Person",
+          "default": "first_plural"
+        },
+        "writing_style": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Writing Style",
+          "type": "string"
+        },
+        "sentence_length_max": {
+          "default": 28,
+          "description": "Words. A cap, not a target \u2014 technical documents are read under time pressure and a 40-word sentence is read twice or not at all.",
+          "maximum": 60,
+          "minimum": 8,
+          "title": "Sentence Length Max",
+          "type": "integer"
+        },
+        "vocabulary": {
+          "default": [],
+          "description": "Words the practice reaches for.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Vocabulary",
+          "type": "array"
+        },
+        "forbidden_words": {
+          "default": [],
+          "description": "Words it does not use. Checked by the consistency pass, so keep it to words rather than phrases.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Words",
+          "type": "array"
+        },
+        "terminology": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Preferred term \u2192 what it replaces. 'adaptive reuse': 'refurbishment'.",
+          "title": "Terminology",
+          "type": "object"
+        },
+        "primary_language": {
+          "default": "en-GB",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+          "title": "Primary Language",
+          "type": "string"
+        },
+        "secondary_languages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Secondary Languages",
+          "type": "array"
+        },
+        "date_format": {
+          "default": "YYYY-MM-DD",
+          "maxLength": 20,
+          "title": "Date Format",
+          "type": "string"
+        },
+        "number_format": {
+          "default": "1 234,5",
+          "maxLength": 20,
+          "title": "Number Format",
+          "type": "string"
+        }
+      },
+      "title": "Communication",
+      "type": "object"
+    },
+    "DiagramLanguage": {
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "$ref": "#/$defs/DiagramStyle",
+          "default": "minimal"
+        },
+        "projection": {
+          "$ref": "#/$defs/DiagramProjection",
+          "default": "axonometric"
+        },
+        "palette": {
+          "default": [],
+          "description": "Empty means the brand palette. A non-empty list must be a subset of it \u2014 a diagram in colours the brand has not declared is the commonest way a set stops looking like one practice.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Palette",
+          "type": "array"
+        },
+        "stroke_mm": {
+          "default": 0.35,
+          "exclusiveMinimum": 0,
+          "title": "Stroke Mm",
+          "type": "number"
+        },
+        "fill_tones": {
+          "default": [
+            "T0",
+            "T1",
+            "T3"
+          ],
+          "description": "ADOS tone tokens; at most four per sheet.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Fill Tones",
+          "type": "array"
+        },
+        "label_step": {
+          "default": "t2",
+          "pattern": "^t[1-8]$",
+          "title": "Label Step",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "title": "DiagramLanguage",
+      "type": "object"
+    },
+    "DiagramProjection": {
+      "enum": [
+        "orthographic",
+        "axonometric",
+        "isometric",
+        "exploded"
+      ],
+      "title": "DiagramProjection",
+      "type": "string"
+    },
+    "DiagramStyle": {
+      "enum": [
+        "minimal",
+        "technical",
+        "editorial",
+        "monochrome",
+        "material"
+      ],
+      "title": "DiagramStyle",
+      "type": "string"
+    },
+    "DrawingLanguage": {
+      "additionalProperties": false,
+      "properties": {
+        "lineweights": {
+          "$ref": "#/$defs/Lineweights"
+        },
+        "line_types": {
+          "default": [
+            "L-CONT",
+            "L-DASH",
+            "L-DOT",
+            "L-CENT"
+          ],
+          "description": "ADOS token names. A practice subsets, never invents.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Line Types",
+          "type": "array"
+        },
+        "hatch_density": {
+          "$ref": "#/$defs/HatchDensity",
+          "default": "fine"
+        },
+        "hatch_tokens": {
+          "default": [
+            "H-CONC",
+            "H-MSNR",
+            "H-INSU-R",
+            "H-TIMB-S",
+            "H-METL"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Hatch Tokens",
+          "type": "array"
+        },
+        "annotation_position": {
+          "$ref": "#/$defs/AnnotationPosition",
+          "default": "leadered"
+        },
+        "annotation_uppercase": {
+          "default": true,
+          "title": "Annotation Uppercase",
+          "type": "boolean"
+        },
+        "hierarchy": {
+          "default": [
+            "cut",
+            "projection",
+            "background",
+            "furniture",
+            "landscape",
+            "figures",
+            "annotation",
+            "dimension"
+          ],
+          "description": "Heaviest first. The validator checks the weights follow.",
+          "items": {
+            "$ref": "#/$defs/GraphicLayer"
+          },
+          "title": "Hierarchy",
+          "type": "array"
+        },
+        "show_furniture": {
+          "default": true,
+          "title": "Show Furniture",
+          "type": "boolean"
+        },
+        "show_figures": {
+          "default": false,
+          "title": "Show Figures",
+          "type": "boolean"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "title": "DrawingLanguage",
+      "type": "object"
+    },
+    "FontClass": {
+      "enum": [
+        "grotesk",
+        "neo-grotesk",
+        "geometric",
+        "humanist",
+        "transitional-serif",
+        "editorial-serif",
+        "slab",
+        "mono"
+      ],
+      "title": "FontClass",
+      "type": "string"
+    },
+    "FontFace": {
+      "additionalProperties": false,
+      "description": "A family the practice has licensed, with what is needed to set it.",
+      "properties": {
+        "family": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Family",
+          "type": "string"
+        },
+        "classification": {
+          "$ref": "#/$defs/FontClass",
+          "default": "grotesk"
+        },
+        "cap_height_ratio": {
+          "default": 0.72,
+          "description": "Cap height as a fraction of the em. Measured from the font binary (OS/2.sCapHeight \u00f7 unitsPerEm), not guessed: families differ by up to 8 %% and every point size is derived from it.",
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.4,
+          "title": "Cap Height Ratio",
+          "type": "number"
+        },
+        "fallback": {
+          "default": "Arial",
+          "description": "Substituted when the family is absent. Word has no fallback chain, so an unstated fallback becomes a serif.",
+          "title": "Fallback",
+          "type": "string"
+        },
+        "weights": {
+          "default": [
+            400,
+            500,
+            700
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Weights",
+          "type": "array"
+        },
+        "licensed": {
+          "default": true,
+          "title": "Licensed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "family"
+      ],
+      "title": "FontFace",
+      "type": "object"
+    },
+    "GraphicLayer": {
+      "description": "The layers of a drawing, in the order ADOS reads them.\n\nThe ordering is the point: line weight encodes distance from the cut\nplane (``ADOS-3.1.010``), so the hierarchy has to be a total order with\n``CUT`` heaviest, and the validator enforces exactly that.",
+      "enum": [
+        "cut",
+        "projection",
+        "background",
+        "furniture",
+        "landscape",
+        "figures",
+        "annotation",
+        "dimension"
+      ],
+      "title": "GraphicLayer",
+      "type": "string"
+    },
+    "Grid": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "default": 6,
+          "maximum": 24,
+          "minimum": 1,
+          "title": "Columns",
+          "type": "integer"
+        },
+        "gutter_mm": {
+          "default": 10.0,
+          "minimum": 0,
+          "title": "Gutter Mm",
+          "type": "number"
+        },
+        "margin_mm": {
+          "default": 20.0,
+          "minimum": 0,
+          "title": "Margin Mm",
+          "type": "number"
+        },
+        "baseline_mm": {
+          "default": 5.0,
+          "exclusiveMinimum": 0,
+          "title": "Baseline Mm",
+          "type": "number"
+        },
+        "module_mm": {
+          "default": 10.0,
+          "exclusiveMinimum": 0,
+          "title": "Module Mm",
+          "type": "number"
+        }
+      },
+      "title": "Grid",
+      "type": "object"
+    },
+    "HatchDensity": {
+      "enum": [
+        "fine",
+        "medium",
+        "coarse"
+      ],
+      "title": "HatchDensity",
+      "type": "string"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "description": "The non-visual half of a brand.",
+      "properties": {
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "descriptor": {
+          "default": "",
+          "description": "What the practice is, in one line. 'Architecture and adaptive reuse' \u2014 not a slogan.",
+          "maxLength": 200,
+          "title": "Descriptor",
+          "type": "string"
+        },
+        "tagline": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Tagline",
+          "type": "string"
+        },
+        "positioning": {
+          "default": "",
+          "description": "What this practice does that a client cannot get elsewhere.",
+          "maxLength": 600,
+          "title": "Positioning",
+          "type": "string"
+        },
+        "mission": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Mission",
+          "type": "string"
+        },
+        "vision": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Vision",
+          "type": "string"
+        },
+        "values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "personality": {
+          "default": [],
+          "description": "Two to four axes. More than four is not a personality.",
+          "items": {
+            "$ref": "#/$defs/PersonalityAxis"
+          },
+          "title": "Personality",
+          "type": "array"
+        },
+        "keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "practice_scale": {
+          "$ref": "#/$defs/PracticeScale",
+          "default": "small"
+        },
+        "founded": {
+          "anyOf": [
+            {
+              "maximum": 2200,
+              "minimum": 1800,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Founded"
+        },
+        "locations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Locations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Imagery": {
+      "additionalProperties": false,
+      "description": "How photographs and renders are made and treated.",
+      "properties": {
+        "photography": {
+          "default": "",
+          "maxLength": 400,
+          "title": "Photography",
+          "type": "string"
+        },
+        "render_style": {
+          "default": "",
+          "maxLength": 400,
+          "title": "Render Style",
+          "type": "string"
+        },
+        "composition": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Composition",
+          "type": "array"
+        },
+        "colour_treatment": {
+          "$ref": "#/$defs/ColourTreatment",
+          "default": "natural"
+        },
+        "saturation": {
+          "default": 1.0,
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Saturation",
+          "type": "number"
+        },
+        "aspect_ratios": {
+          "default": [
+            "3:2",
+            "1:1"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Aspect Ratios",
+          "type": "array"
+        },
+        "bleed": {
+          "default": false,
+          "description": "False on every technical sheet: an image running to the trim has no frame, and a sheet is read by its frame.",
+          "title": "Bleed",
+          "type": "boolean"
+        }
+      },
+      "title": "Imagery",
+      "type": "object"
+    },
+    "LightingScenario": {
+      "enum": [
+        "soft_daylight",
+        "overcast",
+        "golden_hour",
+        "dusk",
+        "night",
+        "studio"
+      ],
+      "title": "LightingScenario",
+      "type": "string"
+    },
+    "Lineweights": {
+      "additionalProperties": false,
+      "description": "The practice's line weights, in millimetres.\n\nDefaults are the ADOS tiers. A practice may deviate \u2014 a heavier cut reads\nas a heavier hand \u2014 but every value is checked against the ISO 128 series\nand against the tier ratio, because a weight between two series values\nprints as whichever the plotter rounds to.",
+      "properties": {
+        "cut_mm": {
+          "default": 0.7,
+          "exclusiveMinimum": 0,
+          "title": "Cut Mm",
+          "type": "number"
+        },
+        "primary_mm": {
+          "default": 0.35,
+          "description": "Seen, in front of the cut plane.",
+          "exclusiveMinimum": 0,
+          "title": "Primary Mm",
+          "type": "number"
+        },
+        "secondary_mm": {
+          "default": 0.25,
+          "exclusiveMinimum": 0,
+          "title": "Secondary Mm",
+          "type": "number"
+        },
+        "background_mm": {
+          "default": 0.18,
+          "description": "Beyond, hidden, reference.",
+          "exclusiveMinimum": 0,
+          "title": "Background Mm",
+          "type": "number"
+        },
+        "annotation_mm": {
+          "default": 0.18,
+          "exclusiveMinimum": 0,
+          "title": "Annotation Mm",
+          "type": "number"
+        },
+        "dimension_mm": {
+          "default": 0.18,
+          "exclusiveMinimum": 0,
+          "title": "Dimension Mm",
+          "type": "number"
+        }
+      },
+      "title": "Lineweights",
+      "type": "object"
+    },
+    "Logo": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "$ref": "#/$defs/LogoAsset"
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LogoAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LogoAsset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The mark without the wordmark."
+        },
+        "wordmark_text": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Wordmark Text",
+          "type": "string"
+        },
+        "usage_rules": {
+          "$ref": "#/$defs/LogoUsageRules"
+        }
+      },
+      "title": "Logo",
+      "type": "object"
+    },
+    "LogoAsset": {
+      "additionalProperties": false,
+      "description": "One logo file plus the geometry needed to place it correctly.",
+      "properties": {
+        "path": {
+          "default": "",
+          "description": "Repository- or storage-relative path. Empty = not supplied yet; the brand is still valid, the asset check reports it.",
+          "title": "Path",
+          "type": "string"
+        },
+        "format": {
+          "default": "svg",
+          "pattern": "^(svg|pdf|eps|png)$",
+          "title": "Format",
+          "type": "string"
+        },
+        "min_width_mm": {
+          "default": 20.0,
+          "description": "Below this the mark stops resolving in print.",
+          "exclusiveMinimum": 0,
+          "title": "Min Width Mm",
+          "type": "number"
+        },
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect Ratio"
+        }
+      },
+      "title": "LogoAsset",
+      "type": "object"
+    },
+    "LogoUsageRules": {
+      "additionalProperties": false,
+      "description": "The rules that keep a mark legible wherever it lands.",
+      "properties": {
+        "clear_space_factor": {
+          "default": 1.0,
+          "description": "Clear space as a multiple of the mark's cap height or x-dimension. ADOS-3.4.080 applies the same idea to text.",
+          "minimum": 0,
+          "title": "Clear Space Factor",
+          "type": "number"
+        },
+        "permitted_backgrounds": {
+          "default": [
+            "T0",
+            "T1"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Backgrounds",
+          "type": "array"
+        },
+        "monochrome_only": {
+          "default": true,
+          "description": "True for every ADOS drawing output; a colour mark on a plotted sheet is a mark that prints as an indeterminate grey.",
+          "title": "Monochrome Only",
+          "type": "boolean"
+        },
+        "prohibited": {
+          "default": [
+            "rotation",
+            "outline",
+            "shadow",
+            "gradient",
+            "stretch"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Prohibited",
+          "type": "array"
+        }
+      },
+      "title": "LogoUsageRules",
+      "type": "object"
+    },
+    "MaterialEntry": {
+      "additionalProperties": false,
+      "description": "A material the practice returns to, with the tokens to draw it.",
+      "properties": {
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "hatch_token": {
+          "default": "",
+          "maxLength": 20,
+          "title": "Hatch Token",
+          "type": "string"
+        },
+        "tone": {
+          "default": "T2",
+          "pattern": "^T[0-5]$",
+          "title": "Tone",
+          "type": "string"
+        },
+        "render_keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Render Keywords",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "MaterialEntry",
+      "type": "object"
+    },
+    "MaterialLanguage": {
+      "additionalProperties": false,
+      "properties": {
+        "palette": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MaterialEntry"
+          },
+          "title": "Palette",
+          "type": "array"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "title": "MaterialLanguage",
+      "type": "object"
+    },
+    "Person": {
+      "enum": [
+        "first_plural",
+        "third",
+        "impersonal"
+      ],
+      "title": "Person",
+      "type": "string"
+    },
+    "PersonalityAxis": {
+      "description": "The adjective vocabulary a practice may describe itself with.\n\nA closed list rather than free text because personality has to be\nmachine-consumable: the render language, the diagram style and the writing\ntone are all derived from it. ``keywords`` on ``Identity`` carries anything\nthis list cannot express.",
+      "enum": [
+        "precise",
+        "quiet",
+        "material",
+        "editorial",
+        "warm",
+        "rigorous",
+        "experimental",
+        "civic",
+        "craft",
+        "pragmatic",
+        "monumental",
+        "playful"
+      ],
+      "title": "PersonalityAxis",
+      "type": "string"
+    },
+    "PracticeScale": {
+      "description": "Studio size band. Drives sensible defaults, not judgements.",
+      "enum": [
+        "solo",
+        "small",
+        "medium",
+        "large"
+      ],
+      "title": "PracticeScale",
+      "type": "string"
+    },
+    "RenderLanguage": {
+      "additionalProperties": false,
+      "properties": {
+        "lighting": {
+          "$ref": "#/$defs/LightingScenario",
+          "default": "soft_daylight"
+        },
+        "mood": {
+          "$ref": "#/$defs/RenderMood",
+          "default": "material_focused"
+        },
+        "contrast": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Contrast",
+          "type": "number"
+        },
+        "saturation": {
+          "default": 0.7,
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Saturation",
+          "type": "number"
+        },
+        "camera": {
+          "$ref": "#/$defs/CameraLanguage"
+        },
+        "material_expression": {
+          "default": [],
+          "description": "What the surfaces are asked to show: 'grain', 'patina', 'board-mark', 'weathering'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Material Expression",
+          "type": "array"
+        },
+        "people": {
+          "default": true,
+          "title": "People",
+          "type": "boolean"
+        },
+        "sky": {
+          "default": "high overcast",
+          "maxLength": 120,
+          "title": "Sky",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 600,
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "title": "RenderLanguage",
+      "type": "object"
+    },
+    "RenderMood": {
+      "enum": [
+        "editorial",
+        "atmospheric",
+        "photorealistic",
+        "material_focused",
+        "minimal",
+        "dramatic",
+        "documentary"
+      ],
+      "title": "RenderMood",
+      "type": "string"
+    },
+    "RoleClass": {
+      "description": "What a typographic role carries, which sets its legibility floor.\n\nADOS has two floors, not one (``ADOS-2.4.010``): 2.5 mm cap for anything\nthe reader must be able to act on, and 1.8 mm for provenance \u2014 the\ncopyright line, the conformance statement, a photo credit. A role has to\ndeclare which it is, because the floor cannot be inferred from a name: one\npractice's ``caption`` is a figure legend and another's is a credit.",
+      "enum": [
+        "primary",
+        "tertiary"
+      ],
+      "title": "RoleClass",
+      "type": "string"
+    },
+    "SemanticColours": {
+      "additionalProperties": false,
+      "description": "Status colours. ADOS permits colour only where it is redundant.",
+      "properties": {
+        "success": {
+          "default": "#2f6f4f",
+          "title": "Success",
+          "type": "string"
+        },
+        "warning": {
+          "default": "#8a6a1f",
+          "title": "Warning",
+          "type": "string"
+        },
+        "error": {
+          "default": "#8a2f2f",
+          "title": "Error",
+          "type": "string"
+        },
+        "info": {
+          "default": "#2f5f8a",
+          "title": "Info",
+          "type": "string"
+        }
+      },
+      "title": "SemanticColours",
+      "type": "object"
+    },
+    "Spacing": {
+      "additionalProperties": false,
+      "description": "The spacing scale.\n\nAuthored as multipliers of a base unit rather than as absolute values, so\nthat the whole scale moves coherently when the base does.",
+      "properties": {
+        "base_unit_mm": {
+          "default": 5.0,
+          "exclusiveMinimum": 0,
+          "title": "Base Unit Mm",
+          "type": "number"
+        },
+        "scale": {
+          "default": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "description": "Multipliers of the base unit. ADOS-3.3.040 wants a between-group gap of at least twice the within-group gap, which a doubling scale gives for free.",
+          "items": {
+            "type": "number"
+          },
+          "title": "Scale",
+          "type": "array"
+        },
+        "margin_mm": {
+          "default": 10.0,
+          "minimum": 0,
+          "title": "Margin Mm",
+          "type": "number"
+        }
+      },
+      "title": "Spacing",
+      "type": "object"
+    },
+    "Tone": {
+      "enum": [
+        "neutral",
+        "precise",
+        "editorial",
+        "warm",
+        "formal",
+        "direct"
+      ],
+      "title": "Tone",
+      "type": "string"
+    },
+    "TypeRole": {
+      "additionalProperties": false,
+      "description": "One typographic role bound to a step of the ADOS type scale.",
+      "properties": {
+        "role_class": {
+          "$ref": "#/$defs/RoleClass",
+          "default": "primary",
+          "description": "Sets which ADOS cap-height floor applies. Default is the stricter one: a role that has not thought about it is content."
+        },
+        "step": {
+          "description": "A step of the ADOS type scale (ADOS-2.4.020). The cap height comes from the standard; the brand chooses which step a role sits on, not what the step measures.",
+          "pattern": "^t[1-8]$",
+          "title": "Step",
+          "type": "string"
+        },
+        "face": {
+          "default": "primary",
+          "pattern": "^(primary|secondary|mono)$",
+          "title": "Face",
+          "type": "string"
+        },
+        "weight": {
+          "default": 400,
+          "maximum": 900,
+          "minimum": 100,
+          "title": "Weight",
+          "type": "integer"
+        },
+        "uppercase": {
+          "default": false,
+          "title": "Uppercase",
+          "type": "boolean"
+        },
+        "tracking_percent": {
+          "default": 0.0,
+          "maximum": 20.0,
+          "minimum": -5.0,
+          "title": "Tracking Percent",
+          "type": "number"
+        }
+      },
+      "required": [
+        "step"
+      ],
+      "title": "TypeRole",
+      "type": "object"
+    },
+    "Typography": {
+      "additionalProperties": false,
+      "properties": {
+        "primary_font": {
+          "$ref": "#/$defs/FontFace"
+        },
+        "secondary_font": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FontFace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mono_font": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FontFace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identifiers, container IDs, clause numbers. A proportional face makes two identifiers of equal length look unequal."
+        },
+        "heading_styles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TypeRole"
+          },
+          "title": "Heading Styles",
+          "type": "object"
+        },
+        "body_styles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TypeRole"
+          },
+          "title": "Body Styles",
+          "type": "object"
+        },
+        "numeric_styles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TypeRole"
+          },
+          "title": "Numeric Styles",
+          "type": "object"
+        },
+        "baseline_mm": {
+          "default": 5.0,
+          "description": "Baseline pitch. Defaults to the ADOS sub-module.",
+          "exclusiveMinimum": 0,
+          "title": "Baseline Mm",
+          "type": "number"
+        },
+        "line_height_factor": {
+          "default": 1.42,
+          "maximum": 2.5,
+          "minimum": 1.0,
+          "title": "Line Height Factor",
+          "type": "number"
+        }
+      },
+      "required": [
+        "primary_font"
+      ],
+      "title": "Typography",
+      "type": "object"
+    },
+    "VisualIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "logo": {
+          "$ref": "#/$defs/Logo"
+        },
+        "typography": {
+          "$ref": "#/$defs/Typography"
+        },
+        "colour": {
+          "$ref": "#/$defs/ColourSystem"
+        },
+        "spacing": {
+          "$ref": "#/$defs/Spacing"
+        },
+        "grid": {
+          "$ref": "#/$defs/Grid"
+        },
+        "imagery": {
+          "$ref": "#/$defs/Imagery"
+        }
+      },
+      "required": [
+        "typography"
+      ],
+      "title": "VisualIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A practice's identity in machine-readable form. Generated from the pydantic models in brand/models \u2014 do not edit by hand.",
+  "properties": {
+    "brand_id": {
+      "format": "uuid",
+      "title": "Brand Id",
+      "type": "string"
+    },
+    "version": {
+      "default": "1.0.0",
+      "description": "Semantic version. Major = a downstream document changes shape; minor = a value changes; patch = metadata only.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/BrandStatus",
+      "default": "draft"
+    },
+    "parent_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Version"
+    },
+    "content_hash": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Hash"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "changelog": {
+      "default": "",
+      "maxLength": 1000,
+      "title": "Changelog",
+      "type": "string"
+    },
+    "ados_edition": {
+      "default": "1.0",
+      "description": "The edition of the standard this brand was validated against. A brand is only conformant relative to an edition.",
+      "title": "Ados Edition",
+      "type": "string"
+    },
+    "origin": {
+      "default": "manual",
+      "description": "How the brand was authored. 'agent' never means 'approved' \u2014 that is what status is for.",
+      "pattern": "^(manual|agent|imported)$",
+      "title": "Origin",
+      "type": "string"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity"
+    },
+    "visual_identity": {
+      "$ref": "#/$defs/VisualIdentity"
+    },
+    "architectural_language": {
+      "$ref": "#/$defs/ArchitecturalLanguage"
+    },
+    "communication": {
+      "$ref": "#/$defs/Communication"
+    },
+    "applications": {
+      "$ref": "#/$defs/BrandApplications"
+    }
+  },
+  "required": [
+    "identity",
+    "visual_identity"
+  ],
+  "title": "ADOS Brand",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ados.dev/schemas/brand/1.0.0/brand.schema.json"
+}

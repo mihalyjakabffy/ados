@@ -1,0 +1,612 @@
+{
+  "brand_id": "0a000000-0000-4000-8000-000000000002",
+  "version": "1.0.0",
+  "status": "published",
+  "parent_version": null,
+  "content_hash": "4aadb1166c690b4599ebd50d0f128c1d44281901bc8c0a0a4001739af50758ba",
+  "created_at": "2026-08-10T07:46:00.820047Z",
+  "changelog": "Initial identity, generated through the ADOS Brand System.",
+  "ados_edition": "1.0",
+  "origin": "manual",
+  "identity": {
+    "name": "STUDIO OM",
+    "descriptor": "Architecture, interiors and adaptive reuse",
+    "tagline": "Opening and mass",
+    "positioning": "A practice that works from what is already standing. Every project begins with a survey rather than a sketch, and the existing building is treated as the primary material \u2014 measured, kept where it performs, and cut where it does not.",
+    "mission": "To make reuse the ordinary choice by showing, project by project, that an existing structure carries more value than the one that would replace it.",
+    "vision": "A practice whose drawings are read by builders without a phone call, and whose buildings are recognised without a signature.",
+    "values": [
+      "Survey before proposal",
+      "Keep what performs",
+      "Show the joint",
+      "Measure the claim",
+      "Detail once, well",
+      "Answer plainly"
+    ],
+    "personality": [
+      "precise",
+      "quiet",
+      "material",
+      "rigorous"
+    ],
+    "keywords": [
+      "adaptive reuse",
+      "existing fabric",
+      "interiors",
+      "retrofit",
+      "heritage",
+      "housing",
+      "public",
+      "embodied carbon",
+      "contextual",
+      "experimental",
+      "minimal",
+      "human"
+    ],
+    "practice_scale": "small",
+    "founded": 2016,
+    "locations": [
+      "Budapest",
+      "Vienna"
+    ]
+  },
+  "visual_identity": {
+    "logo": {
+      "primary": {
+        "path": "logo/studio-om-primary.svg",
+        "format": "svg",
+        "min_width_mm": 28.0,
+        "aspect_ratio": null
+      },
+      "secondary": {
+        "path": "logo/studio-om-secondary.svg",
+        "format": "svg",
+        "min_width_mm": 22.0,
+        "aspect_ratio": null
+      },
+      "symbol": {
+        "path": "logo/studio-om-symbol.svg",
+        "format": "svg",
+        "min_width_mm": 6.0,
+        "aspect_ratio": null
+      },
+      "wordmark_text": "STUDIO OM",
+      "monogram_text": "OM",
+      "construction": {
+        "module_mm": 5.0,
+        "cap_modules": 2.0,
+        "field_modules": 6.0,
+        "aperture_stroke_modules": 0.6,
+        "letter_gap_modules": 1.0,
+        "tracking_percent": 8.0
+      },
+      "concept": "OM is read as a pair, not as a word: O is the opening, M is the mass. Architecture is the negotiation between what is cut away and what is left standing, and in an existing building that negotiation is the whole job. The mark is a square aperture \u2014 a threshold seen in plan \u2014 constructed on the same module the sheets are set on. It is a fragment of a drawing rather than a picture of a building.",
+      "incorrect_uses": [
+        "Do not rotate the aperture \u2014 it is a plan, and a plan has an up.",
+        "Do not fill the aperture with an image.",
+        "Do not outline, emboss, or add a shadow.",
+        "Do not stretch, condense, or re-set the wordmark in another face.",
+        "Do not place the mark on a tone darker than T1; use the reversed lockup.",
+        "Do not reduce the primary lockup below 28 mm; use the compact mark.",
+        "Do not recolour the mark in the accent."
+      ],
+      "usage_rules": {
+        "clear_space_factor": 1.0,
+        "permitted_backgrounds": [
+          "T0",
+          "T1"
+        ],
+        "monochrome_only": true,
+        "prohibited": [
+          "rotation",
+          "outline",
+          "shadow",
+          "gradient",
+          "stretch"
+        ]
+      }
+    },
+    "typography": {
+      "primary_font": {
+        "family": "Inter",
+        "classification": "neo-grotesk",
+        "cap_height_ratio": 0.7275,
+        "fallback": "Arial",
+        "weights": [
+          400,
+          500,
+          600
+        ],
+        "licensed": true
+      },
+      "secondary_font": {
+        "family": "Source Serif 4",
+        "classification": "editorial-serif",
+        "cap_height_ratio": 0.67,
+        "fallback": "Georgia",
+        "weights": [
+          400,
+          600
+        ],
+        "licensed": true
+      },
+      "mono_font": {
+        "family": "IBM Plex Mono",
+        "classification": "mono",
+        "cap_height_ratio": 0.698,
+        "fallback": "Consolas",
+        "weights": [
+          400
+        ],
+        "licensed": true
+      },
+      "heading_styles": {
+        "h1": {
+          "role_class": "primary",
+          "step": "t7",
+          "face": "primary",
+          "weight": 500,
+          "uppercase": true,
+          "tracking_percent": 3.0
+        },
+        "h2": {
+          "role_class": "primary",
+          "step": "t5",
+          "face": "primary",
+          "weight": 500,
+          "uppercase": true,
+          "tracking_percent": 3.0
+        },
+        "h3": {
+          "role_class": "primary",
+          "step": "t4",
+          "face": "primary",
+          "weight": 500,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "h4": {
+          "role_class": "primary",
+          "step": "t3",
+          "face": "primary",
+          "weight": 500,
+          "uppercase": true,
+          "tracking_percent": 3.0
+        }
+      },
+      "body_styles": {
+        "body": {
+          "role_class": "primary",
+          "step": "t2",
+          "face": "primary",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "lead": {
+          "role_class": "primary",
+          "step": "t3",
+          "face": "secondary",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "caption": {
+          "role_class": "tertiary",
+          "step": "t1",
+          "face": "secondary",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "legal": {
+          "role_class": "tertiary",
+          "step": "t1",
+          "face": "primary",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        }
+      },
+      "numeric_styles": {
+        "identifier": {
+          "role_class": "primary",
+          "step": "t2",
+          "face": "mono",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "dimension": {
+          "role_class": "primary",
+          "step": "t2",
+          "face": "primary",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        },
+        "index": {
+          "role_class": "tertiary",
+          "step": "t1",
+          "face": "mono",
+          "weight": 400,
+          "uppercase": false,
+          "tracking_percent": 0.0
+        }
+      },
+      "baseline_mm": 5.0,
+      "line_height_factor": 1.45
+    },
+    "colour": {
+      "primary": "#1a1a18",
+      "secondary": "#4d5149",
+      "accent": "#64726b",
+      "background": "#f2f0eb",
+      "surface": "#fbfaf7",
+      "text_primary": "#1a1a18",
+      "text_secondary": "#4d5149",
+      "border": "#d6d2c8",
+      "neutral": [
+        "#fffff9",
+        "#cfccc3",
+        "#9e9b92",
+        "#706d64",
+        "#454239",
+        "#1e1b12"
+      ],
+      "semantic": {
+        "success": "#3f5f4a",
+        "warning": "#7a6320",
+        "error": "#7e2f2c",
+        "info": "#2f5570"
+      }
+    },
+    "spacing": {
+      "base_unit_mm": 5.0,
+      "scale": [
+        1.0,
+        2.0,
+        4.0,
+        8.0
+      ],
+      "margin_mm": 10.0
+    },
+    "grid": {
+      "columns": 6,
+      "gutter_mm": 10.0,
+      "margin_mm": 20.0,
+      "baseline_mm": 5.0,
+      "module_mm": 10.0,
+      "configurations": {
+        "A4": {
+          "columns": 4,
+          "gutter_mm": 5.0,
+          "margin_mm": 20.0,
+          "measure_mm": 120.0
+        },
+        "A3": {
+          "columns": 6,
+          "gutter_mm": 5.0,
+          "margin_mm": 15.0,
+          "measure_mm": 125.0
+        },
+        "slide": {
+          "columns": 12,
+          "gutter_mm": 5.0,
+          "margin_mm": 15.0,
+          "measure_mm": null
+        },
+        "portfolio": {
+          "columns": 8,
+          "gutter_mm": 5.0,
+          "margin_mm": 15.0,
+          "measure_mm": null
+        },
+        "board": {
+          "columns": 6,
+          "gutter_mm": 10.0,
+          "margin_mm": 20.0,
+          "measure_mm": null
+        }
+      }
+    },
+    "imagery": {
+      "photography": "Existing fabric before intervention, and the joint after it. Available light, no styling, no empty rooms. A building in use photographs as a building in use.",
+      "render_style": "Soft daylight, low saturation, the existing structure legible through the new work.",
+      "composition": [
+        "frontal",
+        "one-point",
+        "eye-level"
+      ],
+      "colour_treatment": "desaturated",
+      "saturation": 0.62,
+      "aspect_ratios": [
+        "3:2",
+        "4:5",
+        "1:1"
+      ],
+      "perspective": "frontal",
+      "verticals_corrected": true,
+      "human_presence": "incidental",
+      "cropping": "full-frame",
+      "sequencing": [
+        "context",
+        "approach",
+        "threshold",
+        "interior",
+        "joint",
+        "detail"
+      ],
+      "detail_ratio": 0.33,
+      "bleed": false
+    },
+    "graphic_language": {
+      "corner": "square",
+      "rule_tier": "annotation",
+      "emphasis_rule_tier": "secondary",
+      "frame_stroke_tier": "annotation",
+      "image_frame": true,
+      "image_caption_position": "below-left",
+      "separator_spacing_modules": 2.0,
+      "primitives": [
+        {
+          "key": "aperture",
+          "name": "Aperture",
+          "description": "The square opening. Frames an image, marks a section opening, holds the monogram at small size.",
+          "stroke_tier": "secondary",
+          "modules": 6.0
+        },
+        {
+          "key": "rule",
+          "name": "Section rule",
+          "description": "Separates blocks. Full measure, never partial.",
+          "stroke_tier": "annotation",
+          "modules": 1.0
+        },
+        {
+          "key": "tick",
+          "name": "Registration tick",
+          "description": "A 5 mm tick at the head of a column, marking the lattice. The one mark that shows the grid.",
+          "stroke_tier": "annotation",
+          "modules": 1.0
+        },
+        {
+          "key": "index",
+          "name": "Index number",
+          "description": "Two mono digits at the tertiary step, used for sections, notes and slides alike.",
+          "stroke_tier": "annotation",
+          "modules": 1.0
+        }
+      ],
+      "notes": "Corners are square everywhere. The aperture is the only shape the identity owns; everything else is a rule or a frame."
+    }
+  },
+  "architectural_language": {
+    "drawing": {
+      "lineweights": {
+        "cut_mm": 1.0,
+        "primary_mm": 0.35,
+        "secondary_mm": 0.25,
+        "background_mm": 0.18,
+        "annotation_mm": 0.18,
+        "dimension_mm": 0.18
+      },
+      "line_types": [
+        "L-CONT",
+        "L-DASH",
+        "L-DOT",
+        "L-CENT"
+      ],
+      "hatch_density": "fine",
+      "hatch_tokens": [
+        "H-CONC",
+        "H-MSNR",
+        "H-TIMB-S",
+        "H-INSU-R",
+        "H-METL",
+        "H-EART"
+      ],
+      "annotation_position": "leadered",
+      "annotation_uppercase": true,
+      "hierarchy": [
+        "cut",
+        "projection",
+        "background",
+        "furniture",
+        "landscape",
+        "annotation",
+        "dimension"
+      ],
+      "show_furniture": true,
+      "show_figures": false,
+      "notes": "The cut is 1.00 mm rather than the standard 0.70. When the subject is an existing building, the existing fabric must read as mass at a glance, and the cut is what carries it. New work is distinguished by phase encoding, never by a lighter line."
+    },
+    "diagrams": {
+      "style": "minimal",
+      "projection": "axonometric",
+      "palette": [
+        "#1a1a18",
+        "#64726b"
+      ],
+      "stroke_mm": 0.25,
+      "fill_tones": [
+        "T0",
+        "T1",
+        "T3"
+      ],
+      "label_step": "t2",
+      "notes": "One projection for the whole set. A concept diagram and a circulation diagram that differ in projection are read as being about different buildings."
+    },
+    "renders": {
+      "lighting": "soft_daylight",
+      "mood": "material_focused",
+      "contrast": 0.4,
+      "saturation": 0.62,
+      "camera": {
+        "focal_length_mm": 35.0,
+        "sensor_width_mm": 36.0,
+        "height_m": 1.6,
+        "two_point_perspective": true
+      },
+      "material_expression": [
+        "grain",
+        "patina",
+        "board-mark",
+        "weathering",
+        "lime bloom"
+      ],
+      "people": true,
+      "sky": "high overcast",
+      "notes": "A render is a proposition about light and material, not a photograph of a finished building. It is never issued in a technical package."
+    },
+    "materials": {
+      "palette": [
+        {
+          "name": "board-marked concrete",
+          "hatch_token": "H-CONC",
+          "tone": "T3",
+          "render_keywords": [
+            "board-mark",
+            "cool grey"
+          ]
+        },
+        {
+          "name": "reclaimed brick",
+          "hatch_token": "H-MSNR",
+          "tone": "T3",
+          "render_keywords": [
+            "patina",
+            "lime mortar"
+          ]
+        },
+        {
+          "name": "oiled oak",
+          "hatch_token": "H-TIMB-S",
+          "tone": "T2",
+          "render_keywords": [
+            "grain",
+            "warm"
+          ]
+        },
+        {
+          "name": "oxidised steel",
+          "hatch_token": "H-METL",
+          "tone": "T4",
+          "render_keywords": [
+            "matte",
+            "verdigris"
+          ]
+        },
+        {
+          "name": "lime plaster",
+          "hatch_token": "",
+          "tone": "T1",
+          "render_keywords": [
+            "chalk",
+            "soft"
+          ]
+        }
+      ],
+      "notes": "Five materials, repeated. A practice recognised by its material palette has one; a practice with thirty does not."
+    }
+  },
+  "communication": {
+    "tone": "precise",
+    "person": "first_plural",
+    "writing_style": "Short declarative sentences. State the fact, then the reason. No adjective that cannot be measured, and no claim that cannot be checked against the drawing.",
+    "sentence_length_max": 24,
+    "vocabulary": [
+      "existing",
+      "fabric",
+      "retain",
+      "repair",
+      "reuse",
+      "survey",
+      "joint",
+      "threshold",
+      "opening",
+      "mass"
+    ],
+    "forbidden_words": [
+      "bespoke",
+      "iconic",
+      "cutting-edge",
+      "innovative",
+      "solution",
+      "leverage",
+      "synergy",
+      "transforming",
+      "state-of-the-art",
+      "unique",
+      "seamless",
+      "curated"
+    ],
+    "terminology": {
+      "adaptive reuse": "refurbishment",
+      "existing fabric": "the old building",
+      "embodied carbon": "carbon footprint",
+      "survey": "site visit",
+      "opening": "hole"
+    },
+    "primary_language": "en-GB",
+    "secondary_languages": [
+      "hu-HU",
+      "de-AT"
+    ],
+    "date_format": "YYYY-MM-DD",
+    "number_format": "1 234,5"
+  },
+  "digital": {
+    "web": {
+      "sections": [
+        "Hero",
+        "Projects",
+        "Studio",
+        "Approach",
+        "Contact"
+      ],
+      "nav": "minimal-top",
+      "hero": "a single photograph of an existing building, full width, no overlaid text",
+      "project_card": "image, name, year, type \u2014 the caption is under the image, not over it",
+      "grid_columns": 12,
+      "max_content_width_px": 1440,
+      "image_treatment": "framed",
+      "motion": "fade",
+      "transition_ms": 160,
+      "hover": "opacity to 0.65, no scale, no shadow",
+      "dark_mode": false,
+      "notes": "Nothing travels. A studio whose drawings do not animate has already decided what it thinks about motion."
+    },
+    "social": {
+      "platforms": [
+        "instagram",
+        "linkedin"
+      ],
+      "post_formats": [
+        "1:1",
+        "4:5"
+      ],
+      "post_types": [
+        "project announcement",
+        "construction progress",
+        "finished project",
+        "drawing",
+        "diagram",
+        "competition",
+        "studio news"
+      ],
+      "caption_max_words": 50,
+      "watermark": false,
+      "grid_discipline": "one project across three consecutive posts, in the declared image sequence",
+      "notes": "The account is a portfolio, not a feed. A post that is not about a building is not posted."
+    }
+  },
+  "applications": {
+    "documents": true,
+    "presentations": true,
+    "drawings": true,
+    "portfolio": true,
+    "website": true,
+    "social": true
+  }
+}
