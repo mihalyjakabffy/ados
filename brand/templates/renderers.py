@@ -631,6 +631,7 @@ _WORD_BUILDERS: dict[str, str] = {
     "BW07-revision-log": "t10_revision_log",
     "BW08-transmittal": "t11_transmittal",
     "BW09-site-survey-record": "t13_site_survey_record",
+    "BW10-information-request": "t14_information_request",
 }
 
 

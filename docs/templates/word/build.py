@@ -3,7 +3,7 @@
 
     python3 docs/templates/word/build.py [outdir]
 
-Produces nine .dotx templates. Word is used only where the recipient needs an
+Produces ten .dotx templates. Word is used only where the recipient needs an
 editable document (PTS-03 §4); the cover, drawing, detail and board templates
 are Archicad and InDesign deliverables and are not built here.
 """
@@ -578,6 +578,147 @@ def t13_site_survey_record(out: Path):
     save_as_dotx(doc, out / "PTS-T13-Site-Survey-Record.dotx")
 
 
+def t14_information_request(out: Path):
+    """T14 — asking a holder of records for a record that already exists.
+
+    Not T09. An RFI asks the design team for a *decision* the documentation
+    does not provide; this asks somebody outside it for a *document* that is
+    already written. ``ADOS-2.2.010`` gives every fact class one authoritative
+    carrier and forbids any other document from restating its value — so where
+    that carrier is held by the client, a utility or a previous consultant, the
+    practice has two lawful moves: obtain it and reference it, or record an
+    assumption with its basis stated. This template is the instrument for the
+    first, and without it the second happens by default.
+
+    Upstream of T13. What arrives here is what a survey finding cites when it
+    carries the ``(D)`` token; an item that comes back *does not exist* is what
+    licenses ``(A)``, with this request's number as the basis.
+
+    Two fields carry the design and both are the ones a real data request
+    leaves out: **what each item is needed for**, named as a container or a
+    decision, so the recipient can order the work; and **what happens if it is
+    not supplied**, so that a due date has a consequence attached rather than
+    being a wish.
+    """
+    doc, section = new_document("document")
+    build_header(doc, section)
+    build_footer(doc, section)
+    # IR is the practice-local type code; PTS-02 T14 records that the
+    # standard's registry has no type for obtaining a third party's records.
+    page1_block(doc, "INFORMATION REQUEST", container_type="IR")
+    spacer(doc, 10)
+
+    # -- who is asked, and by when ------------------------------------------
+    para(doc, "t3 heading block", "THE REQUEST").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [40, 110], rows=0)
+    for label, prompt in (
+        ("Request number", ""),
+        ("To, organisation", ""),
+        ("For the attention of", ""),
+        # Not decoration: the capacity decides whether an answer is owed at
+        # all, and an unanswered request against a duty is a different fact
+        # from an unanswered favour.
+        ("Asked in the capacity of", "client under the appointment / statutory "
+                                     "undertaker / previous consultant"),
+        ("Date of request", ""),
+        ("Response needed by", ""),
+        ("Why that date", "the container or decision that waits on it"),
+    ):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        cell_margins(r.cells[0], left=0, right=1.25)
+        cell_margins(r.cells[1], left=0, right=1.25)
+        cell_text(doc, r.cells[0], label, "t2 label caps")
+        cell_text(doc, r.cells[1], prompt, "td text")
+
+    spacer(doc, 10)
+    para(doc, "t3 heading block",
+         "WHY THIS IS ASKED").paragraph_format.space_before = Pt(0)
+    para(doc, "t2 body",
+         "Each fact below has one authoritative carrier, and it is not held by this practice. We "
+         "may reference what you hold; we may not restate it. Where an item is not supplied we "
+         "record the fact as an assumption, name this request as the basis, and carry the "
+         "consequence stated against that item.")
+
+    spacer(doc, 10)
+
+    # -- the closed response vocabulary -------------------------------------
+    para(doc, "t3 heading block",
+         "RESPONSE VOCABULARY").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [40, 110], rows=0)
+    for token, meaning in (
+        ("supplied", "The record is attached or issued separately, and referenced below."),
+        ("does not exist", "No such record is held. This is an answer, and it is what "
+                           "licenses an assumption downstream."),
+        ("exists, not released", "Held, and withheld. The reason is stated."),
+        ("superseded by", "Replaced. The reference of the replacement is given."),
+    ):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        cell_margins(r.cells[0], left=0, right=1.25)
+        cell_margins(r.cells[1], left=0, right=1.25)
+        cell_text(doc, r.cells[0], token, "t2 mono id")
+        cell_text(doc, r.cells[1], meaning, "td text")
+    spacer(doc, 5)
+    para(doc, "t2 body",
+         "A row left blank is indistinguishable from an item nobody asked about. Every item "
+         "carries one of the four.")
+
+    doc.add_page_break()
+
+    # -- the items ----------------------------------------------------------
+    para(doc, "t3 heading block", "ITEMS REQUESTED").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [15, 30, 105], rows=0)
+    for num in ("01", "02"):
+        for label, text, style in (
+            ("Item", "The record requested, named as its holder would name it.", "td text"),
+            ("Needed for", "The container or the decision that waits on it.", "td text"),
+            ("Form", "File format, scale or fidelity, coordinate system where "
+                     "one applies.", "td text"),
+            ("Holder", "Who is expected to hold it.", "td text"),
+            ("If not supplied", "What is done instead, and the consequence carried.", "td text"),
+            ("Response", "supplied / does not exist / exists, not released / superseded by",
+             "t2 mono id"),
+            ("Reference", "Identifier and date of what arrived.", "t2 mono id"),
+        ):
+            r = t.add_row()
+            no_row_break(r)
+            cell_margins(r.cells[0], left=1.25, right=0)
+            cell_margins(r.cells[1], left=0, right=1.25)
+            cell_margins(r.cells[2], left=0, right=1.25)
+            cell_text(doc, r.cells[0], num if label == "Item" else "", "t2 mono id")
+            cell_text(doc, r.cells[1], label, "t2 label caps")
+            cell_text(doc, r.cells[2], text, style)
+        blank = t.add_row()
+        row_height(blank, 10)
+
+    spacer(doc, 10)
+
+    # -- state ---------------------------------------------------------------
+    para(doc, "t3 heading block", "STATE OF THIS REQUEST").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [40, 110], rows=0)
+    for label in ("Items requested", "Supplied", "Outstanding"):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        cell_margins(r.cells[0], left=0, right=1.25)
+        cell_margins(r.cells[1], left=0, right=1.25)
+        cell_text(doc, r.cells[0], label, "t2 label caps")
+        cell_text(doc, r.cells[1], "", "td number")
+
+    spacer(doc, 10)
+    para(doc, "t1 legal",
+         "This request is revised as items are answered, and it is the only record in the "
+         "correspondence family that is: an RFI, a transmittal and a survey record are dated "
+         "records of a moment, while this one tracks a state that changes. The superseded "
+         "revision stays in the revision log. An item still outstanding at the date above "
+         "becomes an assumption in the survey record, marked (A) with this request number as "
+         "its basis (ADOS-2.2.010, ADOS-4.5.090).")
+    save_as_dotx(doc, out / "PTS-T14-Information-Request.dotx")
+
+
 def t09_rfi(out: Path):
     doc, section = new_document("document")
     build_header(doc, section)
@@ -763,7 +904,7 @@ def t10_revision_log(out: Path):
 
 BUILDERS = [t05_specification, t07_meeting_minutes, t08_site_visit_report, t09_rfi,
             t11_transmittal, t06a_door_schedule, t06b_window_schedule, t10_revision_log,
-            t13_site_survey_record]
+            t13_site_survey_record, t14_information_request]
 
 
 def main() -> int:

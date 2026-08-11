@@ -460,7 +460,7 @@ def test_every_word_template_is_registered():
         "BW01-specification", "BW02-door-schedule", "BW03-window-schedule",
         "BW04-meeting-minutes", "BW05-site-visit-report",
         "BW06-request-for-information", "BW07-revision-log", "BW08-transmittal",
-        "BW09-site-survey-record",
+        "BW09-site-survey-record", "BW10-information-request",
     }
 
 
@@ -584,6 +584,7 @@ def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
         "BW07-revision-log": "PTS-T10-Revision-Log",
         "BW08-transmittal": "PTS-T11-Transmittal",
         "BW09-site-survey-record": "PTS-T13-Site-Survey-Record",
+        "BW10-information-request": "PTS-T14-Information-Request",
     }
     for tid, template in TEMPLATES.items():
         if template.medium is not Medium.DOCX:

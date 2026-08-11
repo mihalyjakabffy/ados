@@ -607,6 +607,11 @@ WORD_TEMPLATES: dict[str, DocumentTemplate] = {
               "never deleted."),
         _word("BW08-transmittal", "Transmittal (Word)", "A4-portrait",
               "What was issued, to whom, when, and for what permitted use."),
+        _word("BW10-information-request", "Information Request (Word)", "A4-portrait",
+              "Asking a holder of records for a record that already exists. "
+              "Every item names what it is needed for and what happens if it "
+              "does not arrive, and a 'does not exist' is an answer rather "
+              "than a blank."),
         _word("BW09-site-survey-record", "Site Survey Record (Word)", "A4-portrait",
               "The first visit: what is there, and how each fact was "
               "established. Carries a method register with an accuracy per "

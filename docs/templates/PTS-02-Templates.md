@@ -745,6 +745,93 @@ on the printed field sheet (`T13F`, A3 landscape, PDF), whose lattice is the 5 m
 
 ---
 
+## T14 · Information Request
+
+**Purpose.** Obtain from a party outside the design team a record that already exists, by a stated
+date and in a stated form — or obtain the statement that it does not exist.
+
+**Why this is not T09.** An RFI asks the design team for a **decision** the issued documentation
+does not provide. T14 asks a holder of records for a **document** that is already written. The two
+answer different questions, are sent in opposite directions, and fail differently: an unanswered RFI
+stalls a design decision, an unanswered T14 turns a fact into an assumption.
+
+**Why it exists.** `ADOS-2.2.010` gives every fact class exactly one authoritative carrier and
+forbids any other document from restating its value. Where that carrier is held by somebody else —
+the client's land registry extract, the utility's service record, the previous consultant's
+geotechnical report — the practice has only two lawful moves: obtain the document and **reference**
+it, or record the fact as an assumption with its basis stated. T14 is the instrument for the first.
+Nothing in the set produces it, and without it the second move happens by default.
+
+**Its place in the chain.** T14 is upstream of T13. A record obtained through T14 is what a T13
+finding cites when it carries the `(D)` token; an item that comes back *does not exist* is what
+licenses the `(A)` token, with the request number as the basis. The two templates interlock, and
+neither is complete without the other.
+
+**Required information.**
+
+1. Request number, project-unique and sequential; revision
+2. Recipient organisation, the person addressed, and the role in which they are asked
+3. Date of request; date the response is needed by, **with the justification for that date**
+4. The statement of why the practice is asking rather than assuming (`ADOS-2.2.010`)
+5. Items requested, each with: what is requested · **what it is needed for**, named as a container
+   or a decision · the form and fidelity it is needed in · who is expected to hold it ·
+   **what the practice will do if it is not supplied, and the consequence**
+6. Response per item, from a closed vocabulary
+7. The reference and date of what arrived, so that a later document can cite it
+8. Summary of state: requested, supplied, outstanding
+
+**Response vocabulary.** A closed set of four. `supplied` · `does not exist` · `exists, not
+released`, with the reason · `superseded by`, with the reference of what replaces it.
+
+A blank row is indistinguishable from an item nobody asked about. **"Does not exist" is an answer**
+and is recorded as one, because it is the fact that licenses an assumption downstream — it is the
+counterpart of T13's limitation register, and it carries the same weight.
+
+**Every item states what it is needed for and what happens without it.** These are the two fields a
+real data request omits and the two that make it act. Without the first the recipient cannot order
+the work; without the second a due date is a wish, and the practice cannot later show that the
+consequence was foreseen rather than discovered.
+
+**Form is part of the request.** "Send the survey" is not a request. A DWG at 1:50 in a named
+coordinate system is one (`ADOS-5.5.020`, `ADOS-5.6.020`). An item whose form is unstated arrives in
+whatever form is easiest to send, which is a scan of a print.
+
+**Information hierarchy.** L1 section headings · L2 item blocks · L3 response lines.
+
+**Layout structure.** Document family, following T09 rather than the register families: this is
+addressed to a named person and asks them to act, so it is read in the hand. Each item is a
+self-contained block in a fixed field order:
+
+```
+│ 03  │ ITEM          Existing drainage record, whole site   │
+│     │ NEEDED FOR    A2.101 site plan · below-ground scheme │
+│     │ FORM          PDF and DWG, coordinate system stated  │
+│     │ HOLDER        Water authority, asset records         │
+│     │ IF NOT        Drainage shown indicative, marked (A)  │
+│     │ SUPPLIED      in the survey record; excavation risk  │
+│     │               carried to the contract                │
+│     │ RESPONSE      supplied                                │
+│     │ REFERENCE     WA-DR-2026-0418  ·  2026-04-18          │
+```
+
+**Grid.** Document default; label column 25 mm inside the text column, content 95 mm — as T08, T09
+and T13, so the four correspondence records read as one family.
+**Margins.** Document default.
+**Typography.** `t2` throughout; field labels in small capitals; request numbers, references and
+the response vocabulary in the monospaced face, because each is an identifier or a token.
+**Title block.** TB-D.
+**Footer.** Document default.
+**Page numbering.** `Page n / m`.
+**Revision handling.** **This document is revised, and it is the only one in the correspondence
+family that is.** T09, T11 and T13 are dated records of a moment. T14 tracks a state that changes as
+items arrive, so it is re-issued at `P02`, `P03` with the response column filled in, and the
+superseded revision stays in the revision log. The lifecycle mirrors `ADOS-2.9.030`: an item is
+planned, requested, answered or closed.
+**White space.** Two baselines between items.
+**Icons.** None. A response is a word from the vocabulary.
+
+---
+
 ## Coverage against the standard
 
 | Template | ADOS type | Volume 5 chapter |
@@ -762,6 +849,7 @@ on the printed field sheet (`T13F`, A3 landscape, PDF), whose lattice is the 5 m
 | T11 Transmittal Sheet | `CI` | 5.32 |
 | T12 Presentation Board | `PR` | 5.28 |
 | T13 Site Survey Record | *none — see below* | 5.6 (consumer), 5.31 (adjacent) |
+| T14 Information Request | *none — see below* | 2.2 (carrier), 5.25 (adjacent) |
 
 Types in the standard that this template set does not yet cover, and that a full practice library
 would add: setting-out plan (`SO`), existing and demolition (`EX` `DM`), fire and access strategy
@@ -785,11 +873,17 @@ thirty-four types. None of them is a survey record. Yet:
 A carrier that four rules depend on, that no type defines and no template produces, is a carrier
 that gets improvised — which is the condition `ADOS-2.2.010` exists to end.
 
-T13 is therefore defined here at the practice layer, as PTS is entitled to do, and its container
-type code is left as the practice's local `SU` pending a standard amendment. The amendment this
-points to is small: a row in the `ADOS-5.0.010` registry and a Volume 5 chapter of the same shape as
-5.31. It is **not** made here, because amending the standard is a change-control act and not a
-by-product of building a template.
+**T14 has no ADOS type either, and the reason is the same shape.** `ADOS-2.2.010` forbids a document
+from restating a fact whose authoritative carrier is elsewhere. Where that carrier is held outside
+the design team, the rule is only satisfiable if the practice can obtain it — and the standard names
+no instrument for obtaining it. `ADOS-5.25` covers the RFI, which asks the design team for a
+decision, not a holder of records for a record.
+
+Both are therefore defined here at the practice layer, as PTS is entitled to do, with the local type
+codes `SU` and `IR` pending a standard amendment. The amendment each points to is small: a row in
+the `ADOS-5.0.010` registry and a Volume 5 chapter of the same shape as 5.31 or 5.25. Neither is
+made here, because amending the standard is a change-control act and not a by-product of building a
+template.
 
 ---
 

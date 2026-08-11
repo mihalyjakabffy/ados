@@ -1,11 +1,11 @@
 # PTS 1.0 — Word templates
 
-Nine `.dotx` templates generated from [`../machine/pts-tokens.json`](../machine/pts-tokens.json).
+Ten `.dotx` templates generated from [`../machine/pts-tokens.json`](../machine/pts-tokens.json).
 Not hand-styled: a change to the system is a change to the token file and a rebuild.
 
 ```
 python3 docs/templates/word/build.py      # writes templates/*.dotx
-python3 docs/templates/word/verify.py     # 195 checks against the token file
+python3 docs/templates/word/verify.py     # 216 checks against the token file
 ```
 
 ## What is here
@@ -21,6 +21,7 @@ python3 docs/templates/word/verify.py     # 195 checks against the token file
 | `PTS-T10-Revision-Log.dotx` | T10 | A3 landscape |
 | `PTS-T11-Transmittal.dotx` | T11 | A4 portrait |
 | `PTS-T13-Site-Survey-Record.dotx` | T13 | A4 portrait |
+| `PTS-T14-Information-Request.dotx` | T14 | A4 portrait |
 
 The door and window schedules are separate files because T06 splits a schedule that exceeds twelve
 columns rather than hiding columns to fit.
@@ -33,6 +34,15 @@ every finding — because `ADOS-2.2.010` makes the survey record the authoritati
 conditions and `ADOS-5.6.020` makes every drawing derived from it state its method, date and
 accuracy. See [`../PTS-02-Templates.md`](../PTS-02-Templates.md) T13, which also records why the
 standard's own type registry ought to carry a survey type and does not.
+
+T14 sits upstream of T13 and is not T09. An RFI asks the design team for a *decision* the
+documentation does not provide; T14 asks a holder of records — the client, a utility, a previous
+consultant — for a *document that already exists*. `ADOS-2.2.010` gives every fact class one
+authoritative carrier and forbids any other document from restating its value, so where that
+carrier sits outside the design team the practice may only obtain it and reference it, or record an
+assumption with its basis stated. T14 is the instrument for the first; without it the second happens
+by default. What arrives through T14 is what a T13 finding cites under its `(D)` token, and an item
+answered *does not exist* is what licenses `(A)`.
 
 ## What is deliberately not here
 
@@ -82,7 +92,7 @@ doc = render_word_dotx(get_template("BW01-specification"), tokens, brand=brand)
 doc.write("PTS-T05-Specification.dotx")
 ```
 
-`verify.py` takes a directory, so the branded output is checked by the same 195 structural checks
+`verify.py` takes a directory, so the branded output is checked by the same 216 structural checks
 as the unbranded pack — and `tests_brand` runs exactly that, so branding a template cannot quietly
 break it.
 
@@ -188,7 +198,7 @@ silently drops a setting is caught.
 | W13 | Every style reference resolves to a styleId that exists |
 | W14 | No right-aligned tab stops in header or footer |
 
-Current state: **195 checks pass across 9 templates**, and all nine pass OOXML schema validation.
+Current state: **216 checks pass across 10 templates**, and all ten pass OOXML schema validation.
 
 W11 to W14 exist because the first build passed every other check and still rendered wrongly. Three
 defects were found only by looking at a rendered page:
