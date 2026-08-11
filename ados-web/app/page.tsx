@@ -2,15 +2,18 @@
 
 import { useMemo, useState } from "react"
 import { usePackage } from "@/lib/api"
+import { TopBar } from "@/components/TopBar"
 import { Sidebar } from "@/components/Sidebar"
-import { Toolbar } from "@/components/Toolbar"
 import { ContainerList } from "@/components/ContainerList"
+import { ColumnView } from "@/components/ColumnView"
 import { Inspector } from "@/components/Inspector"
+import { ViewSwitch, type ViewMode } from "@/components/ViewSwitch"
 
-export default function BrowserPage() {
+export default function LibraryPage() {
   const { data: pkg, error, isLoading } = usePackage()
   const [search, setSearch] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mode, setMode] = useState<ViewMode>("list")
 
   const containers = useMemo(() => {
     const all = pkg?.containers ?? []
@@ -27,34 +30,36 @@ export default function BrowserPage() {
   const activeId = selectedId ?? containers[0]?.container_id ?? null
 
   return (
-    <div className="flex h-screen">
-      <Sidebar pkg={pkg} />
+    <div className="flex h-screen flex-col">
+      <TopBar pkg={pkg} search={search} onSearchChange={setSearch} searchPlaceholder="Keresés a Library-ban…" />
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <Toolbar
-          crumbs={
-            pkg
-              ? [pkg.project.name, pkg.set.originator_code, pkg.purpose ?? pkg.package_id]
-              : ["ADOS"]
-          }
-          search={search}
-          onSearchChange={setSearch}
-          placeholder="Keresés a csomagban…"
-        />
+      <div className="flex min-h-0 flex-1">
+        <Sidebar pkg={pkg} />
 
-        {isLoading ? (
-          <div className="flex-1 p-8 text-[12.5px] text-mute">Betöltés…</div>
-        ) : error ? (
-          <div className="flex-1 p-8 text-[12.5px] text-crit">
-            Nem sikerült elérni az ados-service-t ({process.env.NEXT_PUBLIC_ADOS_API_URL ?? "http://localhost:8010"}).
-            Ellenőrizd, hogy fut-e a backend.
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2">
+            <p className="text-[12px] text-mute">
+              {pkg ? `${pkg.purpose} · ${containers.length} elem` : "Betöltés…"}
+            </p>
+            <ViewSwitch mode={mode} onChange={setMode} />
           </div>
-        ) : (
-          <ContainerList containers={containers} selectedId={activeId} onSelect={setSelectedId} />
-        )}
-      </main>
 
-      <Inspector containerId={activeId} />
+          {isLoading ? (
+            <div className="flex-1 p-8 text-[12.5px] text-mute">Betöltés…</div>
+          ) : error ? (
+            <div className="flex-1 p-8 text-[12.5px] text-crit">
+              Nem sikerült elérni az ados-service-t ({process.env.NEXT_PUBLIC_ADOS_API_URL ?? "http://localhost:8010"}
+              ). Ellenőrizd, hogy fut-e a backend.
+            </div>
+          ) : mode === "list" ? (
+            <ContainerList containers={containers} selectedId={activeId} onSelect={setSelectedId} />
+          ) : (
+            <ColumnView pkg={pkg} containers={containers} selectedId={activeId} onSelect={setSelectedId} />
+          )}
+        </main>
+
+        <Inspector containerId={activeId} />
+      </div>
     </div>
   )
 }

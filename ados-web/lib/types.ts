@@ -1,6 +1,18 @@
 // Subset of the ADOS-IR schema (docs/ados/machine/ados-sheet-schema.json)
 // that the frontend reads. Field names are normative — see ADOS-2.1.010.
 
+export interface QAResult {
+  rule: string
+  label: string
+  status: "pass" | "fail"
+  detail: string
+}
+
+export interface QASummary {
+  pass: number
+  fail: number
+}
+
 export interface ContainerSummary {
   container_id: string
   short_id: string | null
@@ -15,6 +27,7 @@ export interface ContainerSummary {
   region_count: number
   reference_out_count: number
   reference_in_count: number
+  qa_summary: QASummary
 }
 
 export interface Revision {
@@ -34,15 +47,30 @@ export interface Reference {
   reciprocal_of?: string | null
 }
 
-export interface ContainerDetail extends Omit<ContainerSummary, never> {
+// The full raw container record — a different shape from ContainerSummary
+// (which is a flattened, list-friendly projection computed server-side).
+export interface ContainerDetail {
+  container_id: string
+  short_id: string | null
+  title: string | null
+  type: string
+  status: string
+  revision: string
   sheet?: { size: string; orientation: string; zoning_template: string }
   parties: { author: string; checker: string; approver: string }
   revisions: Revision[]
   scope_statement: string
   read_with: string[]
-  regions?: { region_id: string; views?: { level?: string; scale_denominator?: number }[] }[]
+  regions?: RegionDetail[]
   references_out: Reference[]
   references_in: Reference[]
+  qa: QAResult[]
+}
+
+export interface RegionDetail {
+  region_id: string
+  views?: { view_id: string; view_type: string; level?: string; scale_denominator?: number }[]
+  blocks?: { block_id: string; kind: string }[]
 }
 
 export interface EncodingRow {

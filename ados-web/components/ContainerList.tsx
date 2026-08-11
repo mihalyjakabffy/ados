@@ -4,8 +4,9 @@ import type { ContainerSummary } from "@/lib/types"
 import { relativeDate } from "@/lib/format"
 import { StatusPill } from "./StatusPill"
 import { TypeIcon } from "./TypeIcon"
+import { QABadge } from "./QABadge"
 
-const COLUMNS = "1fr 84px 128px 76px 96px 120px"
+const COLUMNS = "1fr 84px 128px 76px 88px 96px 108px"
 
 export function ContainerList({
   containers,
@@ -32,6 +33,7 @@ export function ContainerList({
         <span>Rev.</span>
         <span>Módosítva</span>
         <span>Szerző</span>
+        <span>QA</span>
       </div>
 
       {containers.map((c) => {
@@ -59,6 +61,9 @@ export function ContainerList({
             <span className="font-mono text-mute">{c.revision}</span>
             <span className="text-mute">{relativeDate(c.latest_revision_date)}</span>
             <span className="truncate text-mute">{c.author ?? "—"}</span>
+            <span>
+              <QABadge qa={c.qa_summary} />
+            </span>
           </button>
         )
       })}

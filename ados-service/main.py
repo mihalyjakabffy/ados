@@ -55,9 +55,10 @@ def _load_rules() -> dict[str, Any]:
     return yaml.safe_load(_RULES_PATH.read_text(encoding="utf-8"))
 
 
-def _container_summary(container: dict[str, Any]) -> dict[str, Any]:
+def _container_summary(container: dict[str, Any], encoding_table: list[dict[str, Any]]) -> dict[str, Any]:
     revisions = container.get("revisions", [])
     latest = revisions[0] if revisions else None
+    qa = _run_qa(container, encoding_table)
     return {
         "container_id": container["container_id"],
         "short_id": container.get("short_id"),
@@ -72,7 +73,80 @@ def _container_summary(container: dict[str, Any]) -> dict[str, Any]:
         "region_count": len(container.get("regions", [])),
         "reference_out_count": len(container.get("references_out", [])),
         "reference_in_count": len(container.get("references_in", [])),
+        "qa_summary": {
+            "pass": sum(1 for r in qa if r["status"] == "pass"),
+            "fail": sum(1 for r in qa if r["status"] == "fail"),
+        },
     }
+
+
+# ---------------------------------------------------------------------------
+# QA — a small number of genuinely deterministic checks, computed from the
+# container's own data. No invented scores: every result here is either a
+# direct field check or a cross-reference against the package's own
+# encoding table. See docs/ados/ADOS-V8-Quality-Assurance.md for the full
+# (currently unimplemented) metric set this is a narrow, honest slice of.
+# ---------------------------------------------------------------------------
+
+def _run_qa(container: dict[str, Any], encoding_table: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+
+    # ADOS-0.3.090 — Absence shall be explicit: every sheet carries a
+    # non-empty scope statement.
+    scope = (container.get("scope_statement") or "").strip()
+    results.append({
+        "rule": "ADOS-0.3.090",
+        "label": "Scope statement present",
+        "status": "pass" if scope else "fail",
+        "detail": "Scope statement is present." if scope else "No scope statement — exclusions are not explicit.",
+    })
+
+    # ADOS-2.6.020-adjacent — the declared current revision shall match the
+    # most recent entry in the revision history.
+    revisions = container.get("revisions", [])
+    declared = container.get("revision")
+    latest_code = revisions[0]["code"] if revisions else None
+    rev_ok = bool(revisions) and declared == latest_code
+    results.append({
+        "rule": "ADOS-2.6.020",
+        "label": "Declared revision matches history",
+        "status": "pass" if rev_ok else "fail",
+        "detail": (
+            f"Container revision '{declared}' matches the latest history entry."
+            if rev_ok
+            else f"Container declares revision '{declared}', but the latest history entry is '{latest_code}'."
+        ),
+    })
+
+    # ADOS-0.3.010 — every graphic variable used shall appear in the
+    # encoding table. We check the three channels the IR carries directly:
+    # line_weight (Stroke.tier), line_type (Stroke.line_type), tone
+    # (Stroke.tone / Fill.tone).
+    encoded = {(row["channel"], row["state"]) for row in encoding_table}
+    used: set[tuple[str, str]] = set()
+    for region in container.get("regions", []):
+        for view in region.get("views", []):
+            for geom in view.get("geometry", []):
+                if geom.get("kind") == "stroke":
+                    used.add(("line_weight", geom.get("tier")))
+                    used.add(("line_type", geom.get("line_type")))
+                    used.add(("tone", geom.get("tone")))
+                elif geom.get("kind") == "fill":
+                    used.add(("tone", geom.get("tone")))
+
+    missing = sorted(f"{ch}/{st}" for ch, st in used if st and (ch, st) not in encoded)
+    results.append({
+        "rule": "ADOS-0.3.010",
+        "label": "Encoding table covers used channels",
+        "status": "pass" if not missing else "fail",
+        "detail": (
+            "Every line weight, line type and tone used on this sheet is declared in the encoding table."
+            if not missing
+            else f"Used but undeclared in the encoding table: {', '.join(missing)}."
+        ),
+    })
+
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +195,7 @@ async def get_package() -> dict[str, Any]:
         "set": pkg["set"],
         "issue": pkg["issue"],
         "encoding_table": pkg.get("encoding_table", []),
-        "containers": [_container_summary(c) for c in pkg.get("containers", [])],
+        "containers": [_container_summary(c, pkg.get("encoding_table", [])) for c in pkg.get("containers", [])],
     }
 
 
@@ -135,7 +209,7 @@ async def get_container(container_id: str) -> dict[str, Any]:
 
     for container in pkg.get("containers", []):
         if container["container_id"] == container_id:
-            return container
+            return {**container, "qa": _run_qa(container, pkg.get("encoding_table", []))}
 
     raise HTTPException(status_code=404, detail=f"Container '{container_id}' not found in package.")
 
