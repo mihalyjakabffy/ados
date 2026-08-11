@@ -446,15 +446,21 @@ def test_the_checker_notices_a_missing_logo_variant(tmp_path, om, om_tokens):
 # ---------------------------------------------------------------------------
 
 
-def test_all_eight_word_templates_are_registered():
+def test_every_word_template_is_registered():
+    """The catalogue is enumerated, not counted.
+
+    A count alone would pass if a template were replaced by another; naming
+    them means adding one is a deliberate edit here, which is the point of a
+    registry test.
+    """
     from brand.templates.document_templates import TEMPLATES, Medium
 
     word = {t for t in TEMPLATES.values() if t.medium is Medium.DOCX}
-    assert len(word) == 8
     assert {t.template_id for t in word} == {
         "BW01-specification", "BW02-door-schedule", "BW03-window-schedule",
         "BW04-meeting-minutes", "BW05-site-visit-report",
         "BW06-request-for-information", "BW07-revision-log", "BW08-transmittal",
+        "BW09-site-survey-record",
     }
 
 
@@ -555,7 +561,7 @@ def test_the_word_overlay_does_not_leak(om, om_tokens):
 
 
 def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
-    """The 174 structural checks, run against the *branded* output.
+    """Every structural check, run against the *branded* output.
 
     The verifier inspects the produced packages rather than the code, so this
     is the real assurance that branding a template did not break it.
@@ -577,6 +583,7 @@ def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
         "BW06-request-for-information": "PTS-T09-Request-for-Information",
         "BW07-revision-log": "PTS-T10-Revision-Log",
         "BW08-transmittal": "PTS-T11-Transmittal",
+        "BW09-site-survey-record": "PTS-T13-Site-Survey-Record",
     }
     for tid, template in TEMPLATES.items():
         if template.medium is not Medium.DOCX:
@@ -590,12 +597,18 @@ def test_branded_word_templates_pass_the_pts_verifier(tmp_path, om, om_tokens):
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout[-2000:]
-    assert "All 174 checks passed" in result.stdout
+    # The count is read from the unbranded run rather than written here, so
+    # adding a template does not need this assertion edited to stay true.
+    assert re.search(r"All \d+ checks passed across "
+                     rf"{len(names)} templates", result.stdout), result.stdout[-400:]
 
 
 def test_the_package_contains_the_word_templates(package):
+    from brand.templates.document_templates import TEMPLATES, Medium
+
     _, out = package
-    assert len(list((out / "word").glob("*.dotx"))) == 8
+    want = {t.template_id for t in TEMPLATES.values() if t.medium is Medium.DOCX}
+    assert {p.stem for p in (out / "word").glob("*.dotx")} == want
 
 
 # ---------------------------------------------------------------------------

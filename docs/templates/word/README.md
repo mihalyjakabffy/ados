@@ -1,11 +1,11 @@
 # PTS 1.0 — Word templates
 
-Eight `.dotx` templates generated from [`../machine/pts-tokens.json`](../machine/pts-tokens.json).
+Nine `.dotx` templates generated from [`../machine/pts-tokens.json`](../machine/pts-tokens.json).
 Not hand-styled: a change to the system is a change to the token file and a rebuild.
 
 ```
 python3 docs/templates/word/build.py      # writes templates/*.dotx
-python3 docs/templates/word/verify.py     # 174 checks against the token file
+python3 docs/templates/word/verify.py     # 195 checks against the token file
 ```
 
 ## What is here
@@ -20,9 +20,19 @@ python3 docs/templates/word/verify.py     # 174 checks against the token file
 | `PTS-T09-Request-for-Information.dotx` | T09 | A4 portrait |
 | `PTS-T10-Revision-Log.dotx` | T10 | A3 landscape |
 | `PTS-T11-Transmittal.dotx` | T11 | A4 portrait |
+| `PTS-T13-Site-Survey-Record.dotx` | T13 | A4 portrait |
 
 The door and window schedules are separate files because T06 splits a schedule that exceeds twelve
 columns rather than hiding columns to fit.
+
+T13 records a **first** site visit and is deliberately not T08. T08 measures the works against a
+documented design and assesses conformity; on a first visit no design exists, so an assessment
+column would collect opinion in the shape of finding. What T13 collects instead is *how each fact
+was established* — a method register with a stated accuracy per method, and a provenance token on
+every finding — because `ADOS-2.2.010` makes the survey record the authoritative carrier for site
+conditions and `ADOS-5.6.020` makes every drawing derived from it state its method, date and
+accuracy. See [`../PTS-02-Templates.md`](../PTS-02-Templates.md) T13, which also records why the
+standard's own type registry ought to carry a survey type and does not.
 
 ## What is deliberately not here
 
@@ -72,7 +82,7 @@ doc = render_word_dotx(get_template("BW01-specification"), tokens, brand=brand)
 doc.write("PTS-T05-Specification.dotx")
 ```
 
-`verify.py` takes a directory, so the branded output is checked by the same 174 structural checks
+`verify.py` takes a directory, so the branded output is checked by the same 195 structural checks
 as the unbranded pack — and `tests_brand` runs exactly that, so branding a template cannot quietly
 break it.
 
@@ -89,7 +99,7 @@ give a serif. A phone previewing an attachment does the latter.
 
 A **brand-aware build embeds the fonts** (`ptsword.obfuscate_font`, ECMA-376 §17.8.1), which is what
 turns a `.dotx` from a request for a typeface into a document set in it. The unbranded pack does not
-embed: it ships as a template a practice installs the fonts for, and it must stay the file the 174
+embed: it ships as a template a practice installs the fonts for, and it must stay the file the
 checks were written against.
 
 - Inter — https://rsms.me/inter/
@@ -178,7 +188,7 @@ silently drops a setting is caught.
 | W13 | Every style reference resolves to a styleId that exists |
 | W14 | No right-aligned tab stops in header or footer |
 
-Current state: **174 checks pass across 8 templates**, and all eight pass OOXML schema validation.
+Current state: **195 checks pass across 9 templates**, and all nine pass OOXML schema validation.
 
 W11 to W14 exist because the first build passed every other check and still rendered wrongly. Three
 defects were found only by looking at a rendered page:
@@ -191,6 +201,14 @@ defects were found only by looking at a rendered page:
 
 The lesson is recorded rather than tidied away: a structural check suite proves the values are
 present, not that the page is right. Render a page and look at it.
+
+**What these checks still cannot tell you is where the page ends.** A W15 measuring the height of
+each block against the page was written while building T13 and then removed: it flagged five of the
+nine templates, and most of those are documents that are *meant* to flow over several pages, so the
+check could not tell overflow from flow. Estimating a paragraph's height means knowing how many
+lines it wraps to, which means laying the text out, which means a renderer. Until one is in the
+loop, page fit is confirmed by opening the file — and a template makes promises about the *order*
+of its sections, which is exact, rather than about which page they land on, which is not.
 
 ## Language
 

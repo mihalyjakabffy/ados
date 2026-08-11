@@ -3,7 +3,7 @@
 
     python3 docs/templates/word/build.py [outdir]
 
-Produces seven .dotx templates. Word is used only where the recipient needs an
+Produces nine .dotx templates. Word is used only where the recipient needs an
 editable document (PTS-03 §4); the cover, drawing, detail and board templates
 are Archicad and InDesign deliverables and are not built here.
 """
@@ -80,9 +80,15 @@ def body_table(doc, widths, rows=1):
     return t
 
 
-def page1_block(doc, title_default: str):
+def page1_block(doc, title_default: str, container_type: str = "RP"):
     """The page-1 data block: title, then the facts a recipient needs before
-    reading anything else (PTS-01 §6.4)."""
+    reading anything else (PTS-01 §6.4).
+
+    ``container_type`` is the type field of the container identifier the
+    placeholder shows. It is a parameter because a placeholder is read as an
+    example: a survey record whose identifier reads ``…-RP-…`` teaches the
+    roof-plan code to everyone who fills one in.
+    """
     p = doc.add_paragraph(style=doc.styles["t4 heading section"])
     p.paragraph_format.space_before = Pt(0)
     add_docproperty(p, "PTS_DocumentTitle", title_default)
@@ -92,7 +98,7 @@ def page1_block(doc, title_default: str):
         ("Project", "PTS_ProjectName", "PROJECT NAME"),
         ("Project code", "PTS_ProjectCode", "0000"),
         ("Client", "PTS_Client", "Client name"),
-        ("Container", "PTS_ContainerID", "0000-XXX-ZZ-XX-RP-A-0000"),
+        ("Container", "PTS_ContainerID", f"0000-XXX-ZZ-XX-{container_type}-A-0000"),
         ("Status", "PTS_StatusName", "Work in progress"),
         ("Revision", "PTS_Revision", "P01"),
         ("Date of issue", "PTS_IssueDate", "0000-00-00"),
@@ -364,6 +370,214 @@ def t08_site_visit_report(out: Path):
     save_as_dotx(doc, out / "PTS-T08-Site-Visit-Report.dotx")
 
 
+def t13_site_survey_record(out: Path):
+    """T13 — the record of a first site visit.
+
+    Not T08. T08 measures the works against a documented design; here no design
+    exists yet, so an assessment column would collect opinion in the shape of
+    finding. What this template collects instead is *how each fact was
+    established*, because ``ADOS-2.2.010`` makes the survey record the
+    authoritative carrier for site conditions and ``ADOS-5.6.020`` makes every
+    drawing derived from it state its method, date and accuracy.
+
+    Three things carry the design and none of them is decoration:
+
+    * the **method register**, because a record mixing a laser, a tape and a
+      paced dimension has three accuracies and one blanket statement is false
+      for two of them;
+    * the **provenance tokens**, extending ``ADOS-4.5.090``'s ``(S)`` to the
+      three cases a first visit actually produces — documented, reported,
+      assumed — because a token set with only ``(S)`` in it forces an
+      unmeasured fact to be recorded as measured or not at all, which is
+      anti-pattern AP-28;
+    * the **limitation register before the findings**, because
+      ``ADOS-5.31.020`` says a record silent on its limits reads as covering
+      everything, and the void nobody could open is the risk the project
+      carries. A page break closes the opening block so the record starts
+      clean; the promise is the order, not a page count, because a template
+      cannot promise a page count for content it does not yet hold.
+    """
+    doc, section = new_document("document")
+    build_header(doc, section)
+    build_footer(doc, section)
+    # SU is the practice-local type code: the standard's registry has no
+    # survey type, which PTS-02 T13 records as a gap in ADOS-5.0.010.
+    page1_block(doc, "SITE SURVEY RECORD", container_type="SU")
+    spacer(doc, 10)
+
+    # -- the visit ----------------------------------------------------------
+    para(doc, "t3 heading block", "THE VISIT").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [40, 110], rows=0)
+    for label in ("Record number", "Date", "On site / off site", "Weather and light",
+                  "Present, with role", "Access given by", "Purpose of the visit",
+                  "Status of this record"):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        cell_margins(r.cells[0], left=0, right=1.25)
+        cell_margins(r.cells[1], left=0, right=1.25)
+        cell_text(doc, r.cells[0], label, "t2 label caps")
+        # The one field with a closed vocabulary carries it, so that the
+        # third option is chosen rather than invented.
+        prompt = ("initial   ·   supplemented by   ·   superseded by"
+                  if label == "Status of this record" else "")
+        cell_text(doc, r.cells[1], prompt, "td text")
+    spacer(doc, 5)
+    para(doc, "t2 body",
+         "Light is recorded because it bounds what could be seen. A survey made at dusk in "
+         "November has different coverage from one made at noon in June, and the limitation "
+         "register below has to be read against it.")
+
+    spacer(doc, 10)
+
+    # -- method register ----------------------------------------------------
+    para(doc, "t3 heading block", "METHOD REGISTER").paragraph_format.space_before = Pt(0)
+    para(doc, "t2 body",
+         "Every method used, with the accuracy it delivers. Each dimension in the record cites a "
+         "key from this table. Accuracy is stated per method and never once for the whole visit: "
+         "a record that mixes a laser distance meter, a tape and a paced dimension has three "
+         "accuracies, and one statement covering all of them is wrong about two.")
+    t = make_table(doc, [15, 60, 30, 45], rows=1)
+    head = t.rows[0]
+    row_height(head, 5)
+    repeat_header(head)
+    for cell, label in zip(head.cells, ("Key", "Method or instrument",
+                                        "Stated accuracy", "Applied to")):
+        cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, cell, label, "th header")
+    rule_below(head)
+    for key in ("M1", "M2", "M3"):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        for cell in r.cells:
+            cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, r.cells[0], key, "t2 mono id")
+        cell_text(doc, r.cells[1], "", "td text")
+        # No number here. A form that arrives pre-filled with an accuracy
+        # nobody measured is the failure this template exists to stop.
+        cell_text(doc, r.cells[2], "±        mm", "td number")
+        cell_text(doc, r.cells[3], "", "td text")
+
+    spacer(doc, 10)
+
+    # -- provenance tokens --------------------------------------------------
+    para(doc, "t3 heading block", "PROVENANCE TOKENS").paragraph_format.space_before = Pt(0)
+    t = make_table(doc, [15, 135], rows=0)
+    for token, meaning in (
+        ("(S)", "Established by measurement on this visit, by a method in the register above."),
+        ("(D)", "Taken from an existing document, which is cited by container and date."),
+        ("(R)", "Reported by a named person, who is named."),
+        ("(A)", "Assumed. The basis of the assumption is stated."),
+    ):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        cell_margins(r.cells[0], left=0, right=1.25)
+        cell_margins(r.cells[1], left=0, right=1.25)
+        cell_text(doc, r.cells[0], token, "t2 mono id")
+        cell_text(doc, r.cells[1], meaning, "td text")
+
+    spacer(doc, 10)
+
+    # -- limitations, before the findings -----------------------------------
+    para(doc, "t3 heading block",
+         "WHAT WAS NOT ESTABLISHED").paragraph_format.space_before = Pt(0)
+    para(doc, "t2 body",
+         "This section precedes the findings and is never left empty. A record silent on its "
+         "limits will be read as covering everything, and on a first visit the void that could "
+         "not be opened is the risk the project carries.")
+    t = make_table(doc, [15, 45, 45, 45], rows=1)
+    head = t.rows[0]
+    row_height(head, 5)
+    repeat_header(head)
+    for cell, label in zip(head.cells, ("Ref", "Area or element",
+                                        "Why it was not established",
+                                        "Consequence if assumed")):
+        cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, cell, label, "th header")
+    rule_below(head)
+    for ref in ("L1", "L2", "L3", "L4", "L5"):
+        r = t.add_row()
+        row_height(r, 10)
+        no_row_break(r)
+        for cell in r.cells:
+            cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, r.cells[0], ref, "t2 mono id")
+        for cell in r.cells[1:]:
+            cell_text(doc, cell, "", "td text")
+
+    doc.add_page_break()
+
+    # -- the findings -------------------------------------------------------
+    para(doc, "t3 heading block", "THE RECORD").paragraph_format.space_before = Pt(0)
+    para(doc, "t2 body",
+         "One block per finding, in a fixed field order, so that a reader coming to it months "
+         "later can reconstruct what was known without the surveyor. Where a finding is part "
+         "measured and part inferred, PROVENANCE carries both tokens: a single token would make "
+         "the whole finding read as one or the other.")
+    spacer(doc, 5)
+
+    t = make_table(doc, [15, 30, 105], rows=0)
+    for num in ("01", "02"):
+        for label, text, style in (
+            ("Location", "Level, grid or room, and the direction of view.", "td text"),
+            ("Finding", "What is there, as found.", "td text"),
+            ("Provenance", "(S) M1   ·   (A) basis stated", "t2 mono id"),
+            ("Dimension", "Value and unit, or an em dash where none was taken.", "td text"),
+            ("Implication", "The surveyor's judgement, and marked as one.", "td text"),
+            ("Photo", "Numbers from the register below.", "td text"),
+        ):
+            r = t.add_row()
+            no_row_break(r)
+            cell_margins(r.cells[0], left=1.25, right=0)
+            cell_margins(r.cells[1], left=0, right=1.25)
+            cell_margins(r.cells[2], left=0, right=1.25)
+            cell_text(doc, r.cells[0], num if label == "Location" else "", "t2 mono id")
+            cell_text(doc, r.cells[1], label, "t2 label caps")
+            cell_text(doc, r.cells[2], text, style)
+        blank = t.add_row()
+        row_height(blank, 10)
+
+    spacer(doc, 10)
+
+    # -- photograph register ------------------------------------------------
+    para(doc, "t3 heading block",
+         "PHOTOGRAPH REGISTER").paragraph_format.space_before = Pt(0)
+    para(doc, "t2 body",
+         "A photograph without a direction of view cannot be located, and one without a time "
+         "cannot be read against the light recorded above.")
+    t = make_table(doc, [15, 40, 30, 50, 15], rows=1)
+    head = t.rows[0]
+    row_height(head, 5)
+    repeat_header(head)
+    for cell, label in zip(head.cells, ("No", "Location", "Direction of view",
+                                        "Subject", "Time")):
+        cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, cell, label, "th header")
+    rule_below(head)
+    for n in range(1, 9):
+        r = t.add_row()
+        row_height(r, 5)
+        no_row_break(r)
+        for cell in r.cells:
+            cell_margins(cell, left=0, right=1.25)
+        cell_text(doc, r.cells[0], f"{n:02d}", "t2 mono id")
+        for cell in r.cells[1:4]:
+            cell_text(doc, cell, "", "td text")
+        cell_text(doc, r.cells[4], "", "td number")
+
+    spacer(doc, 10)
+    para(doc, "t1 legal",
+         "Anything not marked with a provenance token was not established on this visit and is "
+         "not a survey fact. Drawings derived from this record cite it by number and carry the "
+         "(S) token only on dimensions traceable to a method in the register (ADOS-4.5.090, "
+         "ADOS-5.6.020). This record is dated and is not revised: a later visit produces a new "
+         "record that supplements or supersedes it, and this one stays as it was written, "
+         "because it is evidence of what was known on this date.")
+    save_as_dotx(doc, out / "PTS-T13-Site-Survey-Record.dotx")
+
+
 def t09_rfi(out: Path):
     doc, section = new_document("document")
     build_header(doc, section)
@@ -548,7 +762,8 @@ def t10_revision_log(out: Path):
 
 
 BUILDERS = [t05_specification, t07_meeting_minutes, t08_site_visit_report, t09_rfi,
-            t11_transmittal, t06a_door_schedule, t06b_window_schedule, t10_revision_log]
+            t11_transmittal, t06a_door_schedule, t06b_window_schedule, t10_revision_log,
+            t13_site_survey_record]
 
 
 def main() -> int:

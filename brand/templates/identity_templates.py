@@ -607,5 +607,11 @@ WORD_TEMPLATES: dict[str, DocumentTemplate] = {
               "never deleted."),
         _word("BW08-transmittal", "Transmittal (Word)", "A4-portrait",
               "What was issued, to whom, when, and for what permitted use."),
+        _word("BW09-site-survey-record", "Site Survey Record (Word)", "A4-portrait",
+              "The first visit: what is there, and how each fact was "
+              "established. Carries a method register with an accuracy per "
+              "method and a provenance token on every finding, because a "
+              "drawing derived from it has to state where its dimensions came "
+              "from."),
     )
 }

@@ -647,6 +647,104 @@ depicted as resolved, and an assumed existing condition is not depicted as surve
 
 ---
 
+## T13 · Site Survey Record
+
+**Purpose.** Record the condition of a site and its existing fabric as established on a visit,
+together with the method by which each fact was established, so that every drawing derived from it
+can cite its provenance.
+
+**Why this is a separate template from T08.** T08 records the works against a documented design and
+assesses conformity. On a first visit no design exists, so there is nothing to assess against and an
+assessment column would collect opinion in the shape of finding. T13 precedes the design and is its
+factual origin.
+
+**Why it exists at all.** `ADOS-2.2.010` names the **survey record** as the authoritative carrier
+for site and existing-condition information. `ADOS-5.6.020` requires every existing-condition
+drawing to state its survey method, date and accuracy. `ADOS-4.5.090` requires the `(S)` token on
+every survey-derived dimension. Three rules depend on a document the standard's type registry
+(`ADOS-5.0.010`) does not list — the practice cannot satisfy them without one. See *Coverage against
+the standard* below.
+
+**Required information.**
+
+1. Record number, date, time on and off site, weather and light
+2. Who was present, with their role, and who gave access
+3. **Method register** — every method used, keyed, with the instrument and its stated accuracy in
+   millimetres, and what it was applied to
+4. **What was not established, and why**, with the consequence of assuming it
+5. Findings, each with: location (level, grid or room, direction of view) · the finding · a
+   **provenance token and method key** · the dimension where one was taken · the implication for the
+   design, marked as the surveyor's judgement · photograph numbers
+6. Photograph register: number, location, direction of view, subject, time
+7. Declaration: the token legend, and the statement that anything unmarked was not established
+8. Status of the record: `initial` · `supplemented by` · `superseded by`
+
+**Provenance tokens.** A closed set of four. `(S)` established by measurement on this visit, by a
+method in the register · `(D)` taken from an existing document, which is cited · `(R)` reported by a
+named person · `(A)` assumed, with the basis stated.
+
+`ADOS-4.5.090` defines `(S)` for dimensions. The other three exist because on a first visit most of
+what is recorded is not measured, and the standard's own anti-pattern register calls an assumed
+existing condition shown as surveyed the most expensive class of refurbishment failure (AP-28). A
+token set with only `(S)` in it forces every unmeasured fact to be recorded as though measured, or
+not recorded at all.
+
+**Accuracy is stated per method, never once.** A record that mixes a laser distance meter, a tape
+and a paced dimension has three accuracies. One blanket statement over all of them is false for two
+of the three, and the reader cannot tell which. This is why the method register is a table with
+keys, and why every dimension cites one.
+
+**The limitation register comes before the findings.** `ADOS-5.31.020`: an inspection record silent
+on its limits will be read as covering everything. On a first visit the roof void that could not be
+opened is the risk the project carries, so it is read before the findings and not left to an
+appendix. A page break closes the block, so the record always starts on a fresh page and the two
+halves — the conditions of the survey, then the survey — are never interleaved.
+
+The promise this template makes is about **sequence**, not about page position. Whether the opening
+block happens to fill one page depends on how much the surveyor writes, and Word flows it. A
+template cannot promise a page count for content it does not yet contain.
+
+**Information hierarchy.** L1 section headings · L2 finding blocks · L3 photograph captions.
+
+**Layout structure.** Document family. Each finding is a self-contained block in a fixed field
+order:
+
+```
+│ 04  │ LOCATION      Level 02, room 2.14, viewed north     │
+│     │ FINDING       Timber joists at 400 mm centres,      │
+│     │               ends built into the north wall.       │
+│     │ PROVENANCE    (S) M1 · joist ends (A) not exposed   │
+│     │ DIMENSION     405 mm centres, mean of 6             │
+│     │ IMPLICATION   Bearing condition to be opened up      │
+│     │               before the structural scheme is fixed. │
+│     │ PHOTO         04-01, 04-02                           │
+```
+
+`PROVENANCE` carries two tokens where the finding is part measured and part inferred, because that
+is the common case and a single token would make the whole finding read as one or the other.
+
+**Grid.** Document default; label column 25 mm inside the text column, content 95 mm — as T08, so
+the two records read as one family.
+**Margins.** Document default.
+**Typography.** `t2` throughout; field labels in small capitals; method keys and provenance tokens
+in the monospaced face, because they are identifiers and are read as such.
+**Title block.** TB-D.
+**Footer.** Document default.
+**Page numbering.** `Page n / m`. Photographs are an appendix with their own continuous numbering.
+**Revision handling.** A record is dated and is not revised. A later visit produces a new record
+that supplements or supersedes it by number; the earlier record stays as it was written, because it
+is evidence of what was known on that date.
+**White space.** Two baselines between findings.
+**Icons.** None. A provenance token is a token, not a symbol.
+
+**What this template does not carry.** A sketch field. A first visit produces sketches, and a
+sketch needs a ruled lattice to be dimensionable — which Word cannot draw without vertical rules
+through a table, and vertical rules are the one thing the schedule rule forbids. The sketch belongs
+on the printed field sheet (`T13F`, A3 landscape, PDF), whose lattice is the 5 mm sub-module of
+`ADOS-3.3.030`, so that anything sketched on it is already on the standard's own placement grid.
+
+---
+
 ## Coverage against the standard
 
 | Template | ADOS type | Volume 5 chapter |
@@ -663,12 +761,35 @@ depicted as resolved, and an assumed existing condition is not depicted as surve
 | T10 Revision Log | `IX` `RG` | 5.2 |
 | T11 Transmittal Sheet | `CI` | 5.32 |
 | T12 Presentation Board | `PR` | 5.28 |
+| T13 Site Survey Record | *none — see below* | 5.6 (consumer), 5.31 (adjacent) |
 
 Types in the standard that this template set does not yet cover, and that a full practice library
 would add: setting-out plan (`SO`), existing and demolition (`EX` `DM`), fire and access strategy
 (`FS` `AS`), assembly type sheets (`WT`), room and area schedules (`RS` `AR`), change instruction
 (`CO`), as-built and O&M (`AB` `OM`). Each inherits an existing family and is a short list of
 differences, exactly as above.
+
+### A gap in the standard, recorded rather than papered over
+
+**T13 has no ADOS type, and it should have one.** The type registry (`ADOS-5.0.010`) lists
+thirty-four types. None of them is a survey record. Yet:
+
+- `ADOS-2.2.010` binds the fact class *survey / existing condition* to the authoritative carrier
+  **survey record**, and forbids any other document from restating its values;
+- `ADOS-5.6.020` requires every existing-condition drawing to state its survey method, date and
+  accuracy — a statement that has to come from somewhere;
+- `ADOS-5.6` requires an explicit statement of areas not surveyed, with the reason;
+- `ADOS-4.5.090` requires the `(S)` token on survey-derived dimensions, which is a reference to a
+  survey that has to be identifiable.
+
+A carrier that four rules depend on, that no type defines and no template produces, is a carrier
+that gets improvised — which is the condition `ADOS-2.2.010` exists to end.
+
+T13 is therefore defined here at the practice layer, as PTS is entitled to do, and its container
+type code is left as the practice's local `SU` pending a standard amendment. The amendment this
+points to is small: a row in the `ADOS-5.0.010` registry and a Volume 5 chapter of the same shape as
+5.31. It is **not** made here, because amending the standard is a change-control act and not a
+by-product of building a template.
 
 ---
 
