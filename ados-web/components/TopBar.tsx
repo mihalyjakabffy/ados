@@ -7,6 +7,7 @@ import type { PackageData } from "@/lib/types"
 
 const SECTIONS = [
   { href: "/", label: "Library" },
+  { href: "/brand", label: "Brand" },
   { href: "/rules", label: "System" },
 ]
 
