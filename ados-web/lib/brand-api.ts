@@ -6,7 +6,7 @@ import type {
   FlatTokens,
   ValidationReport,
 } from "./brand-types"
-import type { ComposeResult, ContentModel } from "./pageplan-types"
+import type { ComposeResult, ContentModel, PagePlan } from "./pageplan-types"
 import type { CommandIntent, IntentResponse } from "./intent-types"
 
 // The Brand System lives on the real REVELATION API (api/main.py), not on
@@ -103,6 +103,10 @@ export async function executeIntent(
     base_direction?: Record<string, unknown>
     intent: CommandIntent
     previous_plan_hash?: string
+    // The plan the intent's target is read against. Present, the target
+    // genuinely bounds the recomposition (brand.creative.scope); absent,
+    // the whole document is recomposed, exactly as before M1.3.
+    base_plan?: PagePlan
   },
 ): Promise<IntentResponse> {
   return postJson(`/api/v2/brands/${encodeURIComponent(brandId)}/intent`, body)

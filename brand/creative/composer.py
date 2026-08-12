@@ -777,56 +777,10 @@ def compose(
 
     while queue and len(pages) < max_pages:
         page_index = len(pages)
-        # Page 0 is the cover and only page 0 is: a cover is the one page
-        # whose job does not depend on what is in the queue.
-        pool = (COVER,) if page_index == 0 else tuple(
-            a for a in ARCHETYPES if a is not COVER
-        )
-
-        feasible, page_rejections = _candidates(pool, queue, ctx, page_index)
-        if not feasible:
-            rejected.extend(page_rejections)
-            raise CompositionError(
-                f"E-LAYOUT-001: no feasible page {page_index} for "
-                f"{len(queue)} remaining block(s) under direction "
-                f"{direction.id!r}. Rejections: "
-                + "; ".join(f"{r.archetype} {r.rule} {r.reason}"
-                            for r in page_rejections[:4])
-                + ". Reducing text size or line width to make it fit is a "
-                  "prohibited remedy (ADOS-7.5.070); change the direction's "
-                  "density target or the content."
-            )
-
-        best_score, best = min(feasible, key=lambda pair: pair[0])
-        pages.append(
-            Page(
-                index=page_index,
-                archetype=best.archetype.name,
-                grid=fmt.to_grid(),
-                slots=best.slots,
-                fill_ratio=best.fill_ratio,
-                ink_coverage_max=best.ink_coverage_max,
-                alignment_edges_x=best.alignment_edges_x,
-                words=best.words,
-                image_ratio=best.image_ratio,
-                objective=best_score[0],
-            )
-        )
-        rejected.extend(page_rejections)
-        rejected.extend(
-            Rejection(
-                page=page_index,
-                archetype=cand.archetype.name,
-                kind=RejectionKind.OUTRANKED,
-                reason=(
-                    f"feasible, objective {score[0]:.0f} against "
-                    f"{best_score[0]:.0f} for {best.archetype.name}"
-                ),
-            )
-            for score, cand in _best_per_archetype(feasible)
-            if cand.archetype is not best.archetype
-        )
-        del queue[: best.consumed]
+        page, consumed, page_rejected = _compose_one_page(queue, ctx, page_index)
+        pages.append(page)
+        rejected.extend(page_rejected)
+        del queue[:consumed]
 
     if queue:                                                # pragma: no cover
         raise CompositionError(
@@ -847,6 +801,70 @@ def compose(
         rejected=tuple(rejected),
         notes=tuple(notes),
     )
+
+
+def _compose_one_page(
+    queue: Sequence[ContentBlock],
+    ctx: _Context,
+    page_index: int,
+) -> tuple[Page, int, list[Rejection]]:
+    """Build exactly one page from the head of ``queue``.
+
+    This is :func:`compose`'s own per-page step, factored out so
+    ``brand.creative.scope`` can call it a second time — once for the whole
+    document (via ``compose``, unchanged) and once for a single targeted
+    page — without a second implementation of page-building existing
+    anywhere. Nothing about page-building itself changed: this function's
+    body is exactly what ``compose``'s loop used to do inline.
+
+    Raises :class:`CompositionError` on the same terms ``compose`` always
+    has: no feasible page for what is at the head of the queue.
+    """
+    # Page 0 is the cover and only page 0 is: a cover is the one page whose
+    # job does not depend on what is in the queue.
+    pool = (COVER,) if page_index == 0 else tuple(a for a in ARCHETYPES if a is not COVER)
+
+    feasible, page_rejections = _candidates(pool, queue, ctx, page_index)
+    if not feasible:
+        raise CompositionError(
+            f"E-LAYOUT-001: no feasible page {page_index} for "
+            f"{len(queue)} remaining block(s) under direction "
+            f"{ctx.direction.id!r}. Rejections: "
+            + "; ".join(f"{r.archetype} {r.rule} {r.reason}" for r in page_rejections[:4])
+            + ". Reducing text size or line width to make it fit is a "
+              "prohibited remedy (ADOS-7.5.070); change the direction's "
+              "density target or the content."
+        )
+
+    best_score, best = min(feasible, key=lambda pair: pair[0])
+    page = Page(
+        index=page_index,
+        archetype=best.archetype.name,
+        grid=ctx.fmt.to_grid(),
+        slots=best.slots,
+        fill_ratio=best.fill_ratio,
+        ink_coverage_max=best.ink_coverage_max,
+        alignment_edges_x=best.alignment_edges_x,
+        words=best.words,
+        image_ratio=best.image_ratio,
+        objective=best_score[0],
+    )
+
+    rejected = list(page_rejections)
+    rejected.extend(
+        Rejection(
+            page=page_index,
+            archetype=cand.archetype.name,
+            kind=RejectionKind.OUTRANKED,
+            reason=(
+                f"feasible, objective {score[0]:.0f} against "
+                f"{best_score[0]:.0f} for {best.archetype.name}"
+            ),
+        )
+        for score, cand in _best_per_archetype(feasible)
+        if cand.archetype is not best.archetype
+    )
+    return page, best.consumed, rejected
 
 
 def _candidates(

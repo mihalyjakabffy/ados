@@ -458,6 +458,175 @@ def test_invalid_content_model_is_422(client):
 
 
 # ---------------------------------------------------------------------------
+# Intent with base_plan — scoped composition (M1.3) at the HTTP boundary.
+#
+# Same posture again: brand.creative.scope's own contract (page isolation,
+# region refused, contentBlock resolves to its page, infeasibility) is
+# tests_brand/test_scope.py's job. These tests are about the route —
+# that base_plan round-trips through the same shape /compose returns
+# (including its extra 'plan_hash' key), that omitting it reproduces M1.2
+# exactly, and that the error taxonomy (unsupported_scope, scope_infeasible,
+# invalid_base_plan) reaches the caller as a 422 with the previous plan's
+# hash intact.
+# ---------------------------------------------------------------------------
+
+
+def test_intent_without_base_plan_has_no_scope_fields(client):
+    """Backward compatibility: M1.2 callers see exactly M1.2's response shape."""
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.5}}
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["scope"] is None
+    assert data["resolved_scope"] is None
+    assert data["diff"] is None
+    assert "brand.creative.composer.compose" in data["meta"]["composer"]
+
+
+def test_intent_with_base_plan_scopes_the_change_to_the_target_page(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.6}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+
+    assert data["scope"] == {"type": "page", "id": "4"}
+    assert data["resolved_scope"] == {"type": "page", "id": "4"}
+    assert data["diff"]["changed_pages"] == [4]
+    assert data["diff"]["unchanged_pages"] == [0, 1, 2, 3, 5, 6, 7]
+    assert "brand.creative.scope.compose_scoped" in data["meta"]["composer"]
+
+    new_plan = data["plan"]
+    for i, page in enumerate(plan["pages"]):
+        if i == 4:
+            assert new_plan["pages"][i] != page
+        else:
+            assert new_plan["pages"][i] == page, f"page {i} must be byte-identical over HTTP too"
+
+    # the stale "applies document-wide" disclosure must not survive into a
+    # response that just proved the change was genuinely page-scoped.
+    assert not any("document-wide" in n for n in data["resolution"]["notes"])
+
+
+def test_intent_with_base_plan_document_scope_still_recomposes_everything(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "document"}, "parameters": {"strength": 0.3}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+    assert data["resolved_scope"] == {"type": "document", "id": ""}
+
+
+def test_intent_region_scope_with_base_plan_is_422_unsupported_scope(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "region", "id": "hero"}, "parameters": {"strength": 0.5}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["error"] == "unsupported_scope"
+    assert detail["previous_plan_hash"] == plan["plan_hash"]
+
+
+def test_intent_content_block_scope_resolves_to_its_page_over_http(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    target = next(p["index"] for p in plan["pages"] if "met-01" in [s["block"] for s in p["slots"]])
+
+    body = _intent_payload(
+        {"type": "preserve_content", "target": {"type": "contentBlock", "id": "met-01"},
+         "parameters": {"content_ids": ["met-01"]}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200, r.json()
+    assert r.json()["resolved_scope"] == {"type": "page", "id": str(target)}
+
+
+def test_intent_scope_infeasible_leaves_the_previous_plan_hash_traceable(client):
+    """A fabricated base_plan whose target page claims far more blocks than
+    any archetype can place on one page — the same fixture strategy as
+    tests_brand/test_scope.py's unit-level infeasibility test, done here in
+    JSON to prove the HTTP boundary maps it to a 422, not a bad 200 plan."""
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = dict(base["plan"])
+    pages = [dict(p) for p in plan["pages"]]
+    pages[4] = dict(pages[4])
+    pages[4]["slots"] = pages[4]["slots"] + pages[1]["slots"] + pages[3]["slots"]
+    plan["pages"] = pages
+
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.5}},
+        previous_plan_hash=base["plan"]["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["error"] == "scope_infeasible"
+    assert detail["previous_plan_hash"] == base["plan"]["plan_hash"]
+
+
+def test_intent_with_a_malformed_base_plan_is_422(client):
+    body = _intent_payload(
+        {"type": "recompose_page", "target": {"type": "document"}},
+        base_plan={"not": "a page plan"},
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_base_plan"
+
+
+def test_intent_base_plan_round_trips_its_own_plan_hash_key(client):
+    """PagePlan.to_dict() adds a derived 'plan_hash' key the frozen schema
+    does not declare (extra='forbid') — the same round-trip pitfall
+    ContentModel.to_dict() had against /compose in M1. The route must strip
+    it rather than reject every caller who forwards what /compose gave them."""
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    assert "plan_hash" in plan  # the very key that would break a naive model_validate
+    body = _intent_payload(
+        {"type": "recompose_page", "target": {"type": "page", "id": "0"}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200, r.json()
+
+
+def test_intent_with_base_plan_is_deterministic_over_http(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.6}},
+        previous_plan_hash=plan["plan_hash"],
+        base_plan=plan,
+    )
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body).json()
+    second = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body).json()
+    assert first["plan"] == second["plan"]
+    assert first["diff"] == second["diff"]
+
+
+# ---------------------------------------------------------------------------
 # Proposals — the approval gate at the HTTP boundary
 # ---------------------------------------------------------------------------
 

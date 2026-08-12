@@ -18,7 +18,14 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import { ComposeApiError, composeDocument, executeIntent } from "./brand-api"
 import type { ComposeResult, ContentModel } from "./pageplan-types"
-import type { CommandIntent, IntentResolution, IntentTarget, IntentType } from "./intent-types"
+import type {
+  CommandIntent,
+  CompositionScope,
+  IntentResolution,
+  IntentTarget,
+  IntentType,
+  PagePlanDiff,
+} from "./intent-types"
 
 export const DIRECTIONS = ["editorial-quiet", "technical-dense", "image-led"] as const
 export type DirectionId = (typeof DIRECTIONS)[number]
@@ -35,6 +42,10 @@ export interface LastIntentSummary {
   resolution: IntentResolution
   previousPlanHash: string
   newPlanHash: string
+  /** null when the request carried no base_plan (nothing to scope against
+   *  yet) — never fabricated when the backend didn't return one. */
+  resolvedScope: CompositionScope | null
+  diff: PagePlanDiff | null
 }
 
 interface AdosStateValue {
@@ -158,6 +169,9 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
             : { base_direction_id: activeDirectionId }),
           intent: { type, target, parameters },
           previous_plan_hash: previousHash,
+          // The plan already on screen — its presence is what makes the
+          // target genuinely scoped instead of document-wide (M1.3).
+          base_plan: plan.plan,
         })
         // Success: replace the plan. Failure (catch below) never reaches
         // here, so a rejected intent cannot blank a valid Canvas.
@@ -169,9 +183,19 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
           resolution: result.resolution,
           previousPlanHash: previousHash,
           newPlanHash: result.plan.plan_hash,
+          resolvedScope: result.resolved_scope,
+          diff: result.diff,
         })
         setIntentStatus("idle")
-        setSelection((s) => (s.kind === "page" ? { kind: "page", pageIndex: 0 } : s))
+        // Jump to the page the diff says actually changed, so a scoped
+        // command is visibly proven rather than left for the reader to
+        // find by re-scanning every page. Falls back to page 0, exactly
+        // M1.2's behaviour, when there was nothing to diff against.
+        setSelection((s) => {
+          if (s.kind !== "page" && s.kind !== "contentBlock") return s
+          const changed = result.diff?.changed_pages ?? []
+          return { kind: "page", pageIndex: changed.length > 0 ? changed[0] : 0 }
+        })
       } catch (err) {
         setIntentStatus("error")
         setIntentError(

@@ -165,6 +165,15 @@ class IntentRequest(BaseModel):
     document: str = Field(default="", max_length=60)
     page_format_name: str = Field(default="A4", max_length=20)
     max_pages: int = Field(default=40, ge=1, le=200)
+    base_plan: Optional[dict[str, Any]] = Field(
+        default=None,
+        description="A previous call's 'plan' payload (PagePlan.to_dict()). "
+        "When present, the intent's target — read from intent.target, not "
+        "from a separate field — genuinely bounds the recomposition via "
+        "brand.creative.scope: a page target leaves every other page "
+        "byte-identical, instead of the whole-document recomposition M1.2 "
+        "always did. Omit it to keep exactly that M1.2 behaviour.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +481,22 @@ def execute_intent(
     ``CompositionError`` from ``compose()`` is reported the same way, with
     ``previous_plan_hash`` echoed back so the frontend knows unambiguously
     which plan is still current.
+
+    When ``body.base_plan`` is supplied, the intent's ``target`` is resolved
+    to a real :class:`brand.creative.scope.CompositionScope` and
+    ``brand.creative.scope.compose_scoped`` is used instead of a raw
+    ``compose()`` call: a ``page`` (or ``contentBlock``, which resolves to
+    its page) target then leaves every other page of the plan byte-for-byte
+    unchanged, and the response carries the resolved scope plus a
+    ``PagePlanDiff`` so the caller never has to infer what changed by
+    comparing plans itself. A ``region`` target is refused with
+    ``unsupported_scope`` — there is no smaller addressable unit than a page
+    to resolve it to — and a scope that cannot stay inside its bound (the
+    target page's content no longer fits as one page under the change) is
+    refused with ``scope_infeasible``, both leaving the previous plan
+    untouched. Omitting ``base_plan`` keeps exactly the M1.2 behaviour: the
+    whole document is recomposed, with no scope, resolved_scope or diff in
+    the response.
     """
     import datetime as _dt
 
@@ -488,6 +513,14 @@ def execute_intent(
         apply_intent,
         validate_intent,
     )
+    from brand.creative.plan import PagePlan
+    from brand.creative.scope import (
+        CompositionScope,
+        ScopeInfeasibleError,
+        ScopeType,
+        UnsupportedScopeError,
+        compose_scoped,
+    )
 
     brand = _load(brand_id, version)
 
@@ -498,6 +531,22 @@ def execute_intent(
             status_code=422,
             detail={"error": "invalid_content_model", "errors": exc.errors()},
         ) from exc
+
+    base_plan_obj: Optional[PagePlan] = None
+    if body.base_plan is not None:
+        # PagePlan.to_dict() adds a derived 'plan_hash' key the frozen,
+        # extra="forbid" schema does not itself declare — the same
+        # round-trip pitfall ContentModel.to_dict() has; drop it rather
+        # than asking every caller to remember to strip it.
+        payload = dict(body.base_plan)
+        payload.pop("plan_hash", None)
+        try:
+            base_plan_obj = PagePlan.model_validate(payload)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "invalid_base_plan", "errors": exc.errors()},
+            ) from exc
 
     if bool(body.base_direction_id) == bool(body.base_direction):
         raise HTTPException(
@@ -532,7 +581,10 @@ def execute_intent(
             detail={"error": "invalid_intent", "errors": exc.errors()},
         ) from exc
 
-    domain_errors = validate_intent(content, intent, page_count=None)
+    domain_errors = validate_intent(
+        content, intent,
+        page_count=len(base_plan_obj.pages) if base_plan_obj is not None else None,
+    )
     if domain_errors:
         raise HTTPException(
             status_code=422,
@@ -547,24 +599,79 @@ def execute_intent(
             detail={"error": "intent_validation_failed", "errors": exc.errors},
         ) from exc
 
-    try:
-        plan = compose(
-            new_content,
-            new_direction,
-            brand,
-            document=body.document,
-            page_format_name=body.page_format_name,
-            max_pages=body.max_pages,
-        )
-    except CompositionError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "error": "composition_infeasible",
-                "detail": str(exc),
-                "previous_plan_hash": body.previous_plan_hash,
-            },
-        ) from exc
+    scope: Optional[CompositionScope] = None
+    resolved_scope: Optional[CompositionScope] = None
+    diff = None
+
+    if base_plan_obj is not None:
+        scope = CompositionScope(type=ScopeType(intent.target.type.value), id=intent.target.id)
+        try:
+            plan, diff, resolved_scope = compose_scoped(
+                base_plan_obj,
+                scope,
+                new_content,
+                new_direction,
+                brand,
+                page_format_name=body.page_format_name,
+            )
+        except UnsupportedScopeError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "unsupported_scope",
+                    "detail": str(exc),
+                    "previous_plan_hash": body.previous_plan_hash,
+                },
+            ) from exc
+        except ScopeInfeasibleError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "scope_infeasible",
+                    "detail": str(exc),
+                    "previous_plan_hash": body.previous_plan_hash,
+                },
+            ) from exc
+        except CompositionError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "composition_infeasible",
+                    "detail": str(exc),
+                    "previous_plan_hash": body.previous_plan_hash,
+                },
+            ) from exc
+
+        if resolved_scope.type is ScopeType.PAGE:
+            # apply_intent's own note is honestly true of compose() alone —
+            # compose_scoped just made it false for this call by actually
+            # bounding the change to the target page.
+            resolution = resolution.model_copy(
+                update={
+                    "notes": tuple(
+                        n for n in resolution.notes if "applies document-wide" not in n
+                    )
+                }
+            )
+    else:
+        try:
+            plan = compose(
+                new_content,
+                new_direction,
+                brand,
+                document=body.document,
+                page_format_name=body.page_format_name,
+                max_pages=body.max_pages,
+            )
+        except CompositionError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "composition_infeasible",
+                    "detail": str(exc),
+                    "previous_plan_hash": body.previous_plan_hash,
+                },
+            ) from exc
 
     evaluation = evaluate(plan, new_direction, brand.resolve_tokens())
 
@@ -573,13 +680,20 @@ def execute_intent(
         "resolution": resolution.model_dump(mode="json"),
         "resulting_direction": new_direction.model_dump(mode="json"),
         "plan": plan.to_dict(),
+        "scope": scope.model_dump(mode="json") if scope is not None else None,
+        "resolved_scope": resolved_scope.model_dump(mode="json") if resolved_scope is not None else None,
+        "diff": diff.model_dump(mode="json") if diff is not None else None,
         "evaluation": evaluation.to_dict(),
         "meta": {
             "requested_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
             "brand_id": str(brand.brand_id),
             "brand_version": brand.version,
             "previous_plan_hash": body.previous_plan_hash,
-            "composer": "brand.creative.intent.apply_intent + brand.creative.composer.compose",
+            "composer": (
+                "brand.creative.intent.apply_intent + brand.creative.scope.compose_scoped"
+                if base_plan_obj is not None
+                else "brand.creative.intent.apply_intent + brand.creative.composer.compose"
+            ),
         },
     }
 

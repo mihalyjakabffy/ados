@@ -63,7 +63,7 @@ function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
   }
 
   if (lastIntentSummary) {
-    const { intent, resolution, previousPlanHash, newPlanHash } = lastIntentSummary
+    const { intent, resolution, previousPlanHash, newPlanHash, resolvedScope, diff } = lastIntentSummary
     const changed = previousPlanHash !== newPlanHash
     return (
       <div className="mb-4 rounded-[8px] border border-ok/30 bg-ok-bg px-2.5 py-2 text-[11.5px] text-ok">
@@ -71,6 +71,7 @@ function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
         <p className="mt-0.5 text-ink-soft">
           PagePlan {changed ? "regenerated" : "recomposed — no change"} · hash {newPlanHash.slice(0, 12)}…
         </p>
+        <ScopeSummary resolvedScope={resolvedScope} diff={diff} />
         {resolution.notes.map((n, i) => (
           <p key={i} className="mt-1 text-[10.5px] text-ink-soft opacity-80">
             {n}
@@ -81,6 +82,38 @@ function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
   }
 
   return null
+}
+
+// What brand.creative.scope actually bounded the change to — read straight
+// off resolved_scope/diff, not re-derived, since the diff is the one thing
+// this layer must never compute itself (ADOS §21).
+function ScopeSummary({
+  resolvedScope,
+  diff,
+}: {
+  resolvedScope: import("@/lib/intent-types").CompositionScope | null
+  diff: import("@/lib/intent-types").PagePlanDiff | null
+}) {
+  if (!resolvedScope || !diff) return null
+
+  if (resolvedScope.type === "document") {
+    return (
+      <p className="mt-1 text-[10.5px] text-ink-soft opacity-80">
+        Whole document recomposed — {diff.changed_pages.length} of {diff.changed_pages.length + diff.unchanged_pages.length} page(s) changed.
+      </p>
+    )
+  }
+
+  const pageLabel = (i: number) => i + 1
+  return (
+    <p className="mt-1 text-[10.5px] text-ink-soft opacity-80">
+      Scoped to page {pageLabel(Number(resolvedScope.id))} — page{diff.changed_pages.length === 1 ? "" : "s"}{" "}
+      {diff.changed_pages.map(pageLabel).join(", ") || "none"} changed
+      {diff.unchanged_pages.length > 0
+        ? `; page${diff.unchanged_pages.length === 1 ? "" : "s"} ${diff.unchanged_pages.map(pageLabel).join(", ")} untouched.`
+        : "."}
+    </p>
+  )
 }
 
 const LABELS: Record<IntentType, string> = {
@@ -218,8 +251,9 @@ function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
       </div>
 
       <p className="mt-3 text-[10.5px] text-mute">
-        Density/emphasis and direction changes apply document-wide — the Composer has no
-        page-scoped recomposition today. See the note after running one.
+        Scoped to this page — every other page stays byte-identical. If the change no longer
+        fits this page alone, the command is refused rather than left to spill onto neighbours;
+        recompose the whole document instead.
       </p>
     </div>
   )
