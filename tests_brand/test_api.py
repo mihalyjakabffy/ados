@@ -295,6 +295,169 @@ def test_compose_matches_calling_the_composer_directly(client):
 
 
 # ---------------------------------------------------------------------------
+# Intent — structured commands through the HTTP boundary
+#
+# Same posture as Composition above: the route is an adapter over
+# brand.creative.intent + brand.creative.composer, so these tests are
+# about the boundary — request shape, error taxonomy, that a failed
+# intent never reaches the Composer, that determinism survives the round
+# trip — not about the intent layer's own logic (tests_brand/test_intent.py).
+# ---------------------------------------------------------------------------
+
+
+def _intent_payload(intent: dict, direction_id: str = "editorial-quiet", **extra):
+    from brand.examples.malthouse import malthouse_content
+
+    payload = {
+        "content_model": malthouse_content().model_dump(mode="json"),
+        "base_direction_id": direction_id,
+        "intent": intent,
+    }
+    payload.update(extra)
+    return payload
+
+
+def test_intent_reduce_text_density_returns_a_changed_real_plan(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.7}},
+        previous_plan_hash=base["plan"]["plan_hash"],
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["plan"]["plan_hash"] != base["plan"]["plan_hash"]
+    assert data["resulting_direction"]["text_density"] < 0.45  # editorial-quiet's base density
+    assert data["resolution"]["direction_changed"] is True
+    assert data["meta"]["previous_plan_hash"] == base["plan"]["plan_hash"]
+
+
+@pytest.mark.parametrize(
+    "intent_type,params",
+    [
+        ("reduce_text_density", {"strength": 0.6}),
+        ("increase_text_density", {"strength": 0.6}),
+        ("increase_image_emphasis", {"strength": 0.6}),
+        ("decrease_image_emphasis", {"strength": 0.6}),
+        ("recompose_page", {}),
+        ("preserve_content", {"content_ids": ["met-01", "met-02"]}),
+        ("remove_content", {"content_ids": ["met-01"]}),
+        ("change_page_direction", {"direction_id": "image-led"}),
+    ],
+)
+def test_every_supported_intent_type_produces_a_real_plan(client, intent_type, params):
+    body = _intent_payload({"type": intent_type, "target": {"type": "document"}, "parameters": params})
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+    assert data["plan"]["pages"]
+    assert data["plan"]["plan_hash"]
+    assert data["evaluation"]["plan_hash"] == data["plan"]["plan_hash"]
+
+
+def test_intent_is_deterministic_over_http(client):
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "page", "id": "4"}, "parameters": {"strength": 0.7}}
+    )
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body).json()
+    second = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body).json()
+    assert first["plan"] == second["plan"]
+    assert first["resulting_direction"] == second["resulting_direction"]
+
+
+def test_intents_can_chain_through_resulting_direction(client):
+    first_body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "document"}, "parameters": {"strength": 0.5}}
+    )
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=first_body).json()
+
+    chained = {
+        "content_model": first_body["content_model"],
+        "base_direction": first["resulting_direction"],
+        "intent": {"type": "increase_image_emphasis", "target": {"type": "document"}, "parameters": {"strength": 0.5}},
+    }
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=chained)
+    assert r.status_code == 200
+    second = r.json()
+    # Both adjustments must be visible: density from the first step, image
+    # ratio from the second — chaining must not lose earlier context.
+    assert second["resulting_direction"]["text_density"] == first["resulting_direction"]["text_density"]
+    assert second["resulting_direction"]["image_ratio"] > first["resulting_direction"]["image_ratio"]
+
+
+def test_an_invalid_intent_type_is_422_and_never_reaches_the_composer(client):
+    body = _intent_payload({"type": "delete_everything", "target": {"type": "document"}})
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_intent"
+
+
+def test_a_geometry_parameter_is_rejected_before_composing(client):
+    body = _intent_payload(
+        {"type": "reduce_text_density", "target": {"type": "document"}, "parameters": {"color": "#ff0000"}}
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "intent_validation_failed"
+
+
+def test_an_unknown_content_id_is_422(client):
+    body = _intent_payload(
+        {"type": "remove_content", "target": {"type": "document"}, "parameters": {"content_ids": ["not-real"]}}
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "intent_validation_failed"
+
+
+def test_an_unknown_direction_for_change_page_direction_is_422(client):
+    body = _intent_payload(
+        {"type": "change_page_direction", "target": {"type": "document"}, "parameters": {"direction_id": "nope"}}
+    )
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "intent_validation_failed"
+
+
+def test_unknown_base_direction_id_is_404(client):
+    body = _intent_payload({"type": "recompose_page", "target": {"type": "document"}}, direction_id="not-a-direction")
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 404
+    assert r.json()["detail"]["error"] == "unknown_direction"
+
+
+def test_setting_both_base_direction_fields_is_422(client):
+    body = _intent_payload({"type": "recompose_page", "target": {"type": "document"}})
+    body["base_direction"] = {"id": "x"}
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_base_direction"
+
+
+def test_setting_neither_base_direction_field_is_422(client):
+    body = _intent_payload({"type": "recompose_page", "target": {"type": "document"}})
+    del body["base_direction_id"]
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_base_direction"
+
+
+def test_an_unknown_brand_is_404(client):
+    body = _intent_payload({"type": "recompose_page", "target": {"type": "document"}})
+    r = client.post("/api/v2/brands/00000000-0000-0000-0000-000000000000/intent", json=body)
+    assert r.status_code == 404
+
+
+def test_invalid_content_model_is_422(client):
+    body = _intent_payload({"type": "recompose_page", "target": {"type": "document"}})
+    body["content_model"] = {"not": "valid"}
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/intent", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_content_model"
+
+
+# ---------------------------------------------------------------------------
 # Proposals — the approval gate at the HTTP boundary
 # ---------------------------------------------------------------------------
 

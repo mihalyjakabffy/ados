@@ -146,6 +146,27 @@ class ComposeRequest(BaseModel):
     max_pages: int = Field(default=40, ge=1, le=200)
 
 
+class IntentRequest(BaseModel):
+    """Input to ``brand.creative.intent`` — a structured command, not a compose call.
+
+    Exactly one of ``base_direction_id`` / ``base_direction`` must be set:
+    the former starts from one of the three shipped directions, the
+    latter carries forward a direction a *previous* intent call already
+    returned (``resulting_direction`` in that response), so a sequence of
+    commands can chain — "reduce density" then "increase image emphasis"
+    on top of the result — without this route storing any session state.
+    """
+
+    content_model: dict[str, Any]
+    base_direction_id: Optional[str] = Field(default=None, max_length=40)
+    base_direction: Optional[dict[str, Any]] = None
+    intent: dict[str, Any] = Field(description="A brand.creative.intent.CommandIntent payload.")
+    previous_plan_hash: str = Field(default="", max_length=64)
+    document: str = Field(default="", max_length=60)
+    page_format_name: str = Field(default="A4", max_length=20)
+    max_pages: int = Field(default=40, ge=1, le=200)
+
+
 # ---------------------------------------------------------------------------
 # Brands
 # ---------------------------------------------------------------------------
@@ -423,6 +444,142 @@ def compose_document(
             "brand_id": str(brand.brand_id),
             "brand_version": brand.version,
             "composer": "brand.creative.composer.compose",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Intent — a structured command applied through the existing Composer
+#
+# User command -> CommandIntent -> validate_intent -> apply_intent ->
+# compose() (existing, unmodified) -> evaluate() (existing, unmodified).
+# This handler holds no layout logic; brand/creative/intent.py holds no
+# layout logic either — see its module docstring.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/brands/{brand_id}/intent")
+def execute_intent(
+    brand_id: str,
+    body: IntentRequest,
+    version: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    """Apply one structured CommandIntent and recompose.
+
+    On any validation failure — the intent, the content, the target, or
+    the resulting direction — nothing is composed and no plan is
+    returned; the caller keeps whatever PagePlan it already had. A
+    ``CompositionError`` from ``compose()`` is reported the same way, with
+    ``previous_plan_hash`` echoed back so the frontend knows unambiguously
+    which plan is still current.
+    """
+    import datetime as _dt
+
+    from pydantic import ValidationError
+
+    from brand.content.model import ContentModel
+    from brand.creative.composer import CompositionError, compose
+    from brand.creative.direction import CreativeDirection
+    from brand.creative.directions import get_direction
+    from brand.creative.evaluate import evaluate
+    from brand.creative.intent import (
+        CommandIntent,
+        IntentValidationError,
+        apply_intent,
+        validate_intent,
+    )
+
+    brand = _load(brand_id, version)
+
+    try:
+        content = ContentModel.model_validate(body.content_model)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_model", "errors": exc.errors()},
+        ) from exc
+
+    if bool(body.base_direction_id) == bool(body.base_direction):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_base_direction",
+                "detail": "exactly one of base_direction_id or base_direction is required",
+            },
+        )
+
+    try:
+        if body.base_direction_id:
+            base_direction = get_direction(body.base_direction_id)
+        else:
+            base_direction = CreativeDirection.model_validate(body.base_direction)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown_direction", "detail": str(exc)},
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_base_direction", "errors": exc.errors()},
+        ) from exc
+
+    try:
+        intent = CommandIntent.model_validate(body.intent)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_intent", "errors": exc.errors()},
+        ) from exc
+
+    domain_errors = validate_intent(content, intent, page_count=None)
+    if domain_errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "intent_validation_failed", "errors": domain_errors},
+        )
+
+    try:
+        new_content, new_direction, resolution = apply_intent(content, base_direction, intent)
+    except IntentValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "intent_validation_failed", "errors": exc.errors},
+        ) from exc
+
+    try:
+        plan = compose(
+            new_content,
+            new_direction,
+            brand,
+            document=body.document,
+            page_format_name=body.page_format_name,
+            max_pages=body.max_pages,
+        )
+    except CompositionError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "composition_infeasible",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+
+    evaluation = evaluate(plan, new_direction, brand.resolve_tokens())
+
+    return {
+        "intent": intent.model_dump(mode="json"),
+        "resolution": resolution.model_dump(mode="json"),
+        "resulting_direction": new_direction.model_dump(mode="json"),
+        "plan": plan.to_dict(),
+        "evaluation": evaluation.to_dict(),
+        "meta": {
+            "requested_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "brand_id": str(brand.brand_id),
+            "brand_version": brand.version,
+            "previous_plan_hash": body.previous_plan_hash,
+            "composer": "brand.creative.intent.apply_intent + brand.creative.composer.compose",
         },
     }
 

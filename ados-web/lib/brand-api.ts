@@ -7,6 +7,7 @@ import type {
   ValidationReport,
 } from "./brand-types"
 import type { ComposeResult, ContentModel } from "./pageplan-types"
+import type { CommandIntent, IntentResponse } from "./intent-types"
 
 // The Brand System lives on the real REVELATION API (api/main.py), not on
 // ados-service — a different backend from the Library/System pages, on
@@ -87,7 +88,28 @@ export async function composeDocument(
   brandId: string,
   body: { content_model: ContentModel; direction_id: string; document?: string },
 ): Promise<ComposeResult> {
-  const res = await fetch(`${REVELATION_API_URL}/api/v2/brands/${encodeURIComponent(brandId)}/compose`, {
+  return postJson(`/api/v2/brands/${encodeURIComponent(brandId)}/compose`, body)
+}
+
+// ---------------------------------------------------------------------------
+// Intent — POST /brands/{id}/intent (docs/api/intent-endpoint.md)
+// ---------------------------------------------------------------------------
+
+export async function executeIntent(
+  brandId: string,
+  body: {
+    content_model: ContentModel
+    base_direction_id?: string
+    base_direction?: Record<string, unknown>
+    intent: CommandIntent
+    previous_plan_hash?: string
+  },
+): Promise<IntentResponse> {
+  return postJson(`/api/v2/brands/${encodeURIComponent(brandId)}/intent`, body)
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${REVELATION_API_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -98,5 +120,5 @@ export async function composeDocument(
     const code = typeof detail === "object" && detail?.error ? detail.error : `http_${res.status}`
     throw new ComposeApiError(res.status, code, detail ?? data)
   }
-  return data as ComposeResult
+  return data as T
 }

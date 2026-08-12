@@ -1,15 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { DIRECTIONS, useAdosState, type DirectionId } from "@/lib/ados-state"
 import { useContentExample } from "@/lib/brand-api"
+import type { ContentModel } from "@/lib/pageplan-types"
+import type { IntentTarget, IntentType } from "@/lib/intent-types"
 
 // WHAT I WANT TO CHANGE. Not a chat clone: no bubbles, no assistant
-// avatar, no conversational filler. In M1.1 there is exactly one real
-// command — "compose this project, under this direction, for this
-// brand" — plus a set of suggested follow-on actions that are honestly
-// marked unavailable, because their backend operations (M2.9's
-// Command -> Composer mutation pipeline) do not exist yet. Nothing here
-// fakes a successful mutation.
+// avatar, no conversational filler. Every action below builds a typed
+// CommandIntent and sends it to POST /brands/{id}/intent — the structured
+// layer in brand/creative/intent.py, not a second Composer. The free-text
+// field stays absent on purpose: natural-language parsing is the next
+// phase's boundary (User -> LLM -> CommandIntent), not this one's, and
+// pretending it exists here would blur exactly the line ADOS depends on.
 export function CommandPanel() {
   const state = useAdosState()
   const { selection, plan } = state
@@ -17,6 +20,8 @@ export function CommandPanel() {
   return (
     <aside className="flex h-full flex-col overflow-y-auto px-4 py-3">
       <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[.07em] text-mute">Command</p>
+
+      <IntentFeedback state={state} />
 
       {selection.kind === "page" ? (
         <PageContext state={state} />
@@ -36,6 +41,57 @@ export function CommandPanel() {
       ) : null}
     </aside>
   )
+}
+
+// Before/after — ADOS §16. Shown once, after the intent that produced it,
+// so recomposition reads as "the document changed", not "I edited it".
+function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
+  const { intentStatus, intentError, lastIntentSummary } = state
+
+  if (intentStatus === "running") {
+    return <p className="mb-4 text-[12px] text-ink-soft">Applying command…</p>
+  }
+
+  if (intentStatus === "error" && intentError) {
+    return (
+      <div className="mb-4 rounded-[8px] border border-crit/30 bg-crit-bg px-2.5 py-2 text-[11.5px] text-crit">
+        <p className="font-medium">Composition rejected</p>
+        <p className="mt-0.5">{intentError}</p>
+        <p className="mt-1 text-[10.5px] opacity-80">The previous PagePlan is still shown.</p>
+      </div>
+    )
+  }
+
+  if (lastIntentSummary) {
+    const { intent, resolution, previousPlanHash, newPlanHash } = lastIntentSummary
+    const changed = previousPlanHash !== newPlanHash
+    return (
+      <div className="mb-4 rounded-[8px] border border-ok/30 bg-ok-bg px-2.5 py-2 text-[11.5px] text-ok">
+        <p className="font-medium">Command executed: {LABELS[intent.type]}</p>
+        <p className="mt-0.5 text-ink-soft">
+          PagePlan {changed ? "regenerated" : "recomposed — no change"} · hash {newPlanHash.slice(0, 12)}…
+        </p>
+        {resolution.notes.map((n, i) => (
+          <p key={i} className="mt-1 text-[10.5px] text-ink-soft opacity-80">
+            {n}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  return null
+}
+
+const LABELS: Record<IntentType, string> = {
+  reduce_text_density: "Reduce text density",
+  increase_text_density: "Increase text density",
+  increase_image_emphasis: "Increase image emphasis",
+  decrease_image_emphasis: "Decrease image emphasis",
+  recompose_page: "Recompose",
+  preserve_content: "Preserve content",
+  remove_content: "Remove content",
+  change_page_direction: "Change direction",
 }
 
 function ComposeIntent({ state }: { state: ReturnType<typeof useAdosState> }) {
@@ -88,9 +144,18 @@ function ComposeIntent({ state }: { state: ReturnType<typeof useAdosState> }) {
 
 function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
   const selection = state.selection
+  const { data: content } = useContentExample(state.activeProjectId)
+  const [strength, setStrength] = useState(0.5)
+
   if (selection.kind !== "page" || !state.plan) return null
   const page = state.plan.plan.pages[selection.pageIndex]
   if (!page) return null
+
+  const target: IntentTarget = { type: "page", id: String(page.index) }
+  const busy = state.intentStatus === "running"
+
+  const run = (type: IntentType, parameters: Record<string, unknown> = {}) =>
+    content && state.runIntent(content, type, target, parameters)
 
   return (
     <div>
@@ -106,20 +171,75 @@ function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
         <Row k="Objective score" v={page.objective.toFixed(0)} />
       </div>
 
-      <SuggestedActions
-        actions={["Recompose this page", "Reduce text density", "Increase image emphasis", "Make this page image-led"]}
-      />
+      <div className="mt-4">
+        <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">
+          Strength — {strength.toFixed(1)}
+        </p>
+        <input
+          type="range"
+          min={0.1}
+          max={1}
+          step={0.1}
+          value={strength}
+          onChange={(e) => setStrength(Number(e.target.value))}
+          className="w-full"
+        />
+      </div>
+
+      <div className="mt-2 space-y-1">
+        <ActionButton disabled={busy || !content} onClick={() => run("reduce_text_density", { strength })}>
+          Reduce text density
+        </ActionButton>
+        <ActionButton disabled={busy || !content} onClick={() => run("increase_text_density", { strength })}>
+          Increase text density
+        </ActionButton>
+        <ActionButton disabled={busy || !content} onClick={() => run("increase_image_emphasis", { strength })}>
+          Increase image emphasis
+        </ActionButton>
+        <ActionButton disabled={busy || !content} onClick={() => run("decrease_image_emphasis", { strength })}>
+          Decrease image emphasis
+        </ActionButton>
+        <ActionButton disabled={busy || !content} onClick={() => run("recompose_page")}>
+          Recompose
+        </ActionButton>
+      </div>
+
+      <p className="mb-1.5 mt-4 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">Switch direction</p>
+      <div className="space-y-1">
+        {DIRECTIONS.filter((d) => d !== state.plan?.plan.direction).map((d) => (
+          <ActionButton
+            key={d}
+            disabled={busy || !content}
+            onClick={() => run("change_page_direction", { direction_id: d })}
+          >
+            {d}
+          </ActionButton>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[10.5px] text-mute">
+        Density/emphasis and direction changes apply document-wide — the Composer has no
+        page-scoped recomposition today. See the note after running one.
+      </p>
     </div>
   )
 }
 
 function BlockContext({ state }: { state: ReturnType<typeof useAdosState> }) {
   const selection = state.selection
+  const { data: content } = useContentExample(state.activeProjectId)
   if (selection.kind !== "contentBlock" || !state.plan) return null
 
   const page = state.plan.plan.pages[selection.pageIndex]
   const found = page?.slots.find((s) => (s.block || s.component) === selection.blockId)
   if (!page || !found) return null
+
+  const busy = state.intentStatus === "running"
+  const blockId = found.block || found.component
+  const target: IntentTarget = { type: "contentBlock", id: blockId }
+
+  const run = (type: IntentType) =>
+    content && found.block && state.runIntent(content, type, target, { content_ids: [found.block] })
 
   return (
     <div>
@@ -136,7 +256,21 @@ function BlockContext({ state }: { state: ReturnType<typeof useAdosState> }) {
         <Row k="Emphasis" v={found.emphasis ? "yes" : "no"} />
       </div>
 
-      <SuggestedActions actions={["Promote to hero", "Swap image", "Trim text"]} />
+      {found.block ? (
+        <div className="mt-4 space-y-1">
+          <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">Actions</p>
+          <ActionButton disabled={busy || !content} onClick={() => run("preserve_content")}>
+            Preserve this content
+          </ActionButton>
+          <ActionButton disabled={busy || !content} onClick={() => run("remove_content")}>
+            Remove this content
+          </ActionButton>
+        </div>
+      ) : (
+        <p className="mt-4 text-[11.5px] text-mute">
+          This slot is fixed (title, credit) rather than a ContentModel block — nothing to preserve or remove.
+        </p>
+      )}
     </div>
   )
 }
@@ -169,24 +303,23 @@ function ReviewSummary({ state }: { state: ReturnType<typeof useAdosState> }) {
   )
 }
 
-function SuggestedActions({ actions }: { actions: string[] }) {
+function ActionButton({
+  children,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode
+  disabled?: boolean
+  onClick: () => void
+}) {
   return (
-    <div className="mt-4">
-      <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">Suggested</p>
-      <div className="space-y-1">
-        {actions.map((a) => (
-          <button
-            key={a}
-            disabled
-            title="Not yet available — the Command → Composer mutation pipeline is a later phase"
-            className="flex w-full items-center justify-between rounded-[7px] border border-line px-2.5 py-[6px] text-left text-[12px] text-mute opacity-60"
-          >
-            {a}
-            <span className="text-[10px] uppercase tracking-[.04em]">upcoming</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-full items-center justify-between rounded-[7px] border border-line-strong bg-paper-raised px-2.5 py-[6px] text-left text-[12px] text-ink-soft hover:bg-black/[.03] disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {children}
+    </button>
   )
 }
 

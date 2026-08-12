@@ -7,10 +7,18 @@
 // is a second domain model — activeProjectId/activeBrandId/activeDirectionId
 // are references into real backend entities, and `plan` is exactly the
 // ComposeResult the API returned, unmodified.
+//
+// Hard rule for M1.2 (ADOS §17): a failed compose or a failed intent must
+// never clear an existing valid `plan`. planStatus/planError only ever
+// describe the *first* compose (there is nothing to preserve yet);
+// intentStatus/intentError describe every follow-on command and are
+// deliberately a separate pair of fields so a rejected intent cannot,
+// even by accident, blank the Canvas.
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
-import { ComposeApiError, composeDocument } from "./brand-api"
+import { ComposeApiError, composeDocument, executeIntent } from "./brand-api"
 import type { ComposeResult, ContentModel } from "./pageplan-types"
+import type { CommandIntent, IntentResolution, IntentTarget, IntentType } from "./intent-types"
 
 export const DIRECTIONS = ["editorial-quiet", "technical-dense", "image-led"] as const
 export type DirectionId = (typeof DIRECTIONS)[number]
@@ -22,15 +30,30 @@ export type Selection =
   | { kind: "page"; pageIndex: number }
   | { kind: "contentBlock"; blockId: string; pageIndex: number; slotComponent: string }
 
+export interface LastIntentSummary {
+  intent: CommandIntent
+  resolution: IntentResolution
+  previousPlanHash: string
+  newPlanHash: string
+}
+
 interface AdosStateValue {
   activeProjectId: string | null
   activeProjectLabel: string | null
   activeBrandId: string | null
   activeDirectionId: DirectionId
+  /** The last intent's resulting_direction, carried forward so the next
+   *  intent chains onto it instead of restarting from the base direction. */
+  activeDirection: Record<string, unknown> | null
 
   plan: ComposeResult | null
+  previousPlan: ComposeResult | null
   planStatus: "idle" | "loading" | "loaded" | "error"
   planError: string | null
+
+  intentStatus: "idle" | "running" | "error"
+  intentError: string | null
+  lastIntentSummary: LastIntentSummary | null
 
   selection: Selection
 
@@ -41,6 +64,12 @@ interface AdosStateValue {
   clearSelection: () => void
 
   runCompose: (content: ContentModel) => Promise<void>
+  runIntent: (
+    content: ContentModel,
+    type: IntentType,
+    target: IntentTarget,
+    parameters?: Record<string, unknown>,
+  ) => Promise<void>
 }
 
 const Ctx = createContext<AdosStateValue | null>(null)
@@ -50,10 +79,16 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
   const [activeProjectLabel, setActiveProjectLabel] = useState<string | null>(null)
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null)
   const [activeDirectionId, setActiveDirectionId] = useState<DirectionId>("editorial-quiet")
+  const [activeDirection, setActiveDirection] = useState<Record<string, unknown> | null>(null)
 
   const [plan, setPlan] = useState<ComposeResult | null>(null)
+  const [previousPlan, setPreviousPlan] = useState<ComposeResult | null>(null)
   const [planStatus, setPlanStatus] = useState<AdosStateValue["planStatus"]>("idle")
   const [planError, setPlanError] = useState<string | null>(null)
+
+  const [intentStatus, setIntentStatus] = useState<AdosStateValue["intentStatus"]>("idle")
+  const [intentError, setIntentError] = useState<string | null>(null)
+  const [lastIntentSummary, setLastIntentSummary] = useState<LastIntentSummary | null>(null)
 
   const [selection, setSelection] = useState<Selection>({ kind: "none" })
 
@@ -68,7 +103,10 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
     setSelection({ kind: "brand", id, label: id })
   }, [])
 
-  const setDirection = useCallback((id: DirectionId) => setActiveDirectionId(id), [])
+  const setDirection = useCallback((id: DirectionId) => {
+    setActiveDirectionId(id)
+    setActiveDirection(null) // a new base direction starts a fresh chain
+  }, [])
 
   const select = useCallback((s: Selection) => setSelection(s), [])
   const clearSelection = useCallback(() => setSelection({ kind: "none" }), [])
@@ -83,20 +121,65 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
           content_model: content,
           direction_id: activeDirectionId,
         })
+        setPreviousPlan(null) // a fresh compose starts a new lineage, not a diff of the old one
         setPlan(result)
+        setActiveDirection(null)
+        setLastIntentSummary(null)
         setPlanStatus("loaded")
         setSelection({ kind: "page", pageIndex: 0 })
       } catch (err) {
-        setPlan(null)
+        // Nothing valid existed yet on the very first compose — planStatus
+        // "error" is the only state, there is no plan to protect.
         setPlanStatus("error")
         setPlanError(
-          err instanceof ComposeApiError
-            ? `${err.code}: ${JSON.stringify(err.detail)}`
-            : String(err),
+          err instanceof ComposeApiError ? `${err.code}: ${JSON.stringify(err.detail)}` : String(err),
         )
       }
     },
     [activeBrandId, activeDirectionId],
+  )
+
+  const runIntent = useCallback(
+    async (
+      content: ContentModel,
+      type: IntentType,
+      target: IntentTarget,
+      parameters: Record<string, unknown> = {},
+    ) => {
+      if (!activeBrandId || !plan) return
+      setIntentStatus("running")
+      setIntentError(null)
+      const previousHash = plan.plan.plan_hash
+      try {
+        const result = await executeIntent(activeBrandId, {
+          content_model: content,
+          ...(activeDirection
+            ? { base_direction: activeDirection }
+            : { base_direction_id: activeDirectionId }),
+          intent: { type, target, parameters },
+          previous_plan_hash: previousHash,
+        })
+        // Success: replace the plan. Failure (catch below) never reaches
+        // here, so a rejected intent cannot blank a valid Canvas.
+        setPreviousPlan(plan)
+        setPlan({ plan: result.plan, evaluation: result.evaluation, meta: result.meta })
+        setActiveDirection(result.resulting_direction)
+        setLastIntentSummary({
+          intent: result.intent,
+          resolution: result.resolution,
+          previousPlanHash: previousHash,
+          newPlanHash: result.plan.plan_hash,
+        })
+        setIntentStatus("idle")
+        setSelection((s) => (s.kind === "page" ? { kind: "page", pageIndex: 0 } : s))
+      } catch (err) {
+        setIntentStatus("error")
+        setIntentError(
+          err instanceof ComposeApiError ? `${err.code}: ${JSON.stringify(err.detail)}` : String(err),
+        )
+      }
+    },
+    [activeBrandId, activeDirection, activeDirectionId, plan],
   )
 
   const value = useMemo<AdosStateValue>(
@@ -105,9 +188,14 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       activeProjectLabel,
       activeBrandId,
       activeDirectionId,
+      activeDirection,
       plan,
+      previousPlan,
       planStatus,
       planError,
+      intentStatus,
+      intentError,
+      lastIntentSummary,
       selection,
       selectProject,
       selectBrand,
@@ -115,15 +203,21 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       select,
       clearSelection,
       runCompose,
+      runIntent,
     }),
     [
       activeProjectId,
       activeProjectLabel,
       activeBrandId,
       activeDirectionId,
+      activeDirection,
       plan,
+      previousPlan,
       planStatus,
       planError,
+      intentStatus,
+      intentError,
+      lastIntentSummary,
       selection,
       selectProject,
       selectBrand,
@@ -131,6 +225,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       select,
       clearSelection,
       runCompose,
+      runIntent,
     ],
   )
 
