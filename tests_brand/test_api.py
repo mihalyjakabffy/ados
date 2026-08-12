@@ -173,6 +173,128 @@ def test_unknown_template_is_404(client):
 
 
 # ---------------------------------------------------------------------------
+# Composition — the Creative Layer through the HTTP boundary
+#
+# The endpoint is an adapter; these tests are about the boundary (request
+# shape, error taxonomy, determinism surviving the round trip), not about
+# composition itself — that is tests_brand/test_creative.py's job.
+# ---------------------------------------------------------------------------
+
+
+def _malthouse_payload(direction_id: str = "editorial-quiet", **extra):
+    from brand.examples.malthouse import malthouse_content
+
+    payload = {
+        "content_model": malthouse_content().model_dump(mode="json"),
+        "direction_id": direction_id,
+    }
+    payload.update(extra)
+    return payload
+
+
+def test_compose_returns_a_real_page_plan(client):
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload())
+    assert r.status_code == 200
+    body = r.json()
+    assert body["plan"]["pages"]
+    assert body["plan"]["plan_hash"]
+    assert body["plan"]["brand_id"] == BRAND_ID
+    assert body["plan"]["direction"] == "editorial-quiet"
+    assert body["evaluation"]["plan_hash"] == body["plan"]["plan_hash"]
+    assert set(body["meta"]) >= {"requested_at", "brand_id", "brand_version", "composer"}
+
+
+def test_compose_is_deterministic_over_http(client):
+    payload = _malthouse_payload()
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=payload).json()
+    second = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=payload).json()
+
+    assert first["plan"] == second["plan"], "same inputs must produce the same plan"
+    assert first["plan"]["plan_hash"] == second["plan"]["plan_hash"]
+    # Only request-scoped metadata may differ.
+    assert first["meta"]["requested_at"] != second["meta"]["requested_at"]
+
+
+def test_compose_records_the_resolved_brand_version(client):
+    r = client.post(
+        f"/api/v2/brands/{BRAND_ID}/compose?version=1.0.0",
+        json=_malthouse_payload("technical-dense"),
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["plan"]["brand_version"] == "1.0.0"
+    assert body["meta"]["brand_version"] == "1.0.0"
+
+
+def test_compose_against_an_unknown_brand_is_404(client):
+    r = client.post(
+        "/api/v2/brands/00000000-0000-0000-0000-000000000000/compose",
+        json=_malthouse_payload(),
+    )
+    assert r.status_code == 404
+
+
+def test_compose_against_an_unknown_brand_version_is_404(client):
+    r = client.post(
+        f"/api/v2/brands/{BRAND_ID}/compose?version=9.9.9",
+        json=_malthouse_payload(),
+    )
+    assert r.status_code == 404
+
+
+def test_compose_with_an_invalid_content_model_is_422(client):
+    r = client.post(
+        f"/api/v2/brands/{BRAND_ID}/compose",
+        json={"content_model": {"not": "a content model"}, "direction_id": "editorial-quiet"},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_content_model"
+
+
+def test_compose_with_an_unknown_direction_is_404(client):
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload("not-a-direction"))
+    assert r.status_code == 404
+    assert r.json()["detail"]["error"] == "unknown_direction"
+
+
+def test_compose_with_a_document_outside_the_direction_is_422(client):
+    r = client.post(
+        f"/api/v2/brands/{BRAND_ID}/compose",
+        json=_malthouse_payload("editorial-quiet", document="monograph"),
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "document_not_in_direction"
+
+
+def test_an_infeasible_composition_is_a_422_not_a_bad_plan(client):
+    """A CompositionError must reach the caller as a domain failure, not a 200."""
+    r = client.post(
+        f"/api/v2/brands/{BRAND_ID}/compose",
+        json=_malthouse_payload("editorial-quiet", page_format_name="XX9"),
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "composition_infeasible"
+
+
+def test_compose_matches_calling_the_composer_directly(client):
+    """The route is an adapter: it must not diverge from brand.creative.composer.compose."""
+    from brand.creative.composer import compose
+    from brand.creative.directions import get_direction
+    from brand.examples.malthouse import malthouse_content
+    from brand.store.brand_repo import FileBrandRepository
+
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload())
+    api_plan = r.json()["plan"]
+
+    import api.routers.brand as brand_router
+
+    brand = FileBrandRepository(brand_router._BRAND_ROOT).get(BRAND_ID)
+    direct_plan = compose(malthouse_content(), get_direction("editorial-quiet"), brand)
+
+    assert api_plan["plan_hash"] == direct_plan.plan_hash
+
+
+# ---------------------------------------------------------------------------
 # Proposals — the approval gate at the HTTP boundary
 # ---------------------------------------------------------------------------
 

@@ -16,6 +16,7 @@ Prefix: /api/v2   Tags: ["brand"]
     GET  /brands/{id}/preview             the brand preview, as HTML
     GET  /brands/{id}/templates           which documents this brand can render
     POST /brands/{id}/render/{template}   render one, HTML or PDF
+    POST /brands/{id}/compose             ContentModel + direction → PagePlan
     POST /brand-proposals                 brief → BrandAgent proposal (no write)
     GET  /brand-schema                    the JSON Schema
 
@@ -27,6 +28,12 @@ Two things this router does not do, deliberately:
 * Nothing mutates a published version. The store raises and the handler turns
   that into a 409, because the alternative is a reprint that silently differs
   from what was issued.
+* ``POST /brands/{id}/compose`` **does not compose**. It validates the
+  request, resolves the Brand and its version, and calls
+  ``brand.creative.composer.compose`` — the same deterministic function
+  ``tests_brand/test_creative.py`` proves is byte-identical on rerun. This
+  route is an adapter, not a second composition engine; if a plan looks
+  wrong, the defect is in ``brand/creative/``, not here.
 """
 
 from __future__ import annotations
@@ -107,6 +114,36 @@ class RenderRequest(BaseModel):
         description="Per-project token overrides. May change a value, never "
         "introduce a token the brand does not define.",
     )
+
+
+class ComposeRequest(BaseModel):
+    """Input to ``brand.creative.composer.compose``, over the wire.
+
+    ``content_model`` is the whole project's content, inline. There is no
+    ContentModel store yet (``brand/content/extract.py`` only turns a
+    DesignState into one in-process), so the caller supplies it directly —
+    the same shape ``brand.content.model.ContentModel.model_validate``
+    already accepts, not a shape invented for this endpoint.
+
+    ``direction_id`` selects one of the three shipped, reviewed directions
+    (``brand.creative.directions.DIRECTIONS``) rather than accepting an
+    arbitrary inline ``CreativeDirection`` — directions are meant to be
+    "a starting set to be edited and locked, not a menu browsed per
+    document" (``brand/creative/directions.py``), and opening free-form
+    direction authoring through this route is a separate decision.
+    """
+
+    content_model: dict[str, Any] = Field(
+        description="A brand.content.model.ContentModel payload."
+    )
+    direction_id: str = Field(min_length=1, max_length=40)
+    document: str = Field(
+        default="", max_length=60,
+        description="Which of the direction's applies_to document types this "
+        "run is for. Defaults to the direction's first.",
+    )
+    page_format_name: str = Field(default="A4", max_length=20)
+    max_pages: int = Field(default=40, ge=1, le=200)
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +333,130 @@ def render_document(
 
     content = doc.content if isinstance(doc.content, bytes) else doc.content.encode()
     return Response(content=content, media_type=doc.media_type)
+
+
+# ---------------------------------------------------------------------------
+# Composition — the Creative Layer, exposed
+# ---------------------------------------------------------------------------
+
+
+@router.post("/brands/{brand_id}/compose")
+def compose_document(
+    brand_id: str,
+    body: ComposeRequest,
+    version: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    """Compose a PagePlan. See the module docstring: this holds no layout logic.
+
+    Pipeline: resolve Brand + version (``_load``, existing) → validate the
+    ContentModel → resolve the CreativeDirection by id → ``compose()``
+    (``brand.creative.composer``, existing, deterministic) → ``evaluate()``
+    (``brand.creative.evaluate``, existing) → response.
+
+    The response separates the deterministic payload from request-scoped
+    metadata: ``plan`` is exactly ``PagePlan.to_dict()`` — the same bytes for
+    the same inputs, always — and ``meta`` carries only things that must
+    *not* affect that determinism, such as when this particular call was
+    made. Nothing in ``meta`` is folded into ``plan_hash``.
+    """
+    import datetime as _dt
+
+    from pydantic import ValidationError
+
+    from brand.content.model import ContentModel
+    from brand.creative.composer import CompositionError, compose
+    from brand.creative.directions import get_direction
+    from brand.creative.evaluate import evaluate
+
+    brand = _load(brand_id, version)
+
+    try:
+        content = ContentModel.model_validate(body.content_model)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_model", "errors": exc.errors()},
+        ) from exc
+
+    try:
+        direction = get_direction(body.direction_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown_direction", "detail": str(exc)},
+        ) from exc
+
+    if body.document and direction.applies_to and body.document not in direction.applies_to:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "document_not_in_direction",
+                "detail": (
+                    f"direction {direction.id!r} applies to "
+                    f"{list(direction.applies_to)}, not {body.document!r}."
+                ),
+            },
+        )
+
+    try:
+        plan = compose(
+            content,
+            direction,
+            brand,
+            document=body.document,
+            page_format_name=body.page_format_name,
+            max_pages=body.max_pages,
+        )
+    except CompositionError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "composition_infeasible", "detail": str(exc)},
+        ) from exc
+
+    evaluation = evaluate(plan, direction, brand.resolve_tokens())
+
+    return {
+        "plan": plan.to_dict(),
+        "evaluation": evaluation.to_dict(),
+        "meta": {
+            "requested_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "brand_id": str(brand.brand_id),
+            "brand_version": brand.version,
+            "composer": "brand.creative.composer.compose",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dev utilities — content examples
+#
+# Not a ContentModel store (that is a separate, later decision — M2.2's
+# project-content graph). This exists so a caller can exercise POST
+# /compose with a real, repository-shipped ContentModel instead of hand
+# -authoring one, while nothing here persists anything.
+# ---------------------------------------------------------------------------
+
+_CONTENT_EXAMPLES = ("malthouse",)
+
+
+@router.get("/dev/content-examples/{name}")
+def dev_content_example(name: str) -> dict[str, Any]:
+    """Returns a round-trippable ContentModel payload.
+
+    Deliberately ``model_dump``, not ``to_dict()`` — ``to_dict()`` adds the
+    derived ``content_hash`` field for display, and the frozen ContentModel
+    schema (``extra="forbid"``) rejects it back on the way into ``/compose``.
+    This endpoint's contract is "valid input", not "human-readable record".
+    """
+    if name not in _CONTENT_EXAMPLES:
+        raise HTTPException(
+            status_code=404,
+            detail=f"unknown example {name!r}. Known: {', '.join(_CONTENT_EXAMPLES)}",
+        )
+
+    from brand.examples.malthouse import malthouse_content
+
+    return malthouse_content().model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
