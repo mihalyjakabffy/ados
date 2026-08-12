@@ -6,6 +6,7 @@ import type {
   FlatTokens,
   ValidationReport,
 } from "./brand-types"
+import type { ComposeResult, ContentModel } from "./pageplan-types"
 
 // The Brand System lives on the real REVELATION API (api/main.py), not on
 // ados-service — a different backend from the Library/System pages, on
@@ -62,4 +63,40 @@ export function useBrandValidation(brandId: string | null) {
 
 export function brandPreviewUrl(brandId: string): string {
   return `${REVELATION_API_URL}/api/v2/brands/${encodeURIComponent(brandId)}/preview`
+}
+
+// ---------------------------------------------------------------------------
+// Composition — POST /brands/{id}/compose (docs/api/compose-endpoint.md)
+// ---------------------------------------------------------------------------
+
+export function useContentExample(name: string | null) {
+  return useSWR<ContentModel>(name ? `/api/v2/dev/content-examples/${encodeURIComponent(name)}` : null, fetcher)
+}
+
+export class ComposeApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    public detail: unknown,
+  ) {
+    super(`${status} ${code}`)
+  }
+}
+
+export async function composeDocument(
+  brandId: string,
+  body: { content_model: ContentModel; direction_id: string; document?: string },
+): Promise<ComposeResult> {
+  const res = await fetch(`${REVELATION_API_URL}/api/v2/brands/${encodeURIComponent(brandId)}/compose`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) {
+    const detail = data?.detail
+    const code = typeof detail === "object" && detail?.error ? detail.error : `http_${res.status}`
+    throw new ComposeApiError(res.status, code, detail ?? data)
+  }
+  return data as ComposeResult
 }
