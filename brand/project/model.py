@@ -34,6 +34,7 @@ Document, not replaying a command log.
 from __future__ import annotations
 
 import uuid
+from datetime import date as _date
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
@@ -164,6 +165,105 @@ class Section(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Decisions & Actions — the structured primitives Client Presentation (P3)
+# and Internal Documentation (P4) both need, and only need once
+# (ADOS-M2.2.1 §7 explicitly: "reuse an existing action/task model if one
+# exists... do not build a project-management application"). No task model
+# already existed in this codebase, so these are new, but deliberately the
+# smallest shape that makes CLI-002/CLI-003/INT-001/INT-002 checkable: a
+# status enum, a date, an owner — not effort, priority, dependencies or any
+# other project-management field neither P3 nor P4 asked for.
+# ---------------------------------------------------------------------------
+
+
+class OptionStatus(str, Enum):
+    PROPOSED = "proposed"
+    RECOMMENDED = "recommended"
+    REJECTED = "rejected"
+    SELECTED = "selected"
+
+
+class PresentationOption(BaseModel):
+    """One option put to the client — Client Presentation's own content,
+    not a generic list item. ``status`` is what CLI-001 reads: a
+    presentation that lists options but marks none ``recommended`` or
+    ``selected`` has not actually made the case it exists to make."""
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    status: OptionStatus = OptionStatus.PROPOSED
+
+
+class Decision(BaseModel):
+    """One decision, on a Client Presentation directly or inside a Meeting
+    (``Meeting.decisions``) — the same shape either way, since a decision
+    is a decision regardless of which document type recorded it.
+    ``selected_option_id`` is optional (not every decision resolves a
+    Client Presentation's options; a Meeting's decisions usually don't),
+    but when set it must name a real option — CLI-002."""
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    selected_option_id: Optional[str] = None
+    date: Optional[_date] = None
+
+
+class ActionStatus(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
+class ActionItem(BaseModel):
+    """One action — Client Presentation's Next Steps, or one line in a
+    Meeting's own action log. ``deadline`` is a real ``date`` field, not a
+    free-text string: an invalid deadline is rejected by pydantic at the
+    moment it is written, which is why INT-003 ("deadlines must be valid
+    dates") is not a separate Requirements-Engine check — there is no
+    document state in which an ActionItem could hold an unparseable
+    deadline for a Finding to discover later."""
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    description: str = Field(min_length=1, max_length=400)
+    responsible: str = Field(default="", max_length=120)
+    deadline: Optional[_date] = None
+    status: ActionStatus = ActionStatus.OPEN
+
+
+class Participant(BaseModel):
+    model_config = _Frozen
+
+    name: str = Field(min_length=1, max_length=120)
+    role: str = Field(default="", max_length=120)
+
+
+class Meeting(BaseModel):
+    """Internal Documentation's own record — a dated meeting with who was
+    there, what was discussed, what was decided and what happens next.
+    ``decisions``/``action_items`` reuse :class:`Decision`/:class:`ActionItem`
+    directly rather than a Meeting-specific variant of either."""
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    title: str = Field(min_length=1, max_length=120)
+    date: Optional[_date] = None
+    location: str = Field(default="", max_length=200)
+    participants: tuple[Participant, ...] = ()
+    agenda: tuple[str, ...] = ()
+    decisions: tuple[Decision, ...] = ()
+    action_items: tuple[ActionItem, ...] = ()
+
+
+# ---------------------------------------------------------------------------
 # Documents
 # ---------------------------------------------------------------------------
 
@@ -198,6 +298,15 @@ class Document(BaseModel):
     them apply varies by document type and none of them affect
     composition (ADOS-M2.2 §2 lists Metadata itself as a shared
     primitive, not nine per-type schemas).
+
+    ``presentation_options``/``decisions``/``action_items``/``meetings``
+    are ADOS-M2.2.1 P3/P4's structured data — like ``project_refs``, they
+    are generic fields any document could carry, but only Client
+    Presentation (options/decisions/action_items) and Internal
+    Documentation (meetings, which carry their own nested decisions and
+    action_items) actually populate or check them
+    (``brand/project/requirements.py``'s CLI-*/INT-* rules). None of them
+    feed composition — the Composer still only ever sees ``content_items``.
     """
 
     model_config = _Frozen
@@ -211,6 +320,10 @@ class Document(BaseModel):
     project_refs: tuple[str, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
     content_items: tuple[ContentItem, ...] = ()
+    presentation_options: tuple[PresentationOption, ...] = ()
+    decisions: tuple[Decision, ...] = ()
+    action_items: tuple[ActionItem, ...] = ()
+    meetings: tuple[Meeting, ...] = ()
     latest_plan: Optional[dict[str, Any]] = None
     latest_evaluation: Optional[dict[str, Any]] = None
     created_at: datetime = Field(default_factory=_now)

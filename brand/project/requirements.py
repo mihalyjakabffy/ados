@@ -145,11 +145,111 @@ def _check_min_project_refs(
     )
 
 
+def _check_options_have_a_recommendation(
+    document: "Document", project: "Project", requirement: Requirement,
+) -> Optional[Finding]:
+    """CLI-001 (ADOS-M2.2.1 P3). Nothing to check for a presentation that
+    hasn't listed options yet — that is a content gap, not a violation of
+    this rule. Once options exist, at least one must be marked recommended
+    or selected: a presentation is not a menu."""
+    from brand.project.model import OptionStatus
+
+    options = document.presentation_options
+    if not options:
+        return None
+    if any(o.status in (OptionStatus.RECOMMENDED, OptionStatus.SELECTED) for o in options):
+        return None
+    return Finding(
+        severity=requirement.severity, category=Category.STRUCTURAL, field="presentation_options",
+        message=requirement.message,
+        suggestion=requirement.remediation or "Mark one option as recommended or selected.",
+        rule=requirement.id, code=requirement.id,
+    )
+
+
+def _check_decision_selected_option_exists(
+    document: "Document", project: "Project", requirement: Requirement,
+) -> Optional[Finding]:
+    """CLI-002. A Decision naming an option that no longer exists (removed
+    after the decision was recorded) is a dangling reference, not a
+    plausible product state — deterministic to check, unlike option
+    *quality*, which nothing here attempts to judge."""
+    known_ids = {o.id for o in document.presentation_options}
+    dangling = [d for d in document.decisions if d.selected_option_id and d.selected_option_id not in known_ids]
+    if not dangling:
+        return None
+    return Finding(
+        severity=requirement.severity, category=Category.STRUCTURAL, field="decisions",
+        message=f"{requirement.message} ({len(dangling)} decision(s) reference a missing option).",
+        suggestion=requirement.remediation or "Point each decision at one of the presentation's own options.",
+        rule=requirement.id, code=requirement.id,
+    )
+
+
+def _check_decisions_have_dates(
+    document: "Document", project: "Project", requirement: Requirement,
+) -> Optional[Finding]:
+    """CLI-003. A soft governance nudge (WARN, not ERROR — see REQUIREMENTS
+    below): a decision with no recorded date is still a real decision."""
+    undated = [d for d in document.decisions if d.date is None]
+    if not undated:
+        return None
+    return Finding(
+        severity=requirement.severity, category=Category.STRUCTURAL, field="decisions",
+        message=f"{requirement.message} ({len(undated)} decision(s) have no date).",
+        suggestion=requirement.remediation or "Record the date each decision was made.",
+        rule=requirement.id, code=requirement.id,
+    )
+
+
+def _check_internal_documentation_has_a_date(
+    document: "Document", project: "Project", requirement: Requirement,
+) -> Optional[Finding]:
+    """INT-001. A record of what happened is not useful without when —
+    satisfied by either the structured Meeting date or the document brief's
+    own ``date`` metadata field, whichever the author actually used."""
+    if str(document.metadata.get("date", "")).strip():
+        return None
+    if any(m.date is not None for m in document.meetings):
+        return None
+    return Finding(
+        severity=requirement.severity, category=Category.STRUCTURAL, field="meetings",
+        message=requirement.message,
+        suggestion=requirement.remediation or "Set a meeting date or the document's own date field.",
+        rule=requirement.id, code=requirement.id,
+    )
+
+
+def _check_action_items_have_a_responsible_person(
+    document: "Document", project: "Project", requirement: Requirement,
+) -> Optional[Finding]:
+    """INT-002. An action with nobody responsible for it will not happen —
+    checked across every meeting's own action log, the only place Internal
+    Documentation's action items live (unlike Client Presentation, which
+    keeps them flat on the document itself)."""
+    unowned = [
+        a for m in document.meetings for a in m.action_items if not a.responsible.strip()
+    ]
+    if not unowned:
+        return None
+    return Finding(
+        severity=requirement.severity, category=Category.STRUCTURAL, field="meetings",
+        message=f"{requirement.message} ({len(unowned)} action item(s) have no responsible person).",
+        suggestion=requirement.remediation or "Assign a responsible person to each action item.",
+        rule=requirement.id, code=requirement.id,
+    )
+
+
 _CHECKERS = {
     "max_pages": _check_max_pages,
     "required_section_present": _check_required_section_present,
     "required_metadata_present": _check_required_metadata_present,
     "min_project_refs": _check_min_project_refs,
+    "options_have_a_recommendation": _check_options_have_a_recommendation,
+    "decision_selected_option_exists": _check_decision_selected_option_exists,
+    "decisions_have_dates": _check_decisions_have_dates,
+    "internal_documentation_has_a_date": _check_internal_documentation_has_a_date,
+    "action_items_have_a_responsible_person": _check_action_items_have_a_responsible_person,
 }
 
 
@@ -239,6 +339,21 @@ REQUIREMENTS: dict[str, list[Requirement]] = {
     "client-presentation": [
         Requirement(
             id="CLI-001", document_type_id="client-presentation", severity=Severity.ERROR,
+            check="options_have_a_recommendation",
+            message="At least one option should be marked recommended or selected.",
+        ),
+        Requirement(
+            id="CLI-002", document_type_id="client-presentation", severity=Severity.ERROR,
+            check="decision_selected_option_exists",
+            message="A decision's selected option must exist among the presentation's own options.",
+        ),
+        Requirement(
+            id="CLI-003", document_type_id="client-presentation", severity=Severity.WARN,
+            check="decisions_have_dates",
+            message="Each decision should record the date it was made.",
+        ),
+        Requirement(
+            id="CLI-005", document_type_id="client-presentation", severity=Severity.ERROR,
             check="required_section_present",
             message="Client presentation must contain a recommendation.",
             params={"section_kind": "recommendation"},
@@ -267,7 +382,22 @@ REQUIREMENTS: dict[str, list[Requirement]] = {
     ],
     "internal-documentation": [
         Requirement(
-            id="INT-001", document_type_id="internal-documentation", severity=Severity.WARN,
+            id="INT-001", document_type_id="internal-documentation", severity=Severity.ERROR,
+            check="internal_documentation_has_a_date",
+            message="Internal documentation must record when it happened.",
+        ),
+        Requirement(
+            id="INT-002", document_type_id="internal-documentation", severity=Severity.ERROR,
+            check="action_items_have_a_responsible_person",
+            message="Every action item needs a responsible person.",
+        ),
+        # INT-003 ("deadlines must be valid dates") is not a Requirements-
+        # Engine entry: ActionItem.deadline is a real pydantic date field
+        # (brand/project/model.py), so an invalid deadline is rejected at
+        # write time -- there is no valid document state for a Finding to
+        # discover here. See ActionItem's own docstring.
+        Requirement(
+            id="INT-005", document_type_id="internal-documentation", severity=Severity.WARN,
             check="required_section_present",
             message="Internal documentation should record decisions made.",
             params={"section_kind": "decisions"},

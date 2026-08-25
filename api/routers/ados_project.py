@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from datetime import date as _date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -232,6 +233,46 @@ class ExportRequest(BaseModel):
     #: first. A given number must name a real, already-saved Version — an
     #: export never targets a state that was never actually reviewed.
     version_number: Optional[int] = None
+
+
+class AddPresentationOptionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    status: str = "proposed"
+
+
+class AddDecisionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    selected_option_id: Optional[str] = None
+    date: Optional[_date] = None
+
+
+class AddActionItemRequest(BaseModel):
+    description: str = Field(min_length=1, max_length=400)
+    responsible: str = Field(default="", max_length=120)
+    deadline: Optional[_date] = None
+    status: str = "open"
+
+
+class AddParticipantRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    role: str = Field(default="", max_length=120)
+
+
+class AddMeetingRequest(BaseModel):
+    #: Meetings are recorded whole, not built up field by field — the
+    #: minimal shape that still holds a real record (ADOS-M2.2.1 P4): no
+    #: sub-resource CRUD for one meeting's own participants/agenda/
+    #: decisions/action_items, since nothing in the master prompt asked
+    #: for that and it would be most of a project-management application.
+    title: str = Field(min_length=1, max_length=120)
+    date: Optional[_date] = None
+    location: str = Field(default="", max_length=200)
+    participants: list[AddParticipantRequest] = Field(default_factory=list)
+    agenda: list[str] = Field(default_factory=list)
+    decisions: list[AddDecisionRequest] = Field(default_factory=list)
+    action_items: list[AddActionItemRequest] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +675,154 @@ def _validate_document_content(doc, project_name: str) -> None:
             status_code=422,
             detail={"error": "invalid_content", "errors": exc.errors(include_url=False, include_context=False)},
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Structured decisions & actions (ADOS-M2.2.1 P3/P4) — Client Presentation's
+# options/decisions/action_items, and Internal Documentation's meetings.
+# create+delete only, mirroring content items' own add/remove shape; no
+# update endpoint, since nothing here is edited in place today.
+# ---------------------------------------------------------------------------
+
+
+def _replace_document_field(project, idx: int, field: str, value: tuple) -> Any:
+    doc = _touch_doc(project.documents[idx].model_copy(update={field: value}))
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc
+
+
+def _validated(model_cls, error_code: str, **kwargs):
+    from pydantic import ValidationError
+
+    try:
+        return model_cls(**kwargs)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": error_code, "errors": exc.errors(include_url=False, include_context=False)},
+        ) from exc
+
+
+@router.post("/{project_id}/documents/{document_id}/options", status_code=201)
+def add_presentation_option(project_id: str, document_id: str, body: AddPresentationOptionRequest) -> dict[str, Any]:
+    from brand.project.model import PresentationOption
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    option = _validated(
+        PresentationOption, "invalid_option",
+        title=body.title, description=body.description, status=body.status,
+    )
+    doc = _replace_document_field(project, idx, "presentation_options", doc.presentation_options + (option,))
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/options/{option_id}")
+def remove_presentation_option(project_id: str, document_id: str, option_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    remaining = tuple(o for o in doc.presentation_options if o.id != option_id)
+    if len(remaining) == len(doc.presentation_options):
+        raise HTTPException(status_code=404, detail=f"no option {option_id!r} on this document")
+    doc = _replace_document_field(project, idx, "presentation_options", remaining)
+    return doc.model_dump(mode="json")
+
+
+@router.post("/{project_id}/documents/{document_id}/decisions", status_code=201)
+def add_decision(project_id: str, document_id: str, body: AddDecisionRequest) -> dict[str, Any]:
+    from brand.project.model import Decision
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    decision = _validated(
+        Decision, "invalid_decision",
+        title=body.title, description=body.description,
+        selected_option_id=body.selected_option_id, date=body.date,
+    )
+    doc = _replace_document_field(project, idx, "decisions", doc.decisions + (decision,))
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/decisions/{decision_id}")
+def remove_decision(project_id: str, document_id: str, decision_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    remaining = tuple(d for d in doc.decisions if d.id != decision_id)
+    if len(remaining) == len(doc.decisions):
+        raise HTTPException(status_code=404, detail=f"no decision {decision_id!r} on this document")
+    doc = _replace_document_field(project, idx, "decisions", remaining)
+    return doc.model_dump(mode="json")
+
+
+@router.post("/{project_id}/documents/{document_id}/action-items", status_code=201)
+def add_action_item(project_id: str, document_id: str, body: AddActionItemRequest) -> dict[str, Any]:
+    from brand.project.model import ActionItem
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    item = _validated(
+        ActionItem, "invalid_action_item",
+        description=body.description, responsible=body.responsible,
+        deadline=body.deadline, status=body.status,
+    )
+    doc = _replace_document_field(project, idx, "action_items", doc.action_items + (item,))
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/action-items/{item_id}")
+def remove_action_item(project_id: str, document_id: str, item_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    remaining = tuple(a for a in doc.action_items if a.id != item_id)
+    if len(remaining) == len(doc.action_items):
+        raise HTTPException(status_code=404, detail=f"no action item {item_id!r} on this document")
+    doc = _replace_document_field(project, idx, "action_items", remaining)
+    return doc.model_dump(mode="json")
+
+
+@router.post("/{project_id}/documents/{document_id}/meetings", status_code=201)
+def add_meeting(project_id: str, document_id: str, body: AddMeetingRequest) -> dict[str, Any]:
+    from brand.project.model import ActionItem, Decision, Meeting, Participant
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    meeting = Meeting(
+        title=body.title, date=body.date, location=body.location,
+        participants=tuple(Participant(name=p.name, role=p.role) for p in body.participants),
+        agenda=tuple(body.agenda),
+        decisions=tuple(
+            Decision(title=d.title, description=d.description, selected_option_id=d.selected_option_id, date=d.date)
+            for d in body.decisions
+        ),
+        action_items=tuple(
+            ActionItem(description=a.description, responsible=a.responsible, deadline=a.deadline, status=a.status)
+            for a in body.action_items
+        ),
+    )
+    doc = _replace_document_field(project, idx, "meetings", doc.meetings + (meeting,))
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/meetings/{meeting_id}")
+def remove_meeting(project_id: str, document_id: str, meeting_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    remaining = tuple(m for m in doc.meetings if m.id != meeting_id)
+    if len(remaining) == len(doc.meetings):
+        raise HTTPException(status_code=404, detail=f"no meeting {meeting_id!r} on this document")
+    doc = _replace_document_field(project, idx, "meetings", remaining)
+    return doc.model_dump(mode="json")
 
 
 # -- compose --------------------------------------------------------------
