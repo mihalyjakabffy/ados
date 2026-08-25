@@ -227,6 +227,13 @@ class AddProjectRefRequest(BaseModel):
     project_id: str
 
 
+class ExportRequest(BaseModel):
+    #: None = export the document's current state, saving a fresh Version
+    #: first. A given number must name a real, already-saved Version — an
+    #: export never targets a state that was never actually reviewed.
+    version_number: Optional[int] = None
+
+
 # ---------------------------------------------------------------------------
 # Document types (ADOS-M2.2) — declarative, listed before /{project_id} so
 # "document-types" is never swallowed by that path parameter.
@@ -833,3 +840,239 @@ def restore_version(project_id: str, version_number: int) -> dict[str, Any]:
     project = _touch(project.model_copy(update={"documents": tuple(docs)}))
     _repo().save(project)
     return project.documents[idx].model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# Export — production PDF (ADOS-M2.2.1 P0). The one place this router calls
+# brand.templates.renderers.render_page_plan / brand.export.exporters.html_to_pdf
+# — no second rendering system. Every export is tied to a real, immutable
+# ProjectVersion, never to Document.latest_plan directly, so "Version N's
+# PDF must not silently change" holds by construction (ADOS-M2.2.1 §7).
+# ---------------------------------------------------------------------------
+
+
+def _resolve_export_version(project, doc, version_number: Optional[int]):
+    """The Version this export is tied to: the caller's own, or a freshly
+    saved one from the document's current state. Either way a real,
+    already-saved ``ProjectVersion`` — "export the current state" and
+    "export version N" become the same operation once a version exists.
+
+    Returns ``(project, version)`` — ``project`` reflects the newly
+    appended version when one had to be saved; the caller still owns
+    persisting it (alongside the Export record, in one save)."""
+    if version_number is not None:
+        version = next((v for v in project.versions if v.number == version_number), None)
+        if version is None:
+            raise HTTPException(
+                status_code=404, detail=f"no version {version_number} in project {project.id!r}",
+            )
+        if version.document_id != doc.id:
+            raise HTTPException(
+                status_code=422, detail={"error": "version_belongs_to_different_document"},
+            )
+        return project, version
+
+    if doc.latest_plan is None:
+        raise HTTPException(
+            status_code=422, detail={"error": "no_content", "detail": "compose before exporting"},
+        )
+    from brand.project.model import ProjectVersion
+
+    version = ProjectVersion(
+        number=project.next_version_number,
+        document_id=doc.id,
+        document_name=doc.name,
+        direction_id=doc.direction_id,
+        document_type_id=doc.document_type_id,
+        sections=doc.sections,
+        content_items=doc.content_items,
+        plan=doc.latest_plan,
+    )
+    project = project.model_copy(update={"versions": project.versions + (version,)})
+    return project, version
+
+
+def _plan_from_version(version):
+    """Reconstruct the real ``PagePlan`` a Version snapshot names.
+
+    ``PagePlan.to_dict()`` (what a Version actually stores) adds
+    ``plan_hash`` as a derived, non-field key — ``PagePlan`` itself is
+    ``extra="forbid"``, so that key has to come back off before
+    ``model_validate`` or every export of a saved version would fail."""
+    from brand.creative.plan import PagePlan
+
+    if version.plan is None:
+        raise HTTPException(status_code=422, detail={"error": "version_has_no_plan"})
+    data = dict(version.plan)
+    data.pop("plan_hash", None)
+    return PagePlan.model_validate(data)
+
+
+def _export_snapshot_document(doc, version):
+    """A Document-shaped snapshot of exactly what Version N held: its own
+    content/structure/type/plan, plus the *current* document's metadata
+    and project references (a ``ProjectVersion`` does not carry those —
+    they are the document's brief and portfolio wiring, not its composed
+    content). Findings are then recomputed fresh against this snapshot
+    rather than trusted from whenever the version was saved, which is
+    safe because both ``evaluate()`` and ``check_requirements()`` are
+    deterministic — recomputing is not "composing against different
+    state," it is re-checking the same, frozen state."""
+    return doc.model_copy(update={
+        "content_items": version.content_items,
+        "sections": version.sections,
+        "document_type_id": version.document_type_id,
+        "direction_id": version.direction_id,
+        "latest_plan": version.plan,
+    })
+
+
+def _asset_data_uri_resolver(project):
+    """A ``resolve_asset`` for ``render_page_plan``: an Asset id → a
+    ``data:`` URI of its real, uploaded bytes, or ``None`` when the id
+    doesn't resolve — the exact contract ``render_page_plan`` documents,
+    so a missing asset degrades to the honest wireframe box rather than a
+    broken export."""
+    import base64
+    import mimetypes
+
+    asset_dir = _repo().asset_storage_dir(project.id)
+    by_id = {a.id: a for a in project.assets}
+
+    def resolve(asset_id: str) -> Optional[str]:
+        asset = by_id.get(asset_id)
+        if asset is None:
+            return None
+        path = asset_dir / asset.path
+        if not path.exists():
+            return None
+        content_type = asset.content_type or mimetypes.guess_type(asset.filename)[0] or "application/octet-stream"
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{content_type};base64,{encoded}"
+
+    return resolve
+
+
+@router.post("/{project_id}/documents/{document_id}/export", status_code=201)
+def export_document(project_id: str, document_id: str, body: ExportRequest) -> dict[str, Any]:
+    """Render Version N of a document to a production PDF.
+
+    Never a fake success (ADOS-M2.2.1 §31): a blocking finding produces a
+    ``BLOCKED`` Export and no file; a renderer/Chromium failure produces a
+    ``FAILED`` Export with a real reason and no corrupted artifact. Only a
+    genuinely rendered PDF is ``COMPLETED``.
+    """
+    import tempfile
+    import uuid as _uuid
+
+    from brand.creative.directions import get_direction
+    from brand.creative.evaluate import evaluate
+    from brand.export.exporters import html_to_pdf
+    from brand.project.model import Export, ExportStatus, ExportValidationState
+    from brand.project.requirements import check_requirements
+    from brand.store.brand_repo import BrandNotFound
+    from brand.templates.renderers import render_page_plan
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+
+    if not project.brand_id:
+        raise HTTPException(status_code=422, detail={"error": "no_brand_attached"})
+    try:
+        brand = _brand_repo().get(project.brand_id, project.brand_version)
+    except BrandNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    project, version = _resolve_export_version(project, doc, body.version_number)
+    plan = _plan_from_version(version)
+    direction = get_direction(version.direction_id)
+    tokens = brand.resolve_tokens()
+
+    evaluation = evaluate(plan, direction, tokens)
+    snapshot = _export_snapshot_document(doc, version)
+    requirement_findings = check_requirements(snapshot, project)
+    findings = list(evaluation.report.findings) + requirement_findings
+
+    blocking = [f for f in findings if f.severity.value in ("ERROR", "BLOCK")]
+    warning = [f for f in findings if f.severity.value == "WARN"]
+    validation_state = (
+        ExportValidationState.BLOCKED if blocking
+        else ExportValidationState.WARNINGS if warning
+        else ExportValidationState.PASSED
+    )
+
+    export_id = _uuid.uuid4().hex[:12]
+    filename = f"{doc.name}-v{version.number}.pdf".replace("/", "-")
+
+    def _save(export) -> dict[str, Any]:
+        nonlocal project
+        project = _touch(project.model_copy(update={"exports": project.exports + (export,)}))
+        _repo().save(project)
+        return {"export": export.model_dump(mode="json"), "findings": [f.to_dict() for f in findings]}
+
+    if blocking:
+        export = Export(
+            id=export_id, document_id=doc.id, version_number=version.number,
+            filename=filename, page_count=plan.page_count,
+            validation_state=validation_state, status=ExportStatus.BLOCKED,
+        )
+        return _save(export)
+
+    resolver = _asset_data_uri_resolver(project)
+    rendered = render_page_plan(plan, tokens, resolve_asset=resolver)
+
+    export_dir = _repo().export_storage_dir(project.id)
+    export_dir.mkdir(parents=True, exist_ok=True)
+    pdf_path = export_dir / f"{export_id}.pdf"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        html_path = Path(tmp) / "document.html"
+        html_path.write_text(rendered.content, encoding="utf-8")
+        result = html_to_pdf(html_path, pdf_path)
+
+    if not result.ok:
+        logger.error("export %s failed for document %s: %s", export_id, doc.id, result.reason)
+        export = Export(
+            id=export_id, document_id=doc.id, version_number=version.number,
+            filename=filename, page_count=plan.page_count,
+            validation_state=validation_state, status=ExportStatus.FAILED,
+            error=result.reason or "PDF rendering failed",
+        )
+        return _save(export)
+
+    export = Export(
+        id=export_id, document_id=doc.id, version_number=version.number,
+        filename=filename, page_count=plan.page_count,
+        validation_state=validation_state, status=ExportStatus.COMPLETED,
+        path=f"{export_id}.pdf",
+    )
+    return _save(export)
+
+
+@router.get("/{project_id}/documents/{document_id}/exports")
+def list_document_exports(project_id: str, document_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    _document_index(project, document_id)  # 404s if absent
+    exports = [e for e in project.exports if e.document_id == document_id]
+    return {
+        "exports": [
+            e.model_dump(mode="json") for e in sorted(exports, key=lambda e: e.created_at, reverse=True)
+        ]
+    }
+
+
+@router.get("/{project_id}/exports/{export_id}/file")
+def download_export(project_id: str, export_id: str):
+    project = _load(project_id)
+    export = next((e for e in project.exports if e.id == export_id), None)
+    if export is None:
+        raise HTTPException(status_code=404, detail=f"no export {export_id!r} in project {project_id!r}")
+    if export.status.value != "completed" or not export.path:
+        raise HTTPException(
+            status_code=409, detail={"error": "export_not_available", "status": export.status.value},
+        )
+    path = _repo().export_storage_dir(project.id) / export.path
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="export file missing from storage")
+    return FileResponse(path, media_type="application/pdf", filename=export.filename)

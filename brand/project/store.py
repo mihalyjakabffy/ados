@@ -71,5 +71,10 @@ class FileProjectRepository:
         names a path; it does not carry the bytes)."""
         return self.root / project_id / "assets"
 
+    def export_storage_dir(self, project_id: str) -> Path:
+        """Where this project's exported PDFs live — the same separation
+        as :meth:`asset_storage_dir`, for the same reason."""
+        return self.root / project_id / "exports"
+
     def _path(self, project_id: str) -> Path:
         return self.root / f"{project_id}.json"

@@ -316,6 +316,62 @@ class ProjectVersion(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Export — a production artifact, always tied to one immutable Version
+# ---------------------------------------------------------------------------
+
+
+class ExportStatus(str, Enum):
+    """ADOS-M2.2.1 §9. ``READY``/``EXPORTING`` are transient states a
+    synchronous export never actually persists in — this pipeline renders
+    inline within the request, so a saved ``Export`` record is always
+    already ``COMPLETED``, ``FAILED`` or ``BLOCKED`` by the time it exists.
+    Both names are kept in the enum anyway: the contract states them, and a
+    future asynchronous export path (still out of M2.2.1's scope — no job
+    queue is introduced here) would need them without a breaking change."""
+
+    READY = "ready"
+    EXPORTING = "exporting"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    BLOCKED = "blocked"
+
+
+class ExportValidationState(str, Enum):
+    PASSED = "passed"
+    WARNINGS = "warnings"
+    BLOCKED = "blocked"
+
+
+class Export(BaseModel):
+    """One export attempt, always resolved against a real, immutable
+    :class:`ProjectVersion` — never against whatever the Document currently
+    holds. ``version_number`` is set even when the pipeline had to save a
+    fresh version first (ADOS-M2.2.1 §7): "export the current state" and
+    "export version N" are the same operation once a version exists, which
+    is exactly what makes "Version N's PDF must not silently change" true
+    by construction rather than by convention.
+    """
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    document_id: str
+    version_number: int = Field(ge=1)
+    created_at: datetime = Field(default_factory=_now)
+    format: str = "pdf"
+    filename: str = Field(min_length=1, max_length=200)
+    page_count: int = Field(ge=0)
+    validation_state: ExportValidationState
+    status: ExportStatus
+    #: Populated only when status is FAILED — a renderer/exporter defect,
+    #: never a validation outcome (that is validation_state's job).
+    error: str = ""
+    #: Relative to this project's own export storage dir — resolved by
+    #: brand/project/store.py, the same posture as Asset.path.
+    path: str = ""
+
+
+# ---------------------------------------------------------------------------
 # Project — the aggregate root
 # ---------------------------------------------------------------------------
 
@@ -333,6 +389,7 @@ class Project(BaseModel):
     documents: tuple[Document, ...] = ()
     assets: tuple[Asset, ...] = ()
     versions: tuple[ProjectVersion, ...] = ()
+    exports: tuple[Export, ...] = ()
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 

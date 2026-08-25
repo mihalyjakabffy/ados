@@ -26,7 +26,7 @@ from __future__ import annotations
 import html
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 from brand.models.tokens import TokenSet
 from brand.templates.document_templates import (
@@ -273,7 +273,9 @@ def _placeholder_sections(template: DocumentTemplate) -> list[tuple[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def render_page_plan(plan, tokens: TokenSet) -> RenderedDocument:
+def render_page_plan(
+    plan, tokens: TokenSet, *, resolve_asset: Optional[Callable[[str], Optional[str]]] = None
+) -> RenderedDocument:
     """Render a :class:`~brand.creative.plan.PagePlan` to HTML.
 
     The Creative Layer's one renderer path, and deliberately the *existing*
@@ -288,10 +290,14 @@ def render_page_plan(plan, tokens: TokenSet) -> RenderedDocument:
     reproducible: run the composer twice and these bytes are identical.
 
     Figures render as **wireframe boxes** carrying their path, aspect and
-    caption rather than as ``<img>``. No image is catalogued anywhere in the
-    system yet — the gap the architecture proposal records at §C.3 — so a
-    figure has a place, a shape and a caption but no pixels. A box that says
-    what belongs in it is honest about that; a broken image icon is not.
+    caption rather than as ``<img>`` — unless ``resolve_asset`` is given. It
+    used not to be possible to do otherwise: no image was catalogued
+    anywhere in the system (the gap the architecture proposal recorded at
+    §C.3). ADOS-M2.1 closed that gap with real, uploaded project Assets, and
+    ``resolve_asset`` is the bridge — a callable from a figure slot's
+    ``path`` (an Asset id) to a ``data:`` URI, or ``None`` when the id
+    doesn't resolve to a real file. Passing nothing preserves the original,
+    fully honest wireframe-box behaviour for every existing caller.
     """
     used: list[str] = []
 
@@ -308,7 +314,7 @@ def render_page_plan(plan, tokens: TokenSet) -> RenderedDocument:
     language = str(tokens.value("voice.language", "en-GB"))
     css = _plan_stylesheet(tok, plan)
     pages = "\n".join(
-        _page_html(page, plan, cap_ratio, tokens) for page in plan.pages
+        _page_html(page, plan, cap_ratio, tokens, resolve_asset) for page in plan.pages
     )
 
     page = f"""<!doctype html>
@@ -418,6 +424,16 @@ body {{
 }}
 .figure .path {{ font-size: var(--size-xs); color: var(--text-2); }}
 .figure .caption {{ color: var(--text); }}
+.figure-image {{
+  background-size: cover;
+  background-position: center;
+  border-color: transparent;
+}}
+.figure-image .caption {{
+  align-self: flex-start;
+  background: var(--surface);
+  padding: 0 var(--space-1);
+}}
 .folio {{
   position: absolute;
   left: var(--margin);
@@ -448,9 +464,12 @@ body {{
 """
 
 
-def _page_html(page, plan, cap_ratio: float, tokens: TokenSet) -> str:
+def _page_html(
+    page, plan, cap_ratio: float, tokens: TokenSet,
+    resolve_asset: Optional[Callable[[str], Optional[str]]] = None,
+) -> str:
     g = page.grid
-    slots = "\n".join(_slot_html(s, cap_ratio) for s in page.slots)
+    slots = "\n".join(_slot_html(s, cap_ratio, resolve_asset) for s in page.slots)
     folio = (
         f'  <div class="folio"><span>{html.escape(plan.project_name)}</span>'
         f"<span>{html.escape(str(tokens.value('meta.brand.name')))} · "
@@ -464,14 +483,16 @@ def _page_html(page, plan, cap_ratio: float, tokens: TokenSet) -> str:
     )
 
 
-def _slot_html(slot, cap_ratio: float) -> str:
+def _slot_html(
+    slot, cap_ratio: float, resolve_asset: Optional[Callable[[str], Optional[str]]] = None,
+) -> str:
     style = (
         f"--x:{_mm(slot.x_mm)};--y:{_mm(slot.y_mm)};"
         f"--w:{_mm(slot.width_mm)};--h:{_mm(slot.height_mm)};"
         f"--em:{_mm(round(slot.cap_mm / cap_ratio, 3))}"
     )
     classes = f"slot rank-{slot.rank} slot-{slot.component}"
-    inner = _slot_inner(slot)
+    inner = _slot_inner(slot, resolve_asset)
     return (
         f'    <div class="{classes}" style="{style}" '
         f'data-block="{html.escape(slot.block)}" data-step="{slot.step}">'
@@ -479,9 +500,17 @@ def _slot_html(slot, cap_ratio: float) -> str:
     )
 
 
-def _slot_inner(slot) -> str:
+def _slot_inner(slot, resolve_asset: Optional[Callable[[str], Optional[str]]] = None) -> str:
     text = html.escape(slot.text)
     if slot.component in _FIGURE_COMPONENTS:
+        data_uri = resolve_asset(slot.path) if resolve_asset and slot.path else None
+        if data_uri:
+            return (
+                f'<div class="figure figure-image" '
+                f'style="background-image:url(&quot;{html.escape(data_uri)}&quot;)">'
+                f'<span class="caption">{text}</span>'
+                f"</div>"
+            )
         return (
             f'<div class="figure">'
             f'<span class="path">{html.escape(slot.path)}</span>'
