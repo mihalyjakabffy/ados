@@ -13,7 +13,7 @@ import { useAdosState } from "@/lib/ados-state"
 export function LibraryPanel() {
   const { data: brandsData } = useBrands()
   const { data: malthouse } = useContentExample("malthouse")
-  const { activeProjectId, activeBrandId, selectProject, selectBrand } = useAdosState()
+  const { activeProjectId, activeBrandId, selectProject, selectBrand, setActiveContent } = useAdosState()
 
   return (
     <aside className="flex h-full flex-col overflow-y-auto bg-sidebar px-2.5 py-3">
@@ -24,7 +24,10 @@ export function LibraryPanel() {
             active={activeProjectId === "malthouse"}
             label={malthouse.project_name}
             sub={`${malthouse.blocks.length} content blocks`}
-            onClick={() => selectProject("malthouse", malthouse.project_name)}
+            onClick={() => {
+              selectProject("malthouse", malthouse.project_name)
+              setActiveContent(malthouse)
+            }}
           />
         ) : (
           <p className="px-2 py-[6px] text-[12px] text-mute">Betöltés…</p>

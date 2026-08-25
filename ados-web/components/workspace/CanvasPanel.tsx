@@ -26,7 +26,6 @@ export function CanvasPanel() {
     return (
       <Centered>
         <p className="text-[13px] text-ink-soft">Composing…</p>
-        <p className="mt-1 text-[11.5px] text-mute">POST /brands/{"{id}"}/compose</p>
       </Centered>
     )
   }
@@ -43,7 +42,7 @@ export function CanvasPanel() {
   if (!plan) {
     return (
       <Centered>
-        <p className="text-[13px] text-mute">No PagePlan loaded.</p>
+        <p className="text-[13px] text-mute">Nothing composed yet.</p>
       </Centered>
     )
   }

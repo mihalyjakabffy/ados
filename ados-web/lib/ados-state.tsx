@@ -74,6 +74,13 @@ interface AdosStateValue {
   activeProjectId: string | null
   activeProjectLabel: string | null
   activeBrandId: string | null
+  /** The ContentModel behind whatever is currently selected as "the
+   *  project" — set by whoever loaded it (LibraryPanel's dev fixture, or
+   *  the M2.1 Document Workspace's real Project/Document). Every command
+   *  panel action needs to resend this on every /compose, /intent and
+   *  /iterate call, so it lives here rather than being re-derived per
+   *  component from a hardcoded dev-fixture lookup keyed on activeProjectId. */
+  activeContent: ContentModel | null
   activeDirectionId: DirectionId
   /** The last intent's resulting_direction, carried forward so the next
    *  intent chains onto it instead of restarting from the base direction. */
@@ -101,6 +108,7 @@ interface AdosStateValue {
 
   selectProject: (id: string, label: string) => void
   selectBrand: (id: string) => void
+  setActiveContent: (content: ContentModel | null) => void
   setDirection: (id: DirectionId) => void
   select: (selection: Selection) => void
   clearSelection: () => void
@@ -154,6 +162,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [activeProjectLabel, setActiveProjectLabel] = useState<string | null>(null)
   const [activeBrandId, setActiveBrandId] = useState<string | null>(null)
+  const [activeContent, setActiveContent] = useState<ContentModel | null>(null)
   const [activeDirectionId, setActiveDirectionId] = useState<DirectionId>("editorial-quiet")
   const [activeDirection, setActiveDirection] = useState<Record<string, unknown> | null>(null)
 
@@ -352,6 +361,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       activeProjectId,
       activeProjectLabel,
       activeBrandId,
+      activeContent,
       activeDirectionId,
       activeDirection,
       plan,
@@ -368,6 +378,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       selection,
       selectProject,
       selectBrand,
+      setActiveContent,
       setDirection,
       select,
       clearSelection,
@@ -379,6 +390,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       activeProjectId,
       activeProjectLabel,
       activeBrandId,
+      activeContent,
       activeDirectionId,
       activeDirection,
       plan,
@@ -395,6 +407,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       selection,
       selectProject,
       selectBrand,
+      setActiveContent,
       setDirection,
       select,
       clearSelection,

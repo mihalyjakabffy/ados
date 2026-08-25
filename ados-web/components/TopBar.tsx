@@ -6,6 +6,7 @@ import { Search } from "lucide-react"
 import type { PackageData } from "@/lib/types"
 
 const SECTIONS = [
+  { href: "/projects", label: "Projects" },
   { href: "/workspace", label: "Workspace" },
   { href: "/", label: "Library" },
   { href: "/brand", label: "Brand" },

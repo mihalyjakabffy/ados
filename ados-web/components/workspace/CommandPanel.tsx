@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { DIRECTIONS, useAdosState, type DirectionId } from "@/lib/ados-state"
-import { useContentExample } from "@/lib/brand-api"
 import type { ContentModel, EvaluationFinding, Page } from "@/lib/pageplan-types"
 import type { IntentTarget, IntentType } from "@/lib/intent-types"
 
@@ -58,7 +57,7 @@ function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
       <div className="mb-4 rounded-[8px] border border-crit/30 bg-crit-bg px-2.5 py-2 text-[11.5px] text-crit">
         <p className="font-medium">Composition rejected</p>
         <p className="mt-0.5">{intentError}</p>
-        <p className="mt-1 text-[10.5px] opacity-80">The previous PagePlan is still shown.</p>
+        <p className="mt-1 text-[10.5px] opacity-80">The previous version is still shown.</p>
       </div>
     )
   }
@@ -69,9 +68,7 @@ function IntentFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
     return (
       <div className="mb-4 rounded-[8px] border border-ok/30 bg-ok-bg px-2.5 py-2 text-[11.5px] text-ok">
         <p className="font-medium">Command executed: {LABELS[intent.type]}</p>
-        <p className="mt-0.5 text-ink-soft">
-          PagePlan {changed ? "regenerated" : "recomposed — no change"} · hash {newPlanHash.slice(0, 12)}…
-        </p>
+        <p className="mt-0.5 text-ink-soft">{changed ? "Document updated." : "Recomposed — no visible change."}</p>
         <ScopeSummary resolvedScope={resolvedScope} diff={diff} />
         {resolution.notes.map((n, i) => (
           <p key={i} className="mt-1 text-[10.5px] text-ink-soft opacity-80">
@@ -135,7 +132,7 @@ function IterationFeedback({ state }: { state: ReturnType<typeof useAdosState> }
           {noImprovement ? "Recommendation did not help — nothing applied" : "Iteration rejected"}
         </p>
         <p className="mt-0.5">{iterationError}</p>
-        <p className="mt-1 text-[10.5px] opacity-80">The previous PagePlan is still shown.</p>
+        <p className="mt-1 text-[10.5px] opacity-80">The previous version is still shown.</p>
       </div>
     )
   }
@@ -182,9 +179,16 @@ const LABELS: Record<IntentType, string> = {
 }
 
 function ComposeIntent({ state }: { state: ReturnType<typeof useAdosState> }) {
-  const { activeProjectId, activeProjectLabel, activeBrandId, activeDirectionId, setDirection, runCompose, planStatus } =
-    state
-  const { data: content } = useContentExample(activeProjectId)
+  const {
+    activeProjectId,
+    activeProjectLabel,
+    activeBrandId,
+    activeContent: content,
+    activeDirectionId,
+    setDirection,
+    runCompose,
+    planStatus,
+  } = state
 
   if (!activeProjectId || !activeBrandId) {
     return (
@@ -222,16 +226,14 @@ function ComposeIntent({ state }: { state: ReturnType<typeof useAdosState> }) {
       >
         {planStatus === "loading" ? "Composing…" : "Compose"}
       </button>
-      <p className="mt-2 text-[11px] text-mute">
-        POST /brands/{"{id}"}/compose · ContentModel + CreativeDirection → PagePlan
-      </p>
+      <p className="mt-2 text-[11px] text-mute">Lays out this content using the brand's design system.</p>
     </div>
   )
 }
 
 function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
   const selection = state.selection
-  const { data: content } = useContentExample(state.activeProjectId)
+  const content = state.activeContent
   const [strength, setStrength] = useState(0.5)
 
   if (selection.kind !== "page" || !state.plan) return null
@@ -343,7 +345,7 @@ function PageFindings({
 }: {
   state: ReturnType<typeof useAdosState>
   page: Page
-  content: ContentModel | undefined
+  content: ContentModel | null
 }) {
   const findings = (state.plan?.evaluation.findings ?? []).filter(
     (f: EvaluationFinding) => f.page_index === page.index,
@@ -429,7 +431,7 @@ const FINDING_COMMAND_HINT: Record<string, IntentType> = {
 
 function BlockContext({ state }: { state: ReturnType<typeof useAdosState> }) {
   const selection = state.selection
-  const { data: content } = useContentExample(state.activeProjectId)
+  const content = state.activeContent
   if (selection.kind !== "contentBlock" || !state.plan) return null
 
   const page = state.plan.plan.pages[selection.pageIndex]

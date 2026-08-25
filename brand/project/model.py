@@ -1,0 +1,301 @@
+"""
+brand/project/model.py
+
+The Project domain (ADOS M2.1) — the product-level aggregate a real user
+thinks in, sitting *above* the engine M1.0–M1.5 already built. Nothing
+here is a second Brand, ContentModel, PagePlan or Composer: a
+:class:`Project` names a Brand it uses (by id, resolved through the
+existing ``brand.store``) and holds :class:`Document`\\ s, each of which
+turns its own authored :class:`ContentItem`\\ s into a real
+``brand.content.model.ContentModel`` — the exact, unmodified input the
+existing Composer already accepts. A Document's "pages" are never
+authored directly; they are read from whatever ``PagePlan`` the last real
+``compose()``/``compose_scoped()`` call produced (``Document.latest_plan``),
+because inventing pages the Composer did not produce would be exactly the
+kind of fake capability this whole system refuses to ship.
+
+**Content vs. ContentBlock.** A :class:`ContentItem` is what a person
+enters — "the floor area is 1,200 m², from the architect's brief" — not
+what the Composer sees. ``Document.content_model()`` is the one, real
+translation from a set of ``ContentItem``s into a ``ContentModel``, with
+the same validation (a metric needs provenance, a figure needs an aspect
+ratio) the Composer has always enforced; there is no second, laxer
+content representation hiding behind the product-friendly form.
+
+**Versions vs. autosave.** M2.1 has no autosave loop — a ``Document`` is
+simply the current, mutable state of one document's authored content and
+its last composed plan. A :class:`ProjectVersion` is only ever created
+when a person explicitly asks for one, and it is a full, immutable
+snapshot (the content items, the direction, and the composed plan at that
+moment) — restoring one is copying that snapshot back onto the live
+Document, not replaying a command log.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from brand.content.model import BlockRole, BlockType, ContentBlock, ContentModel
+
+_Frozen = ConfigDict(frozen=True, extra="forbid")
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _short_id() -> str:
+    return uuid.uuid4().hex[:12]
+
+
+# ---------------------------------------------------------------------------
+# Assets — real files, minimally catalogued. Not a DAM.
+# ---------------------------------------------------------------------------
+
+
+class Asset(BaseModel):
+    """One uploaded file, catalogued at the project level.
+
+    ``path`` is relative to the project's own storage prefix — resolved by
+    ``brand.project.store``, never assembled ad hoc by a caller, so an
+    asset's file location is exactly as authoritative as a Brand's."""
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(default="", max_length=120)
+    size_bytes: int = Field(ge=0)
+    path: str = Field(min_length=1, max_length=400)
+    uploaded_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# Content — what a person enters, not what the Composer sees
+# ---------------------------------------------------------------------------
+
+
+class ContentItemKind(str, Enum):
+    TEXT = "text"
+    FACT = "fact"
+    METRIC = "metric"
+    IMAGE = "image"
+
+
+#: Where a ContentItemKind lands in brand.content.model's closed vocabulary
+#: — the one place this mapping is stated, reused by content_model() below
+#: and by anything that needs to know it (never re-declared elsewhere).
+_KIND_TO_BLOCK_TYPE: dict[ContentItemKind, BlockType] = {
+    ContentItemKind.TEXT: BlockType.NARRATIVE,
+    ContentItemKind.FACT: BlockType.FACT,
+    ContentItemKind.METRIC: BlockType.METRIC,
+    ContentItemKind.IMAGE: BlockType.IMAGE,
+}
+#: The 3-letter id stem brand.content.model.ContentBlock.id requires
+#: (``^[a-z]{3}-\\d{2,3}$``), one per kind.
+_KIND_TO_ID_STEM: dict[ContentItemKind, str] = {
+    ContentItemKind.TEXT: "nar",
+    ContentItemKind.FACT: "fct",
+    ContentItemKind.METRIC: "met",
+    ContentItemKind.IMAGE: "img",
+}
+
+
+class ContentItem(BaseModel):
+    """One authored fact, in the shape a project form actually collects.
+
+    Not every field applies to every ``kind`` — ``brand.content.model``'s
+    own validators are the real, single source of truth for what a given
+    kind requires; :meth:`Document.content_model` surfaces their errors
+    rather than re-checking the same rules here.
+    """
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    kind: ContentItemKind
+    label: str = Field(default="", max_length=120)
+    text: str = Field(default="", max_length=8000)
+    value: float | str | None = None
+    unit: str = Field(default="", max_length=24)
+    provenance: str = Field(default="", max_length=200)
+    asset_id: Optional[str] = None
+    caption: str = Field(default="", max_length=400)
+    aspect: str = Field(default="", max_length=10)
+
+
+# ---------------------------------------------------------------------------
+# Documents
+# ---------------------------------------------------------------------------
+
+
+class Document(BaseModel):
+    """One composable document inside a project.
+
+    ``latest_plan`` is a cached ``PagePlan.to_dict()`` — a read-only
+    reflection of the last real composition, exactly what the Canvas
+    already renders. It is never hand-edited; only ``compose()`` /
+    ``compose_scoped()`` (via the existing ``/compose`` and ``/intent``
+    /``/iterate`` routes) ever produce a new one.
+    """
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    project_id: str
+    name: str = Field(min_length=1, max_length=120)
+    direction_id: str = Field(default="editorial-quiet", max_length=40)
+    document_type: str = Field(default="", max_length=60)
+    content_items: tuple[ContentItem, ...] = ()
+    latest_plan: Optional[dict[str, Any]] = None
+    latest_evaluation: Optional[dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+    def content_model(self, project_name: str) -> ContentModel:
+        """The one real translation from authored content to what the
+        Composer accepts. Raises ``pydantic.ValidationError`` with the
+        Composer's own messages (a metric with no provenance, a figure
+        with no aspect ratio) — this function does not soften them."""
+        counters: dict[str, int] = {}
+        blocks: list[ContentBlock] = []
+        for item in self.content_items:
+            stem = _KIND_TO_ID_STEM[item.kind]
+            counters[stem] = counters.get(stem, 0) + 1
+            block_id = f"{stem}-{counters[stem]:02d}"
+            block_type = _KIND_TO_BLOCK_TYPE[item.kind]
+
+            kwargs: dict[str, Any] = dict(
+                id=block_id,
+                type=block_type,
+                role=BlockRole.CONTEXT,
+                priority=3,
+                provenance=item.provenance,
+            )
+            if item.kind is ContentItemKind.TEXT:
+                kwargs["text"] = item.text
+            elif item.kind is ContentItemKind.FACT:
+                kwargs["label"] = item.label
+                kwargs["value"] = item.value
+            elif item.kind is ContentItemKind.METRIC:
+                kwargs["label"] = item.label
+                kwargs["value"] = item.value
+                kwargs["unit"] = item.unit
+            elif item.kind is ContentItemKind.IMAGE:
+                kwargs["path"] = item.asset_id or ""
+                kwargs["aspect"] = item.aspect
+                kwargs["caption"] = item.caption
+
+            blocks.append(ContentBlock(**kwargs))
+
+        return ContentModel(
+            project_id=uuid.UUID(self.project_id) if _looks_like_uuid(self.project_id) else uuid.uuid5(uuid.NAMESPACE_URL, self.project_id),
+            project_name=project_name,
+            blocks=tuple(blocks),
+        )
+
+
+def _looks_like_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+        return True
+    except ValueError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Versions — explicit, immutable, never confused with autosave
+# ---------------------------------------------------------------------------
+
+
+class ProjectVersion(BaseModel):
+    model_config = _Frozen
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    number: int = Field(ge=1)
+    label: str = Field(default="", max_length=120)
+    document_id: str
+    document_name: str
+    direction_id: str
+    content_items: tuple[ContentItem, ...]
+    plan: Optional[dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=_now)
+
+
+# ---------------------------------------------------------------------------
+# Project — the aggregate root
+# ---------------------------------------------------------------------------
+
+
+class Project(BaseModel):
+    model_config = _Frozen
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=2000)
+    brand_id: Optional[str] = None
+    #: None = track the brand's latest usable version — the same meaning
+    #: brand.store.brand_repo.FileBrandRepository.get already gives None.
+    brand_version: Optional[str] = None
+    documents: tuple[Document, ...] = ()
+    assets: tuple[Asset, ...] = ()
+    versions: tuple[ProjectVersion, ...] = ()
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+    @model_validator(mode="after")
+    def _documents_belong_to_this_project(self) -> "Project":
+        for doc in self.documents:
+            if doc.project_id != self.id:
+                raise ValueError(f"document {doc.id} does not belong to project {self.id}")
+        return self
+
+    def document(self, document_id: str) -> Document:
+        for doc in self.documents:
+            if doc.id == document_id:
+                return doc
+        raise KeyError(f"no document {document_id!r} in project {self.id!r}")
+
+    def asset(self, asset_id: str) -> Asset:
+        for a in self.assets:
+            if a.id == asset_id:
+                return a
+        raise KeyError(f"no asset {asset_id!r} in project {self.id!r}")
+
+    @property
+    def next_version_number(self) -> int:
+        return max((v.number for v in self.versions), default=0) + 1
+
+
+class ProjectSummary(BaseModel):
+    """The list-view shape — a person orienting themselves, never an
+    implementation identifier dump (ADOS-M2.1 §6)."""
+
+    model_config = _Frozen
+
+    id: str
+    name: str
+    description: str
+    brand_name: Optional[str]
+    document_count: int
+    asset_count: int
+    current_version: Optional[int]
+    updated_at: datetime
+
+    @classmethod
+    def from_project(cls, project: Project, brand_name: Optional[str]) -> "ProjectSummary":
+        return cls(
+            id=project.id,
+            name=project.name,
+            description=project.description,
+            brand_name=brand_name,
+            document_count=len(project.documents),
+            asset_count=len(project.assets),
+            current_version=project.versions[-1].number if project.versions else None,
+            updated_at=project.updated_at,
+        )
