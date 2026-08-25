@@ -7,6 +7,8 @@ import {
   addContentItem,
   addProjectRef,
   assetFileUrl,
+  exportDocument,
+  exportFileUrl,
   getDocumentRequirements,
   removeContentItem,
   removeProjectRef,
@@ -15,7 +17,14 @@ import {
   uploadAsset,
   useProjects,
 } from "@/lib/project-api"
-import type { ContentItem, ContentItemKind, Project, ProjectDocument, RequirementFinding } from "@/lib/project-types"
+import type {
+  ContentItem,
+  ContentItemKind,
+  DocumentExport,
+  Project,
+  ProjectDocument,
+  RequirementFinding,
+} from "@/lib/project-types"
 
 // WHAT THIS PROJECT'S DOCUMENT CONTAINS — the M2.1 replacement for
 // LibraryPanel in the Document Workspace: not "pick a fixture", but
@@ -58,6 +67,7 @@ export function DocumentContextPanel({
       <ContentSection project={project} document={document} onChanged={onDocumentChanged} />
       <AssetsSection project={project} />
       <VersionsSection project={project} document={document} onChanged={onDocumentChanged} />
+      <ExportSection project={project} document={document} onChanged={onDocumentChanged} />
 
       <div className="flex-1" />
       <p className="px-2 pb-1 pt-3 text-[10.5px] text-mute">ADOS Project Workspace</p>
@@ -555,6 +565,125 @@ function ProjectReferencesSection({
       ) : null}
     </div>
   )
+}
+
+// EXPORT — the production PDF (ADOS-M2.2.1 P0). Reuses the real renderer/
+// Chromium pipeline behind POST .../export; this component only presents
+// its outcome. A BLOCKED export never offers a download — there is nothing
+// to download — and its blocking findings are shown inline rather than
+// behind a second navigation, since they are exactly what the user must
+// fix before trying again.
+function ExportSection({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [findings, setFindings] = useState<RequirementFinding[]>([])
+
+  const history = project.exports
+    .filter((e) => e.document_id === document.id)
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+  const latest = history[0] ?? null
+  const blocking = findings.filter((f) => f.severity === "ERROR" || f.severity === "BLOCK")
+  const warnings = findings.filter((f) => f.severity === "WARN")
+
+  async function runExport() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const result = await exportDocument(project.id, document.id)
+      setFindings(result.findings)
+      onChanged()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Export failed unexpectedly — the server did not respond as expected.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-5">
+      <p className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">Export</p>
+      <div className="mx-2 rounded-[8px] border border-line bg-paper-raised px-2.5 py-2">
+        {latest ? (
+          <p className="text-[11px] text-ink-soft">
+            Last export: v{latest.version_number} · {latest.page_count} page{latest.page_count === 1 ? "" : "s"} ·{" "}
+            {EXPORT_STATUS_LABEL[latest.status]}
+          </p>
+        ) : (
+          <p className="text-[11px] text-mute">Not exported yet.</p>
+        )}
+
+        <button
+          onClick={runExport}
+          disabled={busy}
+          className="mt-1.5 w-full rounded-[7px] bg-accent px-3 py-[7px] text-[12px] font-medium text-white disabled:opacity-40"
+        >
+          {busy ? "Exporting…" : "Export PDF"}
+        </button>
+
+        {err ? <p className="mt-1.5 text-[11px] text-crit">{err}</p> : null}
+
+        {latest?.status === "blocked" ? (
+          <div className="mt-2">
+            <p className="text-[11px] font-medium text-crit">
+              Export blocked{blocking.length > 0 ? ` — ${blocking.length} blocking issue${blocking.length === 1 ? "" : "s"}` : ""}
+            </p>
+            {blocking.length > 0 ? (
+              <div className="mt-1 space-y-1">
+                {blocking.map((f, i) => (
+                  <p key={i} className="text-[10.5px] text-ink-soft">
+                    {f.code ? `${f.code}: ` : ""}
+                    {f.message}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-[10.5px] text-mute">
+                Re-run export to see which findings are blocking it.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {latest?.status === "failed" ? (
+          <p className="mt-2 text-[11px] text-crit">{latest.error || "The PDF renderer failed unexpectedly."}</p>
+        ) : null}
+
+        {latest?.status === "completed" ? (
+          <>
+            {warnings.length > 0 ? (
+              <p className="mt-2 text-[11px] text-amber-600">
+                {warnings.length} warning{warnings.length === 1 ? "" : "s"} — exported anyway.
+              </p>
+            ) : null}
+            <a
+              href={exportFileUrl(project.id, latest.id)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
+            >
+              Open PDF — {latest.filename}
+            </a>
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+const EXPORT_STATUS_LABEL: Record<DocumentExport["status"], string> = {
+  ready: "ready",
+  exporting: "exporting…",
+  completed: "exported",
+  failed: "failed",
+  blocked: "blocked",
 }
 
 function VersionsSection({

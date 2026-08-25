@@ -66,6 +66,27 @@ export interface ProjectVersion {
   created_at: string
 }
 
+// Mirrors brand/project/model.py's Export/ExportStatus/ExportValidationState
+// exactly (ADOS-M2.2.1 P0). READY/EXPORTING exist in the backend enum for a
+// future async export path but a synchronous export never actually persists
+// a record in those states — see that module's Export docstring.
+export type ExportStatus = "ready" | "exporting" | "completed" | "failed" | "blocked"
+export type ExportValidationState = "passed" | "warnings" | "blocked"
+
+export interface DocumentExport {
+  id: string
+  document_id: string
+  version_number: number
+  created_at: string
+  format: string
+  filename: string
+  page_count: number
+  validation_state: ExportValidationState
+  status: ExportStatus
+  error: string
+  path: string
+}
+
 // Mirrors brand/project/document_types.py's DocumentType exactly. The
 // wizard and Structure panel read this data rather than branching on a
 // type's identity — see that module's docstring for why.
@@ -131,6 +152,7 @@ export interface Project {
   documents: ProjectDocument[]
   assets: ProjectAsset[]
   versions: ProjectVersion[]
+  exports: DocumentExport[]
   created_at: string
   updated_at: string
 }

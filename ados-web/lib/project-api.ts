@@ -3,6 +3,7 @@ import type { ContentModel, Evaluation, PagePlan } from "./pageplan-types"
 import type {
   ContentItem,
   ContentItemKind,
+  DocumentExport,
   DocumentType,
   DocumentTypeDetail,
   Project,
@@ -267,6 +268,43 @@ export async function restoreVersion(projectId: string, versionNumber: number): 
 }
 
 // ---------------------------------------------------------------------------
+// Export (ADOS-M2.2.1 P0) — the one call that reaches the real renderer/
+// Chromium pipeline directly, exactly compose()'s posture above.
+// ---------------------------------------------------------------------------
+
+export interface ExportResult {
+  export: DocumentExport
+  findings: RequirementFinding[]
+}
+
+export async function exportDocument(
+  projectId: string,
+  documentId: string,
+  versionNumber?: number,
+): Promise<ExportResult> {
+  const result = await send<ExportResult>(
+    "POST",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/export`,
+    { version_number: versionNumber ?? null },
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return result
+}
+
+export function exportFileUrl(projectId: string, exportId: string): string {
+  return `${REVELATION_API_URL}${BASE}/${encodeURIComponent(projectId)}/exports/${encodeURIComponent(exportId)}/file`
+}
+
+export async function listDocumentExports(
+  projectId: string,
+  documentId: string,
+): Promise<{ exports: DocumentExport[] }> {
+  return fetcher(
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/exports`,
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Document types (ADOS-M2.2)
 // ---------------------------------------------------------------------------
 
@@ -374,6 +412,7 @@ export async function removeProjectRef(
 export type {
   ContentItem,
   ContentItemKind,
+  DocumentExport,
   DocumentType,
   DocumentTypeDetail,
   Project,
