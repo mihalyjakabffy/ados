@@ -274,7 +274,7 @@ function AddContentForm({
         label: kind === "fact" || kind === "metric" ? label : "",
         value: kind === "fact" || kind === "metric" ? value : null,
         unit: kind === "metric" ? unit : "",
-        provenance: kind === "metric" ? provenance : "",
+        provenance: kind === "metric" || kind === "image" ? provenance : "",
         asset_id: kind === "image" ? assetId || null : null,
         caption: kind === "image" ? caption : "",
         aspect: kind === "image" ? aspect : "",
@@ -387,6 +387,12 @@ function AddContentForm({
             value={aspect}
             onChange={(e) => setAspect(e.target.value)}
             placeholder="Aspect ratio (e.g. 4:3)"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <input
+            value={provenance}
+            onChange={(e) => setProvenance(e.target.value)}
+            placeholder="Credit — photographer, drawing author, or source"
             className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
           />
         </>
