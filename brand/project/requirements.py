@@ -31,7 +31,11 @@ plan and not just any image") is not verified — M2.1's Asset carries no
 semantic tag for that, and inventing one to pattern-match captions would
 produce a check that looks rigorous and is not. A required section with
 no content is the honest, checkable proxy the acceptance tests
-(ADOS-M2.2 §29 Test C) actually exercise.
+(ADOS-M2.2 §29 Test C) actually exercise. ADOS-M2.2.1 P5 adds one more
+deterministic layer — IMG-001..004, an asset-quality pass over every
+typed document's own images (caption, credit, a dangling asset
+reference, real pixel dimensions) — see that pass's own docstring below
+for what it still refuses to guess at.
 """
 
 from __future__ import annotations
@@ -240,6 +244,89 @@ def _check_action_items_have_a_responsible_person(
     )
 
 
+# ---------------------------------------------------------------------------
+# Asset quality (ADOS-M2.2.1 P5) — IMG-001..004. Not per-document-type
+# Requirement rows: an image is either well-captioned/credited/resolved or
+# it isn't, regardless of which of the eight typed document types it sits
+# in, and encoding that as four Requirement rows repeated across every
+# image-using type would be exactly the duplication M2.2/M2.2.1 keep
+# refusing elsewhere. Run once, straight from ``check_requirements``,
+# for every typed document — the "untyped has no requirements" invariant
+# (M2.1) is unaffected: this pass never runs for ``document_type_id == ""``
+# either, since ``check_requirements`` still returns early for those.
+#
+# Deliberately NOT checked, because nothing here can trust a check for it:
+# whether an image is *relevant* to its caption, whether it is a specific
+# drawing kind (a site plan vs. any other photograph — M2.1's Asset has no
+# semantic tag for that), or genuine print-DPI suitability (a real
+# calculation needs an intended physical print size this system does not
+# capture). IMG-003 compares real pixel dimensions against a stated,
+# documented floor, not a derived DPI figure.
+# ---------------------------------------------------------------------------
+
+#: The shorter edge, in pixels, below which a photograph is flagged as
+#: possibly too small for a full-page or half-page spread. Not a print-DPI
+#: calculation (see module docstring) — a plain, stated floor: 800px is
+#: roughly print-quality at a small (~7cm) dimension and 96 DPI screen
+#: quality well beyond that, so anything short of it is worth a second
+#: look, not a confident "this will look bad."
+_MIN_IMAGE_EDGE_PX = 800
+
+
+def _check_asset_quality(document: "Document", project: "Project") -> list[Finding]:
+    from brand.project.model import ContentItemKind
+
+    assets_by_id = {a.id: a for a in project.assets}
+    images = [item for item in document.content_items if item.kind is ContentItemKind.IMAGE]
+
+    findings: list[Finding] = []
+
+    missing_caption = [i for i in images if not i.caption.strip()]
+    if missing_caption:
+        findings.append(Finding(
+            severity=Severity.WARN, category=Category.STRUCTURAL, field="content_items",
+            message=f"{len(missing_caption)} image(s) have no caption.",
+            suggestion="Add a caption to each photograph or drawing.",
+            rule="IMG-001", code="IMG-001",
+        ))
+
+    missing_credit = [i for i in images if not i.provenance.strip()]
+    if missing_credit:
+        findings.append(Finding(
+            severity=Severity.WARN, category=Category.STRUCTURAL, field="content_items",
+            message=f"{len(missing_credit)} image(s) have no credit/provenance recorded.",
+            suggestion="Record where each image came from — the photographer, drawing author, or source.",
+            rule="IMG-002", code="IMG-002",
+        ))
+
+    unresolvable = [i for i in images if i.asset_id and i.asset_id not in assets_by_id]
+    if unresolvable:
+        findings.append(Finding(
+            severity=Severity.ERROR, category=Category.STRUCTURAL, field="content_items",
+            message=f"{len(unresolvable)} image(s) reference an asset that no longer exists.",
+            suggestion="Re-upload the file and point the image at the new asset, or remove the image.",
+            rule="IMG-004", code="IMG-004",
+        ))
+
+    too_small = []
+    for item in images:
+        asset = assets_by_id.get(item.asset_id) if item.asset_id else None
+        if asset is None or asset.width_px is None or asset.height_px is None:
+            continue                                         # nothing trustworthy to compare
+        if min(asset.width_px, asset.height_px) < _MIN_IMAGE_EDGE_PX:
+            too_small.append(item)
+    if too_small:
+        findings.append(Finding(
+            severity=Severity.WARN, category=Category.STRUCTURAL, field="content_items",
+            message=f"{len(too_small)} image(s) may be too low-resolution for a full-page use "
+                    f"(shorter edge under {_MIN_IMAGE_EDGE_PX}px).",
+            suggestion="Use a higher-resolution source file, or size the image down in the layout.",
+            rule="IMG-003", code="IMG-003",
+        ))
+
+    return findings
+
+
 _CHECKERS = {
     "max_pages": _check_max_pages,
     "required_section_present": _check_required_section_present,
@@ -424,7 +511,7 @@ def check_requirements(document: "Document", project: "Project") -> list[Finding
     """
     if not document.document_type_id:
         return []
-    findings: list[Finding] = []
+    findings: list[Finding] = list(_check_asset_quality(document, project))
     for requirement in requirements_for(document.document_type_id):
         checker = _CHECKERS.get(requirement.check)
         if checker is None:

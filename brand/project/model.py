@@ -64,7 +64,16 @@ class Asset(BaseModel):
 
     ``path`` is relative to the project's own storage prefix — resolved by
     ``brand.project.store``, never assembled ad hoc by a caller, so an
-    asset's file location is exactly as authoritative as a Brand's."""
+    asset's file location is exactly as authoritative as a Brand's.
+
+    ``width_px``/``height_px`` are the file's own real pixel dimensions,
+    read once at upload time (``api/routers/ados_project.py``'s
+    ``upload_asset``) — ``None`` for a non-raster upload (a PDF) or
+    whenever the dimensions couldn't be read. ADOS-M2.2.1 P5's IMG-003
+    check reads these rather than guessing resolution from ``size_bytes``:
+    file size does not reliably predict pixel dimensions (compression
+    varies too much to trust), so a check built on it would be exactly
+    the kind of untrustworthy heuristic the master prompt refuses."""
 
     model_config = _Frozen
 
@@ -73,6 +82,8 @@ class Asset(BaseModel):
     content_type: str = Field(default="", max_length=120)
     size_bytes: int = Field(ge=0)
     path: str = Field(min_length=1, max_length=400)
+    width_px: Optional[int] = Field(default=None, ge=1)
+    height_px: Optional[int] = Field(default=None, ge=1)
     uploaded_at: datetime = Field(default_factory=_now)
 
 

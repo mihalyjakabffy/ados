@@ -25,6 +25,8 @@ export interface ProjectAsset {
   content_type: string
   size_bytes: number
   path: string
+  width_px: number | null
+  height_px: number | null
   uploaded_at: string
 }
 

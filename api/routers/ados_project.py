@@ -893,6 +893,22 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _image_dimensions(data: bytes) -> tuple[Optional[int], Optional[int]]:
+    """The file's real pixel dimensions, or ``(None, None)`` — a PDF, a
+    corrupt upload, or any file Pillow can't parse. Best-effort and
+    read-only: a failure here must never block the upload itself (ADOS-
+    M2.2.1 P5's IMG-003 is advisory; the upload endpoint is not)."""
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as img:
+            return img.width, img.height
+    except Exception:                                        # noqa: BLE001
+        return None, None
+
+
 @router.post("/{project_id}/assets", status_code=201)
 async def upload_asset(project_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
     from brand.project.model import Asset
@@ -910,12 +926,15 @@ async def upload_asset(project_id: str, file: UploadFile = File(...)) -> dict[st
         raise HTTPException(status_code=422, detail={"error": "file_too_large", "max_bytes": _MAX_ASSET_BYTES})
 
     asset_id = uuid.uuid4().hex[:12]
+    width_px, height_px = _image_dimensions(data)
     asset = Asset(
         id=asset_id,
         filename=file.filename or "upload",
         content_type=file.content_type or "",
         size_bytes=len(data),
         path=f"{asset_id}{ext}",
+        width_px=width_px,
+        height_px=height_px,
     )
 
     asset_dir = _repo().asset_storage_dir(project.id)
