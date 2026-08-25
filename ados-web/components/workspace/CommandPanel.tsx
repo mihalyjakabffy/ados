@@ -141,12 +141,18 @@ function IterationFeedback({ state }: { state: ReturnType<typeof useAdosState> }
   }
 
   if (lastIterationSummary) {
-    const { finding, recommendation, beforeMetric, afterMetric, resolvedScope, diff } = lastIterationSummary
+    const { finding, recommendation, beforeMetric, afterMetric, outcome, resolvedScope, diff } = lastIterationSummary
+    const reachedThreshold = outcome === "improved"
     return (
       <div className="mb-4 rounded-[8px] border border-ok/30 bg-ok-bg px-2.5 py-2 text-[11.5px] text-ok">
         <p className="font-medium">Recommendation applied: {recommendationLabel(recommendation.command_type)}</p>
         <p className="mt-0.5 text-ink-soft">
           {finding.metric} {beforeMetric.toFixed(2)} → {afterMetric.toFixed(2)}
+        </p>
+        <p className="mt-0.5 text-[10.5px] text-ink-soft opacity-80">
+          {reachedThreshold
+            ? "Guideline now met."
+            : "Improved, but the guideline threshold is not yet reached — a real, distinct outcome, not a partial success dressed up as a full one."}
         </p>
         <ScopeSummary resolvedScope={resolvedScope} diff={diff} />
       </div>
@@ -314,6 +320,22 @@ function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
 // selected page. Findings without a code are shown but not actionable —
 // most of what a review checks (pacing, measure, rejected candidates) has
 // no deterministic fix, and this section says so rather than hiding them.
+// ADOS-M1.5 §17: "FINDINGS" vs "RECOMMENDED ACTION" must read as two
+// different things, and the recommended one must be visually distinct.
+// Ranking authority stays server-side (brand.creative.iterate.
+// select_recommendation) — this only mirrors its primary criterion
+// (severity) for *display*, purely so the panel doesn't have to make an
+// extra round trip just to know which finding to highlight before the
+// user acts. Execution always re-derives the real recommendation from the
+// real endpoint; a client/server disagreement here can only ever mean the
+// wrong finding is highlighted first, never a wrong command executed.
+const CLIENT_SEVERITY_ORDER: Record<EvaluationFinding["severity"], number> = {
+  BLOCK: 0,
+  ERROR: 1,
+  WARN: 2,
+  INFO: 3,
+}
+
 function PageFindings({
   state,
   page,
@@ -330,40 +352,73 @@ function PageFindings({
 
   const busy = state.iterationStatus === "running"
 
+  const isIneffective = (f: EvaluationFinding) =>
+    state.iterationHistory.some(
+      (h) =>
+        h.finding_code === f.code &&
+        h.target_page === f.page_index &&
+        (h.outcome === "no_improvement" || h.outcome === "failed"),
+    )
+
+  const recommendedIndex = findings
+    .map((f, i) => ({ f, i }))
+    .filter(({ f }) => f.code && !isIneffective(f))
+    .sort((a, b) => CLIENT_SEVERITY_ORDER[a.f.severity] - CLIENT_SEVERITY_ORDER[b.f.severity])[0]?.i
+
   return (
     <div className="mt-4 rounded-[8px] border border-line-strong bg-paper-raised p-2.5">
       <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">
-        Review — this page
+        Findings — this page
       </p>
       <div className="space-y-2.5">
-        {findings.map((f: EvaluationFinding, i: number) => (
-          <div key={i} className="text-[11.5px]">
-            <p>
-              <span className={f.severity === "ERROR" || f.severity === "BLOCK" ? "font-semibold text-crit" : "font-semibold text-warn"}>
-                {f.severity}
-              </span>{" "}
-              <span className="text-ink-soft">{f.message}</span>
-            </p>
-            {f.code ? (
-              <button
-                onClick={() => content && state.runIteration(content, f)}
-                disabled={busy || !content}
-                className="mt-1 w-full rounded-[6px] border border-line-strong bg-paper px-2 py-[5px] text-left text-[11px] text-ink-soft hover:bg-black/[.03] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Try recommended fix: {recommendationLabel(FINDING_COMMAND_HINT[f.code] ?? "?")}
-              </button>
-            ) : (
-              <p className="mt-0.5 text-[10.5px] text-mute">No deterministic fix for this finding yet.</p>
-            )}
-          </div>
-        ))}
+        {findings.map((f: EvaluationFinding, i: number) => {
+          const ineffective = f.code ? isIneffective(f) : false
+          const recommended = i === recommendedIndex
+          return (
+            <div
+              key={i}
+              className={`rounded-[6px] p-1.5 text-[11.5px] ${recommended ? "border border-accent/40 bg-accent-soft/40" : ""}`}
+            >
+              <p>
+                <span className={f.severity === "ERROR" || f.severity === "BLOCK" ? "font-semibold text-crit" : "font-semibold text-warn"}>
+                  {f.severity}
+                </span>{" "}
+                <span className="text-ink-soft">{f.message}</span>
+              </p>
+              {recommended ? (
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[.05em] text-accent">
+                  Recommended action
+                </p>
+              ) : null}
+              {f.code ? (
+                ineffective ? (
+                  <p className="mt-1 text-[10.5px] text-mute">
+                    Already tried on this page — did not help. Recompose or try a different change first.
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => content && state.runIteration(content, f)}
+                    disabled={busy || !content}
+                    className={`mt-1 w-full rounded-[6px] border px-2 py-[5px] text-left text-[11px] hover:bg-black/[.03] disabled:cursor-not-allowed disabled:opacity-40 ${
+                      recommended ? "border-accent/50 bg-paper text-ink" : "border-line-strong bg-paper text-ink-soft"
+                    }`}
+                  >
+                    Try recommended fix: {recommendationLabel(FINDING_COMMAND_HINT[f.code] ?? "?")}
+                  </button>
+                )
+              ) : (
+                <p className="mt-0.5 text-[10.5px] text-mute">No deterministic fix for this finding yet.</p>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
 // Display-only hint of what POST /iterate will likely recommend, kept in
-// sync by hand with brand.creative.iterate._RECOMMENDATIONS — the mapping
+// sync by hand with brand.creative.iterate.CAPABILITIES — the mapping
 // itself is never duplicated here, only its label. If the backend ever
 // disagrees (a new finding code, a changed mapping), the request still
 // goes through the real endpoint and either succeeds or reports

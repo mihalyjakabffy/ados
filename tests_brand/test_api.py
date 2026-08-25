@@ -752,6 +752,123 @@ def test_iterate_with_invalid_content_model_is_422(client):
 
 
 # ---------------------------------------------------------------------------
+# Iterate — ADOS-M1.5: auto-select mode, history, findings/outcome/explanation
+#
+# _iterate_payload above always names finding_code+target_page (the M1.4
+# shape); these tests build the M1.5 request shapes directly rather than
+# extending that helper, so the M1.4 tests above stay proof that the exact
+# original request/response contract is untouched.
+# ---------------------------------------------------------------------------
+
+
+def _auto_iterate_payload(direction_id: str = "editorial-quiet", **extra):
+    base = _malthouse_payload(direction_id)
+    payload = {"content_model": base["content_model"], "base_direction_id": direction_id}
+    payload.update(extra)
+    return payload
+
+
+def test_iterate_response_carries_all_findings_not_only_the_selected_one(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+    assert len(data["findings"]) >= 2  # the real Malthouse/Studio Nord composition has two
+    assert any(f["code"] == "FILL_RATIO_LOW" and f["page_index"] == 6 for f in data["findings"])
+
+
+def test_iterate_response_carries_outcome_and_explanation(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+    assert data["outcome"] == "improved_but_threshold_not_reached"
+    assert set(data["explanation"]) == {"why", "what", "where", "expected_result"}
+    assert data["explanation"]["where"] == "page 5"
+
+
+def test_iterate_auto_selects_across_all_findings_when_target_omitted(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _auto_iterate_payload(base_plan=plan)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+    # Page 6 has the larger deviation from the 0.40 guideline (0.22 vs 0.27
+    # on page 4) and must win deterministically without the client naming it.
+    assert r.json()["recommendation"]["target_page"] == 6
+
+
+def test_iterate_auto_select_is_deterministic_over_http(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    body = _auto_iterate_payload(base_plan=base["plan"])
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body).json()
+    second = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body).json()
+    assert first["plan"] == second["plan"]
+    assert first["recommendation"] == second["recommendation"]
+
+
+def test_iterate_naming_only_one_of_finding_code_or_target_page_is_422(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    body = _auto_iterate_payload(base_plan=base["plan"], finding_code="FILL_RATIO_LOW")
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_target"
+
+
+def test_iterate_history_blocks_a_capability_already_proven_ineffective(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    history = [{
+        "finding_code": "FILL_RATIO_LOW", "target_page": 4,
+        "command_type": "change_page_direction", "parameters": {"direction_id": "image-led"},
+        "outcome": "no_improvement",
+    }]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan, history=history)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "no_recommendation"
+
+
+def test_iterate_history_does_not_block_a_different_page(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    history = [{
+        "finding_code": "FILL_RATIO_LOW", "target_page": 4,
+        "command_type": "change_page_direction", "parameters": {"direction_id": "image-led"},
+        "outcome": "no_improvement",
+    }]
+    body = _auto_iterate_payload(base_plan=plan, history=history)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+    assert r.json()["recommendation"]["target_page"] == 6
+
+
+def test_iterate_with_malformed_history_is_422(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=base["plan"], history=[{"not": "a history entry"}])
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_history"
+
+
+def test_iterate_without_history_field_is_unaffected_m14_compatibility(client):
+    """The exact M1.4 request shape (no `history` key at all) must produce
+    the exact M1.4 outcome — omission, not an empty list some client
+    forgot to send, is the real-world M1.4-caller shape."""
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan, previous_plan_hash=plan["plan_hash"])
+    assert "history" not in body
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200
+    assert r.json()["recommendation"]["target_page"] == 4
+
+
+# ---------------------------------------------------------------------------
 # Proposals — the approval gate at the HTTP boundary
 # ---------------------------------------------------------------------------
 

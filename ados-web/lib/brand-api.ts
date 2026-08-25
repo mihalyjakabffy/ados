@@ -8,7 +8,7 @@ import type {
 } from "./brand-types"
 import type { ComposeResult, ContentModel, PagePlan } from "./pageplan-types"
 import type { CommandIntent, IntentResponse } from "./intent-types"
-import type { IterateResponse } from "./iterate-types"
+import type { IterateResponse, IterationHistoryEntry } from "./iterate-types"
 
 // The Brand System lives on the real REVELATION API (api/main.py), not on
 // ados-service — a different backend from the Library/System pages, on
@@ -127,6 +127,10 @@ export async function executeIteration(
     base_plan: PagePlan
     finding_code: string
     target_page: number
+    // M1.5 — this lineage's prior attempts, so the server can decline to
+    // recommend a capability already proven not to help (§13). Omit or
+    // leave empty to reproduce exact M1.4 behaviour.
+    history?: IterationHistoryEntry[]
     previous_plan_hash?: string
   },
 ): Promise<IterateResponse> {

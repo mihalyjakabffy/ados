@@ -26,7 +26,7 @@ import type {
   IntentType,
   PagePlanDiff,
 } from "./intent-types"
-import type { Recommendation } from "./iterate-types"
+import type { IterationHistoryEntry, IterationOutcome, Recommendation } from "./iterate-types"
 
 export const DIRECTIONS = ["editorial-quiet", "technical-dense", "image-led"] as const
 export type DirectionId = (typeof DIRECTIONS)[number]
@@ -60,6 +60,10 @@ export interface LastIterationSummary {
   recommendation: Recommendation
   beforeMetric: number
   afterMetric: number
+  /** ADOS-M1.5 §11 — "improved" and "improved_but_threshold_not_reached"
+   *  are both successes but are never the same claim; shown as-is, never
+   *  collapsed into a single generic "it worked". */
+  outcome: IterationOutcome
   previousPlanHash: string
   newPlanHash: string
   resolvedScope: CompositionScope
@@ -87,6 +91,11 @@ interface AdosStateValue {
   iterationStatus: "idle" | "running" | "error"
   iterationError: string | null
   lastIterationSummary: LastIterationSummary | null
+  /** ADOS-M1.5 — this lineage's prior iteration attempts, sent with every
+   *  /iterate call so the server can decline to recommend a capability
+   *  already proven not to help (§13). Reset whenever a fresh compose
+   *  starts a new lineage; there is no server-side session behind it. */
+  iterationHistory: IterationHistoryEntry[]
 
   selection: Selection
 
@@ -107,6 +116,36 @@ interface AdosStateValue {
    *  finding. The command itself is decided server-side
    *  (brand.creative.iterate); this only names which finding to act on. */
   runIteration: (content: ContentModel, finding: EvaluationFinding) => Promise<void>
+}
+
+// Narrows a POST /iterate 422 "no_improvement" error's `detail` (an
+// `unknown`, since ComposeApiError carries the raw HTTPException body)
+// into an IterationHistoryEntry, using the `recommendation` and `outcome`
+// the server echoed back specifically so this reconstruction is possible.
+// Any other error shape (a different `error` code, an unexpected body)
+// yields null — recorded only when it is genuinely known what was tried.
+function attemptedIterationFromError(err: unknown): IterationHistoryEntry | null {
+  if (!(err instanceof ComposeApiError) || err.code !== "no_improvement") return null
+  const detail = err.detail as { outcome?: unknown; recommendation?: unknown } | null
+  const outcome = detail?.outcome
+  const recommendation = detail?.recommendation as
+    | { finding_code?: unknown; target_page?: unknown; command_type?: unknown; parameters?: unknown }
+    | undefined
+  if (
+    (outcome !== "no_improvement" && outcome !== "failed") ||
+    typeof recommendation?.finding_code !== "string" ||
+    typeof recommendation.target_page !== "number" ||
+    typeof recommendation.command_type !== "string"
+  ) {
+    return null
+  }
+  return {
+    finding_code: recommendation.finding_code,
+    target_page: recommendation.target_page,
+    command_type: recommendation.command_type,
+    parameters: (recommendation.parameters as Record<string, unknown>) ?? {},
+    outcome,
+  }
 }
 
 const Ctx = createContext<AdosStateValue | null>(null)
@@ -130,6 +169,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
   const [iterationStatus, setIterationStatus] = useState<AdosStateValue["iterationStatus"]>("idle")
   const [iterationError, setIterationError] = useState<string | null>(null)
   const [lastIterationSummary, setLastIterationSummary] = useState<LastIterationSummary | null>(null)
+  const [iterationHistory, setIterationHistory] = useState<IterationHistoryEntry[]>([])
 
   const [selection, setSelection] = useState<Selection>({ kind: "none" })
 
@@ -167,6 +207,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
         setActiveDirection(null)
         setLastIntentSummary(null)
         setLastIterationSummary(null)
+        setIterationHistory([]) // a fresh compose starts a new lineage — M1.5 §12
         setPlanStatus("loaded")
         setSelection({ kind: "page", pageIndex: 0 })
       } catch (err) {
@@ -253,6 +294,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
           base_plan: plan.plan,
           finding_code: finding.code,
           target_page: finding.page_index,
+          history: iterationHistory,
           previous_plan_hash: previousHash,
         })
         setPreviousPlan(plan)
@@ -267,11 +309,22 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
           recommendation: result.recommendation,
           beforeMetric: result.before_metric,
           afterMetric: result.after_metric,
+          outcome: result.outcome,
           previousPlanHash: previousHash,
           newPlanHash: result.plan.plan_hash,
           resolvedScope: result.resolved_scope,
           diff: result.diff,
         })
+        setIterationHistory((h) => [
+          ...h,
+          {
+            finding_code: result.recommendation.finding_code,
+            target_page: result.recommendation.target_page,
+            command_type: result.recommendation.command_type,
+            parameters: result.recommendation.parameters,
+            outcome: result.outcome,
+          },
+        ])
         setLastIntentSummary(null) // only one "what just happened" banner at a time
         setIterationStatus("idle")
         setSelection({ kind: "page", pageIndex: finding.page_index as number })
@@ -280,9 +333,18 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
         setIterationError(
           err instanceof ComposeApiError ? `${err.code}: ${JSON.stringify(err.detail)}` : String(err),
         )
+        // ADOS-M1.5 §13: a no_improvement/failed attempt must be recorded
+        // too, or the same ineffective capability would be offered again
+        // next time this exact finding is reviewed. The server echoes
+        // back the recommendation it attempted (there is no successful
+        // result to read it from) precisely so this is possible.
+        const attempted = attemptedIterationFromError(err)
+        if (attempted) {
+          setIterationHistory((h) => [...h, attempted])
+        }
       }
     },
-    [activeBrandId, activeDirection, activeDirectionId, plan],
+    [activeBrandId, activeDirection, activeDirectionId, plan, iterationHistory],
   )
 
   const value = useMemo<AdosStateValue>(
@@ -302,6 +364,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       iterationStatus,
       iterationError,
       lastIterationSummary,
+      iterationHistory,
       selection,
       selectProject,
       selectBrand,
@@ -325,6 +388,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       intentStatus,
       intentError,
       lastIntentSummary,
+      iterationHistory,
       iterationStatus,
       iterationError,
       lastIterationSummary,

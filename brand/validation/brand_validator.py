@@ -57,7 +57,13 @@ class Category(str, Enum):
     ARCHITECTURAL = "architectural"
 
 
-_ORDER = {Severity.BLOCK: 0, Severity.ERROR: 1, Severity.WARN: 2, Severity.INFO: 3}
+#: Public — brand.creative.iterate's deterministic multi-finding ranking
+#: (ADOS-M1.5) reuses this exact ordering rather than declaring its own,
+#: so "most severe first" means the same thing everywhere a Finding is
+#: ranked. `_ORDER` stays the name in scope here for the one pre-existing
+#: internal use below.
+SEVERITY_ORDER = {Severity.BLOCK: 0, Severity.ERROR: 1, Severity.WARN: 2, Severity.INFO: 3}
+_ORDER = SEVERITY_ORDER
 
 
 @dataclass(frozen=True)

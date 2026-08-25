@@ -182,12 +182,29 @@ class IterateRequest(BaseModel):
     """Input to ``brand.creative.iterate`` — one review-driven iteration.
 
     Unlike ``IntentRequest``, ``base_plan`` is required: an iteration only
-    exists in response to something a review of an actual PagePlan found,
-    named by ``finding_code`` + ``target_page`` rather than sent as a whole
-    finding payload the client could otherwise fabricate. The server
-    re-reviews ``base_plan`` itself and looks up the matching
+    exists in response to something a review of an actual PagePlan found.
+    The server re-reviews ``base_plan`` itself and looks up the matching
     ``brand.validation.brand_validator.Finding`` — the client points at a
     finding, it does not assert one.
+
+    ``finding_code`` + ``target_page`` (M1.4): name one specific finding
+    explicitly. Both or neither — naming only one is a 422.
+
+    Omitting both (M1.5): the server picks deterministically, across
+    *every* finding the review of ``base_plan`` produced, via
+    ``brand.creative.iterate.select_recommendation`` — the same ranking
+    (severity, then deviation from threshold, then finding code, then
+    page index) either way; explicit mode just narrows the candidate pool
+    to one finding first.
+
+    ``history`` (M1.5, optional): the lineage's own prior
+    ``IterationHistoryEntry`` results, carried by the caller the same way
+    ``base_plan`` already is — there is no server-side session. Passing it
+    lets ``select_recommendation`` skip a capability already proven
+    ``no_improvement``/``failed`` for this exact finding, instead of
+    recommending the same ineffective command again. Omitting it (or
+    leaving it empty) reproduces exactly M1.4's behaviour: nothing is
+    excluded.
     """
 
     content_model: dict[str, Any]
@@ -196,8 +213,12 @@ class IterateRequest(BaseModel):
     base_plan: dict[str, Any] = Field(
         description="A previous call's 'plan' payload (PagePlan.to_dict())."
     )
-    finding_code: str = Field(min_length=1, max_length=60)
-    target_page: int = Field(ge=0)
+    finding_code: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    target_page: Optional[int] = Field(default=None, ge=0)
+    history: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Prior IterationHistoryEntry results for this lineage, oldest first.",
+    )
     previous_plan_hash: str = Field(default="", max_length=64)
     page_format_name: str = Field(default="A4", max_length=20)
 
@@ -725,17 +746,19 @@ def execute_intent(
 
 
 # ---------------------------------------------------------------------------
-# Iterate — one review-driven closed-loop iteration (M1.4)
+# Iterate — one review-driven closed-loop iteration (M1.4), generalised to
+# many findings and a caller-carried history (M1.5)
 #
-# PagePlan -> evaluate() -> Finding -> brand.creative.iterate.recommend()
+# PagePlan -> evaluate() -> Finding(s) -> select_recommendation()
 #          -> CommandIntent -> validate_intent() -> apply_intent()
 #          -> compose_scoped() -> PagePlan' -> evaluate()
 #
-# This handler holds no layout, review or recommendation logic of its own —
-# see brand/creative/iterate.py's module docstring. It re-reviews base_plan
-# itself rather than trusting a client-supplied finding, and every step
-# past that is the same brand.creative.intent + brand.creative.scope
-# pipeline POST /intent already uses; there is no second mutation engine.
+# This handler holds no layout, review, ranking or recommendation logic of
+# its own — see brand/creative/iterate.py's module docstring. It re-reviews
+# base_plan itself rather than trusting a client-supplied finding, and every
+# step past selection is the same brand.creative.intent +
+# brand.creative.scope pipeline POST /intent already uses; there is no
+# second mutation engine.
 # ---------------------------------------------------------------------------
 
 
@@ -768,9 +791,12 @@ def execute_iteration(
     from brand.creative.evaluate import evaluate
     from brand.creative.intent import IntentValidationError
     from brand.creative.iterate import (
+        IterationHistoryEntry,
         IterationNoImprovementError,
         NoRecommendationError,
+        explain,
         iterate,
+        select_recommendation,
     )
     from brand.creative.plan import PagePlan
     from brand.creative.scope import ScopeInfeasibleError, UnsupportedScopeError
@@ -823,28 +849,64 @@ def execute_iteration(
             detail={"error": "invalid_base_direction", "errors": exc.errors()},
         ) from exc
 
-    tokens = brand.resolve_tokens()
-    before_evaluation = evaluate(base_plan, base_direction, tokens)
-    finding = next(
-        (
-            f
-            for f in before_evaluation.report.findings
-            if f.code == body.finding_code and f.page_index == body.target_page
-        ),
-        None,
-    )
-    if finding is None:
+    if bool(body.finding_code) != bool(body.target_page is not None):
         raise HTTPException(
             status_code=422,
             detail={
-                "error": "finding_not_found",
-                "detail": (
-                    f"no finding {body.finding_code!r} on page {body.target_page} "
-                    f"in the current review of base_plan"
-                ),
+                "error": "invalid_target",
+                "detail": "finding_code and target_page must both be set (name one finding) "
+                "or both omitted (let the server pick, M1.5)",
                 "previous_plan_hash": body.previous_plan_hash,
             },
         )
+
+    try:
+        history = tuple(IterationHistoryEntry.model_validate(h) for h in body.history)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_history", "errors": exc.errors()},
+        ) from exc
+
+    tokens = brand.resolve_tokens()
+    before_evaluation = evaluate(base_plan, base_direction, tokens)
+    findings = before_evaluation.report.findings
+
+    if body.finding_code is not None:
+        pool = [f for f in findings if f.code == body.finding_code and f.page_index == body.target_page]
+        if not pool:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "finding_not_found",
+                    "detail": (
+                        f"no finding {body.finding_code!r} on page {body.target_page} "
+                        f"in the current review of base_plan"
+                    ),
+                    "previous_plan_hash": body.previous_plan_hash,
+                },
+            )
+    else:
+        # M1.5 auto-select: rank across every finding the review produced,
+        # not just one the caller already picked out.
+        pool = findings
+
+    try:
+        recommendation = select_recommendation(pool, history=history)
+    except NoRecommendationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "no_recommendation",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+
+    finding = next(
+        f for f in findings
+        if f.code == recommendation.finding_code and f.page_index == recommendation.target_page
+    )
 
     try:
         result = iterate(
@@ -902,6 +964,12 @@ def execute_iteration(
             detail={
                 "error": "no_improvement",
                 "detail": str(exc),
+                "outcome": exc.outcome.value,
+                # The attempted recommendation, echoed back — the caller
+                # was never returned one (the call failed), but needs it to
+                # record an accurate IterationHistoryEntry so this exact
+                # capability is not blindly retried (ADOS-M1.5 §13).
+                "recommendation": recommendation.model_dump(mode="json"),
                 "before_metric": exc.before,
                 "after_metric": exc.after,
                 "previous_plan_hash": body.previous_plan_hash,
@@ -909,8 +977,12 @@ def execute_iteration(
         ) from exc
 
     return {
+        # Every finding the review produced, not only the one acted on —
+        # ADOS-M1.5 §16: the non-selected findings are never hidden.
+        "findings": [f.to_dict() for f in findings],
         "finding": result.finding,
         "recommendation": result.recommendation.model_dump(mode="json"),
+        "explanation": explain(finding, result.recommendation),
         "intent": result.intent.model_dump(mode="json"),
         "resolution": result.resolution.model_dump(mode="json"),
         "resolved_scope": result.resolved_scope.model_dump(mode="json"),
@@ -918,6 +990,7 @@ def execute_iteration(
         "metric": result.metric,
         "before_metric": result.before_metric,
         "after_metric": result.after_metric,
+        "outcome": result.outcome.value,
         "plan": result.plan.to_dict(),
         "before_evaluation": result.before_evaluation,
         "after_evaluation": result.after_evaluation,
