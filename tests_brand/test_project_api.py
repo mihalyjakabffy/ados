@@ -43,8 +43,15 @@ def client(tmp_path, monkeypatch):
     # so isolating a test means patching the module attribute directly --
     # monkeypatch.setenv alone would have no effect on an already-imported module.
     import api.routers.ados_project as ados_project_router
+    import api.routers.brand as brand_router
 
     monkeypatch.setattr(ados_project_router, "_PROJECT_STORAGE_ROOT", str(tmp_path / "ados-projects"))
+    # A fresh checkout's brand store is empty until _seeded_repo() (reused
+    # from brand.py -- see _brand_repo() in ados_project.py) seeds Studio
+    # Nord into it. Isolating this to tmp_path reproduces exactly that
+    # "nothing seeded yet" starting condition, the same way test_api.py's
+    # own fixture does for brand.py's tests.
+    monkeypatch.setattr(brand_router, "_BRAND_ROOT", str(tmp_path / "brands"))
 
     with TestClient(_app()) as c:
         yield c

@@ -55,6 +55,18 @@ def _repo():
     return FileProjectRepository(_PROJECT_STORAGE_ROOT)
 
 
+def _brand_repo():
+    """The same store api/routers/brand.py's own endpoints use — including
+    its lazy seeding of the Studio Nord worked example on an otherwise-empty
+    store. A fresh deployment (or a fresh CI checkout) has no brands yet;
+    building a second, unseeded FileBrandRepository here would make every
+    brand-attach 404 until someone happened to hit a brand.py endpoint
+    first — reusing brand.py's own seeded accessor is what avoids that."""
+    from api.routers import brand as brand_router
+
+    return brand_router._seeded_repo()
+
+
 def _load(project_id: str):
     from brand.project.store import ProjectNotFound
 
@@ -70,9 +82,7 @@ def _brand_name(brand_id: Optional[str]) -> Optional[str]:
     if not brand_id:
         return None
     try:
-        from brand.store.brand_repo import FileBrandRepository
-
-        brand = FileBrandRepository(os.environ.get("BRAND_STORAGE_ROOT", "storage/brands")).get(brand_id)
+        brand = _brand_repo().get(brand_id)
         return brand.identity.name
     except Exception:                                        # noqa: BLE001
         return None
@@ -190,13 +200,11 @@ def delete_project(project_id: str) -> None:
 
 @router.put("/{project_id}/brand")
 def attach_brand(project_id: str, body: AttachBrandRequest) -> dict[str, Any]:
-    from brand.store.brand_repo import BrandNotFound, FileBrandRepository
+    from brand.store.brand_repo import BrandNotFound
 
     project = _load(project_id)
     try:
-        FileBrandRepository(os.environ.get("BRAND_STORAGE_ROOT", "storage/brands")).get(
-            body.brand_id, body.brand_version
-        )
+        _brand_repo().get(body.brand_id, body.brand_version)
     except BrandNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -366,7 +374,7 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
     from brand.creative.composer import CompositionError, compose
     from brand.creative.directions import get_direction
     from brand.creative.evaluate import evaluate
-    from brand.store.brand_repo import BrandNotFound, FileBrandRepository
+    from brand.store.brand_repo import BrandNotFound
 
     project = _load(project_id)
     idx = _document_index(project, document_id)
@@ -376,9 +384,7 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail={"error": "no_brand_attached"})
 
     try:
-        brand = FileBrandRepository(os.environ.get("BRAND_STORAGE_ROOT", "storage/brands")).get(
-            project.brand_id, project.brand_version
-        )
+        brand = _brand_repo().get(project.brand_id, project.brand_version)
     except BrandNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
