@@ -94,6 +94,60 @@ def _touch(project) -> Any:
     return project.model_copy(update={"updated_at": _dt.datetime.now(_dt.timezone.utc)})
 
 
+def _touch_doc(doc) -> Any:
+    """Like ``_touch``, but for a Document's own ``updated_at`` — separate
+    from the Project's, since a client that only watches whether *this*
+    document changed (e.g. to re-check its requirement findings) must see
+    its timestamp move on every one of its own mutations, not just on
+    whichever unrelated document in the project last changed."""
+    import datetime as _dt
+
+    return doc.model_copy(update={"updated_at": _dt.datetime.now(_dt.timezone.utc)})
+
+
+def _document_content_model(doc, project):
+    """The ContentModel to compose ``doc`` against — its own content, and
+    (only for a document whose type supports multiple projects, e.g.
+    Portfolio) each referenced project's own content appended as a
+    chapter.
+
+    A referenced project's blocks are never copied into ``doc`` itself —
+    they are fetched fresh from the real project store on every call, so
+    editing Project B's content changes what the portfolio composes next
+    time, without this document holding a stale duplicate (ADOS-M2.2 §10).
+    """
+    from brand.project.model import ContentItem, ContentItemKind, Document as _Document
+
+    content = doc.content_model(project.name)
+    if not doc.project_refs:
+        return content
+
+    counters: dict[str, int] = {}
+    blocks = list(content.blocks)
+    for block in blocks:
+        stem = block.id.split("-")[0]
+        counters[stem] = max(counters.get(stem, 0), int(block.id.split("-")[1]))
+
+    for ref_id in doc.project_refs:
+        try:
+            ref_project = _repo().get(ref_id)
+        except Exception:                                      # noqa: BLE001
+            continue                                            # surfaced by PORT-003-style checks, not a 500
+        items = tuple(item for d in ref_project.documents for item in d.content_items)
+        if not items:
+            items = (ContentItem(
+                kind=ContentItemKind.TEXT,
+                text=ref_project.description or f"{ref_project.name}.",
+            ),)
+        chapter = _Document(project_id=ref_project.id, name=ref_project.name, content_items=items)
+        for block in chapter.content_model(ref_project.name).blocks:
+            stem = block.id.split("-")[0]
+            counters[stem] = counters.get(stem, 0) + 1
+            blocks.append(block.model_copy(update={"id": f"{stem}-{counters[stem]:02d}"}))
+
+    return content.model_copy(update={"blocks": tuple(blocks)})
+
+
 # ---------------------------------------------------------------------------
 # Request models
 # ---------------------------------------------------------------------------
@@ -116,13 +170,24 @@ class AttachBrandRequest(BaseModel):
 
 class CreateDocumentRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    direction_id: str = Field(default="editorial-quiet", max_length=40)
-    document_type: str = Field(default="", max_length=60)
+    #: None = "use the document type's composition_profile" when a type is
+    #: given, else the M2.1 default of editorial-quiet. Explicit always wins.
+    direction_id: Optional[str] = Field(default=None, max_length=40)
+    #: A brand.project.document_types id, or "" for an untyped, free-form
+    #: document — exactly M2.1's shape.
+    document_type_id: str = Field(default="", max_length=40)
+    #: The document brief (subtitle, author, date, audience, purpose,
+    #: location, client, ...) — a plain bag, since which of these apply
+    #: is a document-type concern, not a fixed schema (Document.metadata).
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class UpdateDocumentRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     direction_id: Optional[str] = Field(default=None, max_length=40)
+    #: Merged into the existing metadata, not replacing it — a PATCH that
+    #: sets one brief field must not silently blank the others.
+    metadata: Optional[dict[str, Any]] = None
 
 
 class AddContentItemRequest(BaseModel):
@@ -144,6 +209,50 @@ class SaveVersionRequest(BaseModel):
     #: a version should capture what the user actually reviewed, not force
     #: a silent recompose that could differ from what they saw.
     plan: Optional[dict[str, Any]] = None
+
+
+class CreateSectionRequest(BaseModel):
+    kind: str = Field(min_length=1, max_length=60)
+    name: str = Field(min_length=1, max_length=120)
+    order: Optional[int] = None
+
+
+class UpdateSectionRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    order: Optional[int] = None
+    content_item_ids: Optional[list[str]] = None
+
+
+class AddProjectRefRequest(BaseModel):
+    project_id: str
+
+
+# ---------------------------------------------------------------------------
+# Document types (ADOS-M2.2) — declarative, listed before /{project_id} so
+# "document-types" is never swallowed by that path parameter.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/document-types")
+def list_document_types_endpoint() -> dict[str, Any]:
+    from brand.project.document_types import list_document_types
+
+    return {"document_types": [t.model_dump(mode="json") for t in list_document_types()]}
+
+
+@router.get("/document-types/{type_id}")
+def get_document_type_endpoint(type_id: str) -> dict[str, Any]:
+    from brand.project.document_types import UnknownDocumentTypeError, get_document_type
+    from brand.project.requirements import requirements_for
+
+    try:
+        doc_type = get_document_type(type_id)
+    except UnknownDocumentTypeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        **doc_type.model_dump(mode="json"),
+        "requirements": [r.model_dump(mode="json") for r in requirements_for(type_id)],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -228,17 +337,40 @@ def _document_index(project, document_id: str) -> int:
 @router.post("/{project_id}/documents", status_code=201)
 def create_document(project_id: str, body: CreateDocumentRequest) -> dict[str, Any]:
     from brand.creative.directions import get_direction
-    from brand.project.model import Document
+    from brand.project.document_types import UnknownDocumentTypeError, get_document_type
+    from brand.project.model import Document, Section
 
     project = _load(project_id)
+
+    document_type = None
+    if body.document_type_id:
+        try:
+            document_type = get_document_type(body.document_type_id)
+        except UnknownDocumentTypeError as exc:
+            raise HTTPException(
+                status_code=404, detail={"error": "unknown_document_type", "detail": str(exc)}
+            ) from exc
+
+    direction_id = body.direction_id or (
+        document_type.composition_profile if document_type else "editorial-quiet"
+    )
     try:
-        get_direction(body.direction_id)
+        get_direction(direction_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail={"error": "unknown_direction", "detail": str(exc)}) from exc
 
+    # The wizard's Step 5 ("Generate Structure") — a document created with a
+    # type starts with that type's default skeleton as empty Sections, which
+    # the user can then add to, reorder or remove (ADOS-M2.2 §5).
+    sections = tuple(
+        Section(kind=kind, name=document_type.section_label(kind), order=i)
+        for i, kind in enumerate(document_type.default_structure)
+    ) if document_type else ()
+
     doc = Document(
         project_id=project.id, name=body.name,
-        direction_id=body.direction_id, document_type=body.document_type,
+        direction_id=direction_id, document_type_id=body.document_type_id,
+        sections=sections, metadata=body.metadata,
     )
     project = _touch(project.model_copy(update={"documents": project.documents + (doc,)}))
     _repo().save(project)
@@ -264,6 +396,8 @@ def update_document(project_id: str, document_id: str, body: UpdateDocumentReque
             get_direction(updates["direction_id"])
         except KeyError as exc:
             raise HTTPException(status_code=404, detail={"error": "unknown_direction", "detail": str(exc)}) from exc
+    if "metadata" in updates:
+        updates["metadata"] = {**project.documents[idx].metadata, **updates["metadata"]}
 
     import datetime as _dt
 
@@ -299,6 +433,140 @@ def duplicate_document(project_id: str, document_id: str) -> dict[str, Any]:
     return copy.model_dump(mode="json")
 
 
+# -- sections (ADOS-M2.2) -------------------------------------------------
+
+
+def _section_index(doc, section_id: str) -> int:
+    for i, section in enumerate(doc.sections):
+        if section.id == section_id:
+            return i
+    raise HTTPException(status_code=404, detail=f"no section {section_id!r} on this document")
+
+
+@router.post("/{project_id}/documents/{document_id}/sections", status_code=201)
+def create_section(project_id: str, document_id: str, body: CreateSectionRequest) -> dict[str, Any]:
+    from brand.project.model import Section
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    order = body.order if body.order is not None else len(doc.sections)
+    section = Section(kind=body.kind, name=body.name, order=order)
+    doc = _touch_doc(doc.model_copy(update={"sections": doc.sections + (section,)}))
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc.model_dump(mode="json")
+
+
+@router.patch("/{project_id}/documents/{document_id}/sections/{section_id}")
+def update_section(
+    project_id: str, document_id: str, section_id: str, body: UpdateSectionRequest,
+) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    s_idx = _section_index(doc, section_id)
+
+    updates: dict[str, Any] = {}
+    if body.name is not None:
+        updates["name"] = body.name
+    if body.order is not None:
+        updates["order"] = body.order
+    if body.content_item_ids is not None:
+        known_ids = {item.id for item in doc.content_items}
+        unknown = [i for i in body.content_item_ids if i not in known_ids]
+        if unknown:
+            raise HTTPException(
+                status_code=422,
+                detail={"error": "unknown_content_item", "ids": unknown},
+            )
+        updates["content_item_ids"] = tuple(body.content_item_ids)
+
+    sections = list(doc.sections)
+    sections[s_idx] = sections[s_idx].model_copy(update=updates)
+    doc = _touch_doc(doc.model_copy(update={"sections": tuple(sections)}))
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/sections/{section_id}")
+def delete_section(project_id: str, document_id: str, section_id: str) -> dict[str, Any]:
+    """Removes the Section, not the content it grouped — the content items
+    become unsectioned and are still composed, appended at the end
+    (Document._ordered_content_items), never silently dropped."""
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    _section_index(doc, section_id)  # 404s if absent
+    remaining = tuple(s for s in doc.sections if s.id != section_id)
+    doc = _touch_doc(doc.model_copy(update={"sections": remaining}))
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc.model_dump(mode="json")
+
+
+# -- requirements (ADOS-M2.2 §19) -----------------------------------------
+
+
+@router.get("/{project_id}/documents/{document_id}/requirements")
+def get_document_requirements(project_id: str, document_id: str) -> dict[str, Any]:
+    from brand.project.requirements import check_requirements
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    findings = check_requirements(doc, project)
+    return {
+        "findings": [f.to_dict() for f in findings],
+        "ok": not any(f.severity.value in ("ERROR", "BLOCK") for f in findings),
+    }
+
+
+# -- project references (ADOS-M2.2 §10 — Portfolio) -----------------------
+
+
+@router.post("/{project_id}/documents/{document_id}/project-refs", status_code=201)
+def add_project_ref(project_id: str, document_id: str, body: AddProjectRefRequest) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+
+    if body.project_id == project.id:
+        raise HTTPException(status_code=422, detail={"error": "cannot_reference_own_project"})
+    try:
+        _repo().get(body.project_id)
+    except Exception as exc:                                  # noqa: BLE001
+        raise HTTPException(status_code=404, detail={"error": "referenced_project_not_found"}) from exc
+
+    if body.project_id not in doc.project_refs:
+        doc = _touch_doc(doc.model_copy(update={"project_refs": doc.project_refs + (body.project_id,)}))
+        docs = list(project.documents)
+        docs[idx] = doc
+        project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+        _repo().save(project)
+    return doc.model_dump(mode="json")
+
+
+@router.delete("/{project_id}/documents/{document_id}/project-refs/{ref_project_id}")
+def remove_project_ref(project_id: str, document_id: str, ref_project_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+    doc = _touch_doc(doc.model_copy(update={"project_refs": tuple(p for p in doc.project_refs if p != ref_project_id)}))
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc.model_dump(mode="json")
+
+
 # -- content ------------------------------------------------------------
 
 
@@ -319,7 +587,7 @@ def add_content_item(project_id: str, document_id: str, body: AddContentItemRequ
         ) from exc
 
     doc = project.documents[idx]
-    doc = doc.model_copy(update={"content_items": doc.content_items + (item,)})
+    doc = _touch_doc(doc.model_copy(update={"content_items": doc.content_items + (item,)}))
 
     # Fail before saving: the same pipeline the Composer would refuse must
     # refuse here too, with the Composer's own message — not a laxer,
@@ -341,7 +609,7 @@ def remove_content_item(project_id: str, document_id: str, item_id: str) -> dict
     remaining = tuple(i for i in doc.content_items if i.id != item_id)
     if len(remaining) == len(doc.content_items):
         raise HTTPException(status_code=404, detail=f"no content item {item_id!r} on this document")
-    doc = doc.model_copy(update={"content_items": remaining})
+    doc = _touch_doc(doc.model_copy(update={"content_items": remaining}))
     docs = list(project.documents)
     docs[idx] = doc
     project = _touch(project.model_copy(update={"documents": tuple(docs)}))
@@ -389,10 +657,15 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     direction = get_direction(doc.direction_id)
-    content = doc.content_model(project.name)
+    content = _document_content_model(doc, project)
     if not content.blocks:
         raise HTTPException(status_code=422, detail={"error": "no_content", "detail": "add content before composing"})
 
+    # Composition is never constrained to a document type's page ceiling —
+    # that ceiling is a Requirement (COMP-001), checked against the plan
+    # compose() actually produced, below. Capping max_pages here would let
+    # the Composer silently truncate content instead of composing it in
+    # full and letting the Requirement report the real overage.
     try:
         plan = compose(content, direction, brand)
     except CompositionError as exc:
@@ -400,17 +673,22 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
 
     evaluation = evaluate(plan, direction, brand.resolve_tokens())
 
-    doc = doc.model_copy(update={"latest_plan": plan.to_dict(), "latest_evaluation": evaluation.to_dict()})
+    doc = _touch_doc(doc.model_copy(update={"latest_plan": plan.to_dict(), "latest_evaluation": evaluation.to_dict()}))
     docs = list(project.documents)
     docs[idx] = doc
     project = _touch(project.model_copy(update={"documents": tuple(docs)}))
     _repo().save(project)
+
+    from brand.project.requirements import check_requirements
+
+    requirement_findings = check_requirements(doc, project)
 
     return {
         "document": doc.model_dump(mode="json"),
         "content_model": content.model_dump(mode="json"),
         "plan": plan.to_dict(),
         "evaluation": evaluation.to_dict(),
+        "requirement_findings": [f.to_dict() for f in requirement_findings],
     }
 
 
@@ -506,6 +784,8 @@ def save_version(project_id: str, body: SaveVersionRequest) -> dict[str, Any]:
         document_id=doc.id,
         document_name=doc.name,
         direction_id=doc.direction_id,
+        document_type_id=doc.document_type_id,
+        sections=doc.sections,
         content_items=doc.content_items,
         plan=plan,
     )
@@ -513,7 +793,7 @@ def save_version(project_id: str, body: SaveVersionRequest) -> dict[str, Any]:
     # the project later shows what was actually saved, not a stale compose.
     if body.plan is not None:
         docs = list(project.documents)
-        docs[idx] = doc.model_copy(update={"latest_plan": body.plan})
+        docs[idx] = _touch_doc(doc.model_copy(update={"latest_plan": body.plan}))
         project = project.model_copy(update={"documents": tuple(docs)})
 
     project = _touch(project.model_copy(update={"versions": project.versions + (version,)}))
@@ -542,15 +822,14 @@ def restore_version(project_id: str, version_number: int) -> dict[str, Any]:
             detail="the document this version belonged to no longer exists in this project",
         ) from exc
 
-    import datetime as _dt
-
     docs = list(project.documents)
-    docs[idx] = docs[idx].model_copy(update={
+    docs[idx] = _touch_doc(docs[idx].model_copy(update={
         "content_items": version.content_items,
         "direction_id": version.direction_id,
+        "document_type_id": version.document_type_id,
+        "sections": version.sections,
         "latest_plan": version.plan,
-        "updated_at": _dt.datetime.now(_dt.timezone.utc),
-    })
+    }))
     project = _touch(project.model_copy(update={"documents": tuple(docs)}))
     _repo().save(project)
     return project.documents[idx].model_dump(mode="json")

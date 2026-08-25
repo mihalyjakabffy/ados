@@ -1,6 +1,18 @@
 import useSWR, { mutate } from "swr"
 import type { ContentModel, Evaluation, PagePlan } from "./pageplan-types"
-import type { ContentItem, ContentItemKind, Project, ProjectAsset, ProjectDocument, ProjectSummary, ProjectVersion } from "./project-types"
+import type {
+  ContentItem,
+  ContentItemKind,
+  DocumentType,
+  DocumentTypeDetail,
+  Project,
+  ProjectAsset,
+  ProjectDocument,
+  ProjectSummary,
+  ProjectVersion,
+  RequirementFinding,
+  Section,
+} from "./project-types"
 
 // Same backend as brand-api.ts (api/main.py) — see that file's note on why
 // ADOS talks to REVELATION_API_URL rather than ados-service.
@@ -98,7 +110,7 @@ export async function attachBrand(
 
 export async function createDocument(
   projectId: string,
-  body: { name: string; direction_id?: string; document_type?: string },
+  body: { name: string; direction_id?: string; document_type_id?: string; metadata?: Record<string, unknown> },
 ): Promise<ProjectDocument> {
   const doc = await send<ProjectDocument>("POST", `${BASE}/${encodeURIComponent(projectId)}/documents`, body)
   await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
@@ -115,7 +127,7 @@ export async function getDocument(projectId: string, documentId: string): Promis
 export async function updateDocument(
   projectId: string,
   documentId: string,
-  body: { name?: string; direction_id?: string },
+  body: { name?: string; direction_id?: string; metadata?: Record<string, unknown> },
 ): Promise<ProjectDocument> {
   const doc = await send<ProjectDocument>(
     "PATCH",
@@ -254,4 +266,121 @@ export async function restoreVersion(projectId: string, versionNumber: number): 
   return doc
 }
 
-export type { ContentItem, ContentItemKind, Project, ProjectAsset, ProjectDocument, ProjectSummary, ProjectVersion }
+// ---------------------------------------------------------------------------
+// Document types (ADOS-M2.2)
+// ---------------------------------------------------------------------------
+
+export function useDocumentTypes() {
+  return useSWR<{ document_types: DocumentType[] }>(`${BASE}/document-types`, fetcher)
+}
+
+export function useDocumentType(typeId: string | null) {
+  return useSWR<DocumentTypeDetail>(
+    typeId ? `${BASE}/document-types/${encodeURIComponent(typeId)}` : null,
+    fetcher,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------
+
+export async function createSection(
+  projectId: string,
+  documentId: string,
+  body: { kind: string; name: string; order?: number },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "POST",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/sections`,
+    body,
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function updateSection(
+  projectId: string,
+  documentId: string,
+  sectionId: string,
+  body: { name?: string; order?: number; content_item_ids?: string[] },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "PATCH",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/sections/${encodeURIComponent(sectionId)}`,
+    body,
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function deleteSection(
+  projectId: string,
+  documentId: string,
+  sectionId: string,
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "DELETE",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/sections/${encodeURIComponent(sectionId)}`,
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+// ---------------------------------------------------------------------------
+// Requirements (ADOS-M2.2 §19)
+// ---------------------------------------------------------------------------
+
+export async function getDocumentRequirements(
+  projectId: string,
+  documentId: string,
+): Promise<{ findings: RequirementFinding[]; ok: boolean }> {
+  return fetcher(
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/requirements`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Project references (ADOS-M2.2 §10 — Portfolio)
+// ---------------------------------------------------------------------------
+
+export async function addProjectRef(
+  projectId: string,
+  documentId: string,
+  refProjectId: string,
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "POST",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/project-refs`,
+    { project_id: refProjectId },
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function removeProjectRef(
+  projectId: string,
+  documentId: string,
+  refProjectId: string,
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "DELETE",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/project-refs/${encodeURIComponent(refProjectId)}`,
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export type {
+  ContentItem,
+  ContentItemKind,
+  DocumentType,
+  DocumentTypeDetail,
+  Project,
+  ProjectAsset,
+  ProjectDocument,
+  ProjectSummary,
+  ProjectVersion,
+  RequirementFinding,
+  Section,
+}

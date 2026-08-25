@@ -4,10 +4,10 @@ import { useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { TopBar } from "@/components/TopBar"
+import { DocumentCreationWizard } from "@/components/DocumentCreationWizard"
 import { useBrands } from "@/lib/brand-api"
 import {
   attachBrand,
-  createDocument,
   deleteAsset,
   deleteDocument,
   deleteProject,
@@ -17,7 +17,6 @@ import {
   useProject,
   assetFileUrl,
 } from "@/lib/project-api"
-import { DIRECTIONS, type DirectionId } from "@/lib/ados-state"
 import type { Project } from "@/lib/project-types"
 
 export default function ProjectOverviewPage() {
@@ -147,61 +146,31 @@ function DocumentsSection({
   project: ProjectWithBrandName
   onChanged: () => void
 }) {
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState("")
-  const [direction, setDirection] = useState<DirectionId>("editorial-quiet")
-  const [busy, setBusy] = useState(false)
+  const router = useRouter()
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   return (
     <section>
       <div className="flex items-center justify-between">
         <SectionHeading>Documents</SectionHeading>
         <button
-          onClick={() => setCreating((v) => !v)}
+          onClick={() => setWizardOpen(true)}
           className="rounded-[7px] px-2 py-[4px] text-[11.5px] font-medium text-accent hover:bg-accent-soft"
         >
           + New document
         </button>
       </div>
 
-      {creating ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[8px] border border-line bg-paper-raised p-2.5">
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Document name"
-            className="rounded-[7px] border border-line-strong px-2 py-[5px] text-[12px]"
-          />
-          <select
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as DirectionId)}
-            className="rounded-[7px] border border-line-strong px-2 py-[5px] text-[12px]"
-          >
-            {DIRECTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={busy || !name.trim()}
-            onClick={async () => {
-              setBusy(true)
-              try {
-                await createDocument(project.id, { name: name.trim(), direction_id: direction })
-                setName("")
-                setCreating(false)
-                onChanged()
-              } finally {
-                setBusy(false)
-              }
-            }}
-            className="rounded-[7px] bg-accent px-2.5 py-[5px] text-[12px] font-medium text-white disabled:opacity-40"
-          >
-            Create
-          </button>
-        </div>
+      {wizardOpen ? (
+        <DocumentCreationWizard
+          projectId={project.id}
+          onCancel={() => setWizardOpen(false)}
+          onDone={(doc) => {
+            setWizardOpen(false)
+            onChanged()
+            router.push(`/projects/${project.id}/documents/${doc.id}`)
+          }}
+        />
       ) : null}
 
       {project.documents.length === 0 ? (
@@ -216,7 +185,8 @@ function DocumentsSection({
               >
                 {doc.name}
                 <span className="ml-2 text-[11px] font-normal text-mute">
-                  {doc.content_items.length} content item{doc.content_items.length === 1 ? "" : "s"} · {doc.direction_id}
+                  {doc.document_type_id ? `${doc.document_type_id.replace(/-/g, " ")} · ` : ""}
+                  {doc.content_items.length} content item{doc.content_items.length === 1 ? "" : "s"}
                 </span>
               </Link>
               <div className="flex gap-1">

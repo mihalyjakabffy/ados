@@ -1,16 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAdosState } from "@/lib/ados-state"
 import {
   addContentItem,
+  addProjectRef,
   assetFileUrl,
+  getDocumentRequirements,
   removeContentItem,
+  removeProjectRef,
   saveVersion,
+  updateSection,
   uploadAsset,
+  useProjects,
 } from "@/lib/project-api"
-import type { ContentItemKind, Project, ProjectDocument } from "@/lib/project-types"
+import type { ContentItem, ContentItemKind, Project, ProjectDocument, RequirementFinding } from "@/lib/project-types"
 
 // WHAT THIS PROJECT'S DOCUMENT CONTAINS — the M2.1 replacement for
 // LibraryPanel in the Document Workspace: not "pick a fixture", but
@@ -46,6 +51,10 @@ export function DocumentContextPanel({
 
       <RecomposeButton onRecompose={onRecompose} busy={composeBusy} error={composeError} />
 
+      <RequirementsSection project={project} document={document} />
+      {document.document_type_id === "portfolio" ? (
+        <ProjectReferencesSection project={project} document={document} onChanged={onDocumentChanged} />
+      ) : null}
       <ContentSection project={project} document={document} onChanged={onDocumentChanged} />
       <AssetsSection project={project} />
       <VersionsSection project={project} document={document} onChanged={onDocumentChanged} />
@@ -86,6 +95,42 @@ const KIND_LABEL: Record<ContentItemKind, string> = {
   image: "Image",
 }
 
+function ContentItemRow({
+  item,
+  project,
+  document,
+  onChanged,
+}: {
+  item: ContentItem
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  return (
+    <div className="group flex items-start justify-between gap-1 rounded-[7px] px-2 py-[5px] hover:bg-black/[.03]">
+      <div className="min-w-0">
+        <span className="text-[10px] font-semibold uppercase tracking-[.04em] text-mute">
+          {KIND_LABEL[item.kind]}
+        </span>
+        <p className="truncate text-[12px] text-ink-soft">
+          {item.kind === "text" ? item.text : item.label || item.text || "(untitled)"}
+          {item.kind === "metric" ? ` — ${item.value}${item.unit ? ` ${item.unit}` : ""}` : ""}
+          {item.kind === "fact" ? ` — ${item.value}` : ""}
+        </p>
+      </div>
+      <button
+        onClick={async () => {
+          await removeContentItem(project.id, document.id, item.id)
+          onChanged()
+        }}
+        className="mt-0.5 flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+      >
+        Remove
+      </button>
+    </div>
+  )
+}
+
 function ContentSection({
   project,
   document,
@@ -97,10 +142,16 @@ function ContentSection({
 }) {
   const [adding, setAdding] = useState(false)
 
+  const byId = new Map(document.content_items.map((item) => [item.id, item]))
+  const sectioned = new Set(document.sections.flatMap((s) => s.content_item_ids))
+  const unsectioned = document.content_items.filter((item) => !sectioned.has(item.id))
+
   return (
     <div className="mb-5">
       <div className="mb-1 flex items-center justify-between px-2">
-        <p className="text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">Content</p>
+        <p className="text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">
+          {document.sections.length > 0 ? "Structure" : "Content"}
+        </p>
         <button
           onClick={() => setAdding((v) => !v)}
           className="text-[10.5px] font-medium text-accent hover:underline"
@@ -120,33 +171,40 @@ function ContentSection({
         />
       ) : null}
 
-      {document.content_items.length === 0 ? (
+      {document.sections.length === 0 && document.content_items.length === 0 ? (
         <p className="px-2 py-1 text-[11.5px] text-mute">No content yet.</p>
-      ) : (
+      ) : document.sections.length === 0 ? (
         <div className="space-y-0.5">
           {document.content_items.map((item) => (
-            <div key={item.id} className="group flex items-start justify-between gap-1 rounded-[7px] px-2 py-[5px] hover:bg-black/[.03]">
-              <div className="min-w-0">
-                <span className="text-[10px] font-semibold uppercase tracking-[.04em] text-mute">
-                  {KIND_LABEL[item.kind]}
-                </span>
-                <p className="truncate text-[12px] text-ink-soft">
-                  {item.kind === "text" ? item.text : item.label || item.text || "(untitled)"}
-                  {item.kind === "metric" ? ` — ${item.value}${item.unit ? ` ${item.unit}` : ""}` : ""}
-                  {item.kind === "fact" ? ` — ${item.value}` : ""}
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  await removeContentItem(project.id, document.id, item.id)
-                  onChanged()
-                }}
-                className="mt-0.5 flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
-              >
-                Remove
-              </button>
-            </div>
+            <ContentItemRow key={item.id} item={item} project={project} document={document} onChanged={onChanged} />
           ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {[...document.sections]
+            .sort((a, b) => a.order - b.order)
+            .map((section) => (
+              <div key={section.id}>
+                <p className="px-2 py-0.5 text-[10px] font-medium text-mute">
+                  {section.name}
+                  {section.content_item_ids.length === 0 ? " — empty" : ""}
+                </p>
+                {section.content_item_ids.map((itemId) => {
+                  const item = byId.get(itemId)
+                  return item ? (
+                    <ContentItemRow key={item.id} item={item} project={project} document={document} onChanged={onChanged} />
+                  ) : null
+                })}
+              </div>
+            ))}
+          {unsectioned.length > 0 ? (
+            <div>
+              <p className="px-2 py-0.5 text-[10px] font-medium text-mute">Unsectioned</p>
+              {unsectioned.map((item) => (
+                <ContentItemRow key={item.id} item={item} project={project} document={document} onChanged={onChanged} />
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -163,6 +221,7 @@ function AddContentForm({
   onDone: () => void
 }) {
   const [kind, setKind] = useState<ContentItemKind>("text")
+  const [sectionId, setSectionId] = useState("")
   const [text, setText] = useState("")
   const [label, setLabel] = useState("")
   const [value, setValue] = useState("")
@@ -178,7 +237,7 @@ function AddContentForm({
     setBusy(true)
     setErr(null)
     try {
-      await addContentItem(project.id, document.id, {
+      const updated = await addContentItem(project.id, document.id, {
         kind,
         text: kind === "text" ? text : "",
         label: kind === "fact" || kind === "metric" ? label : "",
@@ -189,6 +248,15 @@ function AddContentForm({
         caption: kind === "image" ? caption : "",
         aspect: kind === "image" ? aspect : "",
       })
+      if (sectionId) {
+        const newItem = updated.content_items[updated.content_items.length - 1]
+        const section = document.sections.find((s) => s.id === sectionId)
+        if (section && newItem) {
+          await updateSection(project.id, document.id, sectionId, {
+            content_item_ids: [...section.content_item_ids, newItem.id],
+          })
+        }
+      }
       onDone()
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not add this content — check the required fields.")
@@ -208,6 +276,23 @@ function AddContentForm({
         <option value="metric">Metric</option>
         <option value="image">Image</option>
       </select>
+
+      {document.sections.length > 0 ? (
+        <select
+          value={sectionId}
+          onChange={(e) => setSectionId(e.target.value)}
+          className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+        >
+          <option value="">No section</option>
+          {[...document.sections]
+            .sort((a, b) => a.order - b.order)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+        </select>
+      ) : null}
 
       {kind === "text" ? (
         <textarea
@@ -336,6 +421,138 @@ function AssetsSection({ project }: { project: Project }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+const SEVERITY_COLOR: Record<string, string> = {
+  BLOCK: "text-crit", ERROR: "text-crit", WARN: "text-amber-600", INFO: "text-mute",
+}
+
+function RequirementsSection({
+  project,
+  document,
+}: {
+  project: Project
+  document: ProjectDocument
+}) {
+  const [findings, setFindings] = useState<RequirementFinding[] | null>(null)
+
+  useEffect(() => {
+    if (!document.document_type_id) {
+      setFindings([])
+      return
+    }
+    let cancelled = false
+    getDocumentRequirements(project.id, document.id).then((r) => {
+      if (!cancelled) setFindings(r.findings)
+    })
+    return () => {
+      cancelled = true
+    }
+    // Re-check whenever the document's own state changes (content added/
+    // removed, composed, sections edited) — updated_at moves on all of those.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id, document.id, document.updated_at])
+
+  if (!document.document_type_id || findings === null) return null
+  if (findings.length === 0) {
+    return (
+      <div className="mb-5 px-2">
+        <p className="text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">Requirements</p>
+        <p className="py-1 text-[11.5px] text-ok">All requirements satisfied.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-5">
+      <p className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">
+        Requirements — {findings.length}
+      </p>
+      <div className="space-y-1 px-2">
+        {findings.map((f, i) => (
+          <div key={i} className="rounded-[7px] border border-line bg-paper-raised px-2 py-1.5">
+            <p className={`text-[11px] font-medium ${SEVERITY_COLOR[f.severity] ?? "text-ink-soft"}`}>
+              {f.code || f.severity}
+            </p>
+            <p className="text-[11px] text-ink-soft">{f.message}</p>
+            {f.suggestion ? <p className="mt-0.5 text-[10.5px] text-mute">{f.suggestion}</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProjectReferencesSection({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const { data } = useProjects()
+  const [picking, setPicking] = useState("")
+  const candidates = (data?.projects ?? []).filter(
+    (p) => p.id !== project.id && !document.project_refs.includes(p.id),
+  )
+  const referenced = (data?.projects ?? []).filter((p) => document.project_refs.includes(p.id))
+
+  return (
+    <div className="mb-5">
+      <p className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">
+        Referenced Projects
+      </p>
+      {referenced.length === 0 ? (
+        <p className="px-2 py-1 text-[11.5px] text-mute">No projects referenced yet.</p>
+      ) : (
+        <div className="space-y-0.5 px-2">
+          {referenced.map((p) => (
+            <div key={p.id} className="flex items-center justify-between gap-1 text-[11.5px]">
+              <span className="truncate text-ink-soft">{p.name}</span>
+              <button
+                onClick={async () => {
+                  await removeProjectRef(project.id, document.id, p.id)
+                  onChanged()
+                }}
+                className="flex-shrink-0 text-[10.5px] text-mute hover:text-crit"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {candidates.length > 0 ? (
+        <div className="mt-1.5 flex gap-1 px-2">
+          <select
+            value={picking}
+            onChange={(e) => setPicking(e.target.value)}
+            className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+          >
+            <option value="">Add a project…</option>
+            {candidates.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={!picking}
+            onClick={async () => {
+              await addProjectRef(project.id, document.id, picking)
+              setPicking("")
+              onChanged()
+            }}
+            className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

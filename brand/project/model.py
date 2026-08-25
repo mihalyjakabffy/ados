@@ -130,6 +130,40 @@ class ContentItem(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Sections — organisational, not compositional (ADOS-M2.2)
+# ---------------------------------------------------------------------------
+
+
+class Section(BaseModel):
+    """A named, ordered grouping of a Document's own ``ContentItem``s.
+
+    The Composer never sees a Section — ``Document.content_model()``
+    still emits one flat ``ContentModel``, walking sections in order and
+    each section's own ``content_item_ids`` in order, exactly as M2.1's
+    unsectioned documents always have. A Section exists so a
+    :class:`~brand.project.document_types.DocumentType`'s
+    ``required_sections`` has something concrete to check the presence of
+    (``brand/project/requirements.py``), and so the Structure panel can
+    show the skeleton the document was created with.
+
+    ``kind`` is a free string rather than a closed enum on purpose — new
+    document types are added as data
+    (``brand/project/document_types.py``), and a Section's kind is
+    whatever that type's ``default_structure`` names; a closed enum here
+    would mean a code change for every new type, which is exactly the
+    duplication M2.2 exists to prevent.
+    """
+
+    model_config = _Frozen
+
+    id: str = Field(default_factory=_short_id)
+    kind: str = Field(min_length=1, max_length=60)
+    name: str = Field(min_length=1, max_length=120)
+    order: int = Field(ge=0)
+    content_item_ids: tuple[str, ...] = ()
+
+
+# ---------------------------------------------------------------------------
 # Documents
 # ---------------------------------------------------------------------------
 
@@ -142,6 +176,28 @@ class Document(BaseModel):
     already renders. It is never hand-edited; only ``compose()`` /
     ``compose_scoped()`` (via the existing ``/compose`` and ``/intent``
     /``/iterate`` routes) ever produce a new one.
+
+    ``document_type_id`` is ``""`` for an untyped, free-form document —
+    exactly M2.1's shape, still fully supported — or a
+    ``brand.project.document_types.DocumentType`` id, in which case
+    ``sections`` normally mirrors that type's ``default_structure`` (the
+    user may add, remove or reorder from there; ADOS-M2.2 §5 Step 5).
+
+    ``project_refs`` is only meaningful for a document whose type has
+    ``supports_multi_project`` (today, only Portfolio): the ids of other
+    Projects this document draws on. Their content is never copied here —
+    it is fetched live at compose time
+    (``api/routers/ados_project.py``'s portfolio content assembly) — so
+    editing a referenced project changes what the next composition of
+    this document produces, which is the whole point of a reference
+    rather than a copy (ADOS-M2.2 §10).
+
+    ``metadata`` carries the document brief — subtitle, author, date,
+    audience, purpose, desired length, language, instructions — as a
+    plain bag rather than a dozen named optional fields, since which of
+    them apply varies by document type and none of them affect
+    composition (ADOS-M2.2 §2 lists Metadata itself as a shared
+    primitive, not nine per-type schemas).
     """
 
     model_config = _Frozen
@@ -150,12 +206,36 @@ class Document(BaseModel):
     project_id: str
     name: str = Field(min_length=1, max_length=120)
     direction_id: str = Field(default="editorial-quiet", max_length=40)
-    document_type: str = Field(default="", max_length=60)
+    document_type_id: str = Field(default="", max_length=40)
+    sections: tuple[Section, ...] = ()
+    project_refs: tuple[str, ...] = ()
+    metadata: dict[str, Any] = Field(default_factory=dict)
     content_items: tuple[ContentItem, ...] = ()
     latest_plan: Optional[dict[str, Any]] = None
     latest_evaluation: Optional[dict[str, Any]] = None
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+    def _ordered_content_items(self) -> tuple[ContentItem, ...]:
+        """Section order, then item order within a section; anything not
+        in any section is appended at the end, in its own stored order —
+        never silently dropped."""
+        if not self.sections:
+            return self.content_items
+        by_id = {item.id: item for item in self.content_items}
+        seen: set[str] = set()
+        ordered: list[ContentItem] = []
+        for section in sorted(self.sections, key=lambda s: s.order):
+            for item_id in section.content_item_ids:
+                item = by_id.get(item_id)
+                if item is not None and item_id not in seen:
+                    ordered.append(item)
+                    seen.add(item_id)
+        for item in self.content_items:
+            if item.id not in seen:
+                ordered.append(item)
+                seen.add(item.id)
+        return tuple(ordered)
 
     def content_model(self, project_name: str) -> ContentModel:
         """The one real translation from authored content to what the
@@ -164,7 +244,7 @@ class Document(BaseModel):
         with no aspect ratio) — this function does not soften them."""
         counters: dict[str, int] = {}
         blocks: list[ContentBlock] = []
-        for item in self.content_items:
+        for item in self._ordered_content_items():
             stem = _KIND_TO_ID_STEM[item.kind]
             counters[stem] = counters.get(stem, 0) + 1
             block_id = f"{stem}-{counters[stem]:02d}"
@@ -199,6 +279,12 @@ class Document(BaseModel):
             blocks=tuple(blocks),
         )
 
+    def section_by_kind(self, kind: str) -> Optional["Section"]:
+        for section in self.sections:
+            if section.kind == kind:
+                return section
+        return None
+
 
 def _looks_like_uuid(value: str) -> bool:
     try:
@@ -222,6 +308,8 @@ class ProjectVersion(BaseModel):
     document_id: str
     document_name: str
     direction_id: str
+    document_type_id: str = ""
+    sections: tuple[Section, ...] = ()
     content_items: tuple[ContentItem, ...]
     plan: Optional[dict[str, Any]] = None
     created_at: datetime = Field(default_factory=_now)
