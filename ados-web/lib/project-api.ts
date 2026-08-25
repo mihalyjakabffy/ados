@@ -1,11 +1,18 @@
 import useSWR, { mutate } from "swr"
 import type { ContentModel, Evaluation, PagePlan } from "./pageplan-types"
 import type {
+  ActionItem,
+  ActionStatus,
   ContentItem,
   ContentItemKind,
+  Decision,
   DocumentExport,
   DocumentType,
   DocumentTypeDetail,
+  Meeting,
+  OptionStatus,
+  Participant,
+  PresentationOption,
   Project,
   ProjectAsset,
   ProjectDocument,
@@ -268,6 +275,86 @@ export async function restoreVersion(projectId: string, versionNumber: number): 
 }
 
 // ---------------------------------------------------------------------------
+// Structured Client Presentation & Internal Documentation (ADOS-M2.2.1 P3/P4)
+// ---------------------------------------------------------------------------
+
+function _docPath(projectId: string, documentId: string): string {
+  return `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}`
+}
+
+export async function addPresentationOption(
+  projectId: string,
+  documentId: string,
+  body: { title: string; description?: string; status?: OptionStatus },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("POST", `${_docPath(projectId, documentId)}/options`, body)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function removePresentationOption(projectId: string, documentId: string, optionId: string): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("DELETE", `${_docPath(projectId, documentId)}/options/${encodeURIComponent(optionId)}`)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function addDecision(
+  projectId: string,
+  documentId: string,
+  body: { title: string; description?: string; selected_option_id?: string | null; date?: string | null },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("POST", `${_docPath(projectId, documentId)}/decisions`, body)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function removeDecision(projectId: string, documentId: string, decisionId: string): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("DELETE", `${_docPath(projectId, documentId)}/decisions/${encodeURIComponent(decisionId)}`)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function addActionItem(
+  projectId: string,
+  documentId: string,
+  body: { description: string; responsible?: string; deadline?: string | null; status?: ActionStatus },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("POST", `${_docPath(projectId, documentId)}/action-items`, body)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function removeActionItem(projectId: string, documentId: string, itemId: string): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("DELETE", `${_docPath(projectId, documentId)}/action-items/${encodeURIComponent(itemId)}`)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function addMeeting(
+  projectId: string,
+  documentId: string,
+  body: {
+    title: string
+    date?: string | null
+    location?: string
+    participants?: Participant[]
+    agenda?: string[]
+    decisions?: { title: string; description?: string; selected_option_id?: string | null; date?: string | null }[]
+    action_items?: { description: string; responsible?: string; deadline?: string | null; status?: ActionStatus }[]
+  },
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("POST", `${_docPath(projectId, documentId)}/meetings`, body)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+export async function removeMeeting(projectId: string, documentId: string, meetingId: string): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>("DELETE", `${_docPath(projectId, documentId)}/meetings/${encodeURIComponent(meetingId)}`)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+// ---------------------------------------------------------------------------
 // Export (ADOS-M2.2.1 P0) — the one call that reaches the real renderer/
 // Chromium pipeline directly, exactly compose()'s posture above.
 // ---------------------------------------------------------------------------
@@ -410,11 +497,18 @@ export async function removeProjectRef(
 }
 
 export type {
+  ActionItem,
+  ActionStatus,
   ContentItem,
   ContentItemKind,
+  Decision,
   DocumentExport,
   DocumentType,
   DocumentTypeDetail,
+  Meeting,
+  OptionStatus,
+  Participant,
+  PresentationOption,
   Project,
   ProjectAsset,
   ProjectDocument,

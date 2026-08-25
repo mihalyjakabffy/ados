@@ -4,13 +4,21 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAdosState } from "@/lib/ados-state"
 import {
+  addActionItem,
   addContentItem,
+  addDecision,
+  addMeeting,
+  addPresentationOption,
   addProjectRef,
   assetFileUrl,
   exportDocument,
   exportFileUrl,
   getDocumentRequirements,
+  removeActionItem,
   removeContentItem,
+  removeDecision,
+  removeMeeting,
+  removePresentationOption,
   removeProjectRef,
   saveVersion,
   updateSection,
@@ -18,9 +26,16 @@ import {
   useProjects,
 } from "@/lib/project-api"
 import type {
+  ActionItem,
+  ActionStatus,
   ContentItem,
   ContentItemKind,
+  Decision,
   DocumentExport,
+  Meeting,
+  OptionStatus,
+  Participant,
+  PresentationOption,
   Project,
   ProjectDocument,
   RequirementFinding,
@@ -63,6 +78,12 @@ export function DocumentContextPanel({
       <RequirementsSection project={project} document={document} />
       {document.document_type_id === "portfolio" ? (
         <ProjectReferencesSection project={project} document={document} onChanged={onDocumentChanged} />
+      ) : null}
+      {document.document_type_id === "client-presentation" ? (
+        <ClientPresentationSection project={project} document={document} onChanged={onDocumentChanged} />
+      ) : null}
+      {document.document_type_id === "internal-documentation" ? (
+        <InternalDocumentationSection project={project} document={document} onChanged={onDocumentChanged} />
       ) : null}
       <ContentSection project={project} document={document} onChanged={onDocumentChanged} />
       <AssetsSection project={project} />
@@ -684,6 +705,569 @@ const EXPORT_STATUS_LABEL: Record<DocumentExport["status"], string> = {
   completed: "exported",
   failed: "failed",
   blocked: "blocked",
+}
+
+// CLIENT PRESENTATION (ADOS-M2.2.1 P3) — options, decisions, next steps.
+// Deliberately three short lists with tiny inline add-forms, not a second
+// content-editing surface: an option/decision/action item is a handful of
+// fields, not a document.
+const OPTION_STATUS_LABEL: Record<OptionStatus, string> = {
+  proposed: "Proposed", recommended: "Recommended", rejected: "Rejected", selected: "Selected",
+}
+const OPTION_STATUS_COLOR: Record<OptionStatus, string> = {
+  proposed: "text-mute", recommended: "text-ok", selected: "text-ok", rejected: "text-crit",
+}
+
+function ClientPresentationSection({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  return (
+    <div className="mb-5">
+      <p className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">
+        Client Presentation
+      </p>
+      <OptionsList project={project} document={document} onChanged={onChanged} />
+      <DecisionsList project={project} document={document} onChanged={onChanged} />
+      <ActionItemsList
+        items={document.action_items}
+        onAdd={(body) => addActionItem(project.id, document.id, body).then(onChanged)}
+        onRemove={(id) => removeActionItem(project.id, document.id, id).then(onChanged)}
+        label="Next Steps"
+      />
+    </div>
+  )
+}
+
+function OptionsList({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [title, setTitle] = useState("")
+  const [status, setStatus] = useState<OptionStatus>("proposed")
+
+  return (
+    <div className="mb-2 px-2">
+      <div className="mb-0.5 flex items-center justify-between">
+        <p className="text-[10.5px] font-medium text-ink-soft">Options</p>
+        <button onClick={() => setAdding((v) => !v)} className="text-[10.5px] font-medium text-accent hover:underline">
+          + Add
+        </button>
+      </div>
+      {document.presentation_options.length === 0 ? (
+        <p className="text-[11px] text-mute">No options yet.</p>
+      ) : (
+        <div className="space-y-0.5">
+          {document.presentation_options.map((o) => (
+            <div key={o.id} className="group flex items-center justify-between gap-1 text-[11.5px]">
+              <span className="truncate text-ink-soft">
+                {o.title} <span className={`text-[10px] ${OPTION_STATUS_COLOR[o.status]}`}>· {OPTION_STATUS_LABEL[o.status]}</span>
+              </span>
+              <button
+                onClick={() => removePresentationOption(project.id, document.id, o.id).then(onChanged)}
+                className="flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="mt-1 flex flex-col gap-1.5 rounded-[8px] border border-line bg-paper-raised p-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Option title"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as OptionStatus)}
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          >
+            <option value="proposed">Proposed</option>
+            <option value="recommended">Recommended</option>
+            <option value="rejected">Rejected</option>
+            <option value="selected">Selected</option>
+          </select>
+          <div className="flex gap-1.5">
+            <button
+              onClick={async () => {
+                if (!title.trim()) return
+                await addPresentationOption(project.id, document.id, { title, status })
+                setTitle("")
+                setStatus("proposed")
+                setAdding(false)
+                onChanged()
+              }}
+              className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white"
+            >
+              Add
+            </button>
+            <button onClick={() => setAdding(false)} className="rounded-[6px] px-2 py-[4px] text-[11px] text-mute hover:bg-black/[.04]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function DecisionsList({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [title, setTitle] = useState("")
+  const [selectedOptionId, setSelectedOptionId] = useState("")
+  const [date, setDate] = useState("")
+  const optionById = new Map(document.presentation_options.map((o) => [o.id, o]))
+
+  return (
+    <div className="mb-2 px-2">
+      <div className="mb-0.5 flex items-center justify-between">
+        <p className="text-[10.5px] font-medium text-ink-soft">Decisions</p>
+        <button onClick={() => setAdding((v) => !v)} className="text-[10.5px] font-medium text-accent hover:underline">
+          + Add
+        </button>
+      </div>
+      {document.decisions.length === 0 ? (
+        <p className="text-[11px] text-mute">No decisions yet.</p>
+      ) : (
+        <div className="space-y-0.5">
+          {document.decisions.map((d) => (
+            <div key={d.id} className="group flex items-center justify-between gap-1 text-[11.5px]">
+              <span className="truncate text-ink-soft">
+                {d.title}
+                {d.selected_option_id && optionById.get(d.selected_option_id) ? ` → ${optionById.get(d.selected_option_id)!.title}` : ""}
+                {d.date ? ` · ${d.date}` : ""}
+              </span>
+              <button
+                onClick={() => removeDecision(project.id, document.id, d.id).then(onChanged)}
+                className="flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="mt-1 flex flex-col gap-1.5 rounded-[8px] border border-line bg-paper-raised p-2">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Decision"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          {document.presentation_options.length > 0 ? (
+            <select
+              value={selectedOptionId}
+              onChange={(e) => setSelectedOptionId(e.target.value)}
+              className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+            >
+              <option value="">No option selected</option>
+              {document.presentation_options.map((o) => (
+                <option key={o.id} value={o.id}>{o.title}</option>
+              ))}
+            </select>
+          ) : null}
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <div className="flex gap-1.5">
+            <button
+              onClick={async () => {
+                if (!title.trim()) return
+                await addDecision(project.id, document.id, {
+                  title, selected_option_id: selectedOptionId || null, date: date || null,
+                })
+                setTitle("")
+                setSelectedOptionId("")
+                setDate("")
+                setAdding(false)
+                onChanged()
+              }}
+              className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white"
+            >
+              Add
+            </button>
+            <button onClick={() => setAdding(false)} className="rounded-[6px] px-2 py-[4px] text-[11px] text-mute hover:bg-black/[.04]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ActionItemsList({
+  items,
+  onAdd,
+  onRemove,
+  label,
+}: {
+  items: ActionItem[]
+  onAdd: (body: { description: string; responsible?: string; deadline?: string | null }) => Promise<void>
+  onRemove: (id: string) => void
+  label: string
+}) {
+  const [adding, setAdding] = useState(false)
+  const [description, setDescription] = useState("")
+  const [responsible, setResponsible] = useState("")
+  const [deadline, setDeadline] = useState("")
+
+  return (
+    <div className="mb-2 px-2">
+      <div className="mb-0.5 flex items-center justify-between">
+        <p className="text-[10.5px] font-medium text-ink-soft">{label}</p>
+        <button onClick={() => setAdding((v) => !v)} className="text-[10.5px] font-medium text-accent hover:underline">
+          + Add
+        </button>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-[11px] text-mute">No action items yet.</p>
+      ) : (
+        <div className="space-y-0.5">
+          {items.map((a) => (
+            <div key={a.id} className="group flex items-center justify-between gap-1 text-[11.5px]">
+              <span className="truncate text-ink-soft">
+                {a.description}
+                {a.responsible ? ` — ${a.responsible}` : " — unassigned"}
+                {a.deadline ? ` · due ${a.deadline}` : ""}
+              </span>
+              <button
+                onClick={() => onRemove(a.id)}
+                className="flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="mt-1 flex flex-col gap-1.5 rounded-[8px] border border-line bg-paper-raised p-2">
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Action"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <input
+            value={responsible}
+            onChange={(e) => setResponsible(e.target.value)}
+            placeholder="Responsible"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <div className="flex gap-1.5">
+            <button
+              onClick={async () => {
+                if (!description.trim()) return
+                await onAdd({ description, responsible, deadline: deadline || null })
+                setDescription("")
+                setResponsible("")
+                setDeadline("")
+                setAdding(false)
+              }}
+              className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white"
+            >
+              Add
+            </button>
+            <button onClick={() => setAdding(false)} className="rounded-[6px] px-2 py-[4px] text-[11px] text-mute hover:bg-black/[.04]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// INTERNAL DOCUMENTATION (ADOS-M2.2.1 P4) — meetings, recorded whole. A
+// meeting's participants/agenda/decisions/action items are built up in
+// local state before one POST — the backend has no sub-resource CRUD for
+// a meeting's own contents (api/routers/ados_project.py's add_meeting),
+// so neither does this form.
+function InternalDocumentationSection({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+
+  return (
+    <div className="mb-5">
+      <div className="mb-1 flex items-center justify-between px-2">
+        <p className="text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">Meetings</p>
+        <button onClick={() => setAdding((v) => !v)} className="text-[10.5px] font-medium text-accent hover:underline">
+          + Add
+        </button>
+      </div>
+
+      {document.meetings.length === 0 ? (
+        <p className="px-2 py-1 text-[11.5px] text-mute">No meetings recorded yet.</p>
+      ) : (
+        <div className="space-y-2 px-2">
+          {document.meetings.map((m) => (
+            <MeetingCard
+              key={m.id}
+              meeting={m}
+              onRemove={() => removeMeeting(project.id, document.id, m.id).then(onChanged)}
+            />
+          ))}
+        </div>
+      )}
+
+      {adding ? (
+        <AddMeetingForm
+          project={project}
+          document={document}
+          onDone={() => {
+            setAdding(false)
+            onChanged()
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function MeetingCard({ meeting, onRemove }: { meeting: Meeting; onRemove: () => void }) {
+  return (
+    <div className="group rounded-[8px] border border-line bg-paper-raised px-2.5 py-2">
+      <div className="flex items-center justify-between gap-1">
+        <p className="truncate text-[11.5px] font-medium text-ink-soft">
+          {meeting.title}{meeting.date ? ` — ${meeting.date}` : ""}
+        </p>
+        <button
+          onClick={onRemove}
+          className="flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+        >
+          Remove
+        </button>
+      </div>
+      {meeting.location ? <p className="text-[10.5px] text-mute">{meeting.location}</p> : null}
+      {meeting.participants.length > 0 ? (
+        <p className="mt-1 text-[10.5px] text-ink-soft">
+          {meeting.participants.map((p) => (p.role ? `${p.name} (${p.role})` : p.name)).join(", ")}
+        </p>
+      ) : null}
+      {meeting.decisions.length > 0 ? (
+        <p className="mt-1 text-[10.5px] text-mute">{meeting.decisions.length} decision{meeting.decisions.length === 1 ? "" : "s"}</p>
+      ) : null}
+      {meeting.action_items.length > 0 ? (
+        <div className="mt-1 space-y-0.5">
+          {meeting.action_items.map((a) => (
+            <p key={a.id} className="text-[10.5px] text-mute">
+              • {a.description}{a.responsible ? ` — ${a.responsible}` : " — unassigned"}{a.deadline ? ` · due ${a.deadline}` : ""}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AddMeetingForm({
+  project,
+  document,
+  onDone,
+}: {
+  project: Project
+  document: ProjectDocument
+  onDone: () => void
+}) {
+  const [title, setTitle] = useState("")
+  const [date, setDate] = useState("")
+  const [location, setLocation] = useState("")
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [participantName, setParticipantName] = useState("")
+  const [participantRole, setParticipantRole] = useState("")
+  const [agendaText, setAgendaText] = useState("")
+  const [decisionTitles, setDecisionTitles] = useState<string[]>([])
+  const [decisionTitle, setDecisionTitle] = useState("")
+  const [actionItems, setActionItems] = useState<{ description: string; responsible: string }[]>([])
+  const [actionDescription, setActionDescription] = useState("")
+  const [actionResponsible, setActionResponsible] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <div className="mt-1 flex flex-col gap-1.5 rounded-[8px] border border-line bg-paper-raised p-2">
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Meeting title"
+        className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+      />
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+      />
+      <input
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder="Location"
+        className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+      />
+
+      <p className="text-[10px] font-medium text-mute">Participants</p>
+      {participants.length > 0 ? (
+        <p className="text-[10.5px] text-ink-soft">{participants.map((p) => p.name).join(", ")}</p>
+      ) : null}
+      <div className="flex gap-1">
+        <input
+          value={participantName}
+          onChange={(e) => setParticipantName(e.target.value)}
+          placeholder="Name"
+          className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+        />
+        <input
+          value={participantRole}
+          onChange={(e) => setParticipantRole(e.target.value)}
+          placeholder="Role"
+          className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+        />
+        <button
+          onClick={() => {
+            if (!participantName.trim()) return
+            setParticipants((prev) => [...prev, { name: participantName, role: participantRole }])
+            setParticipantName("")
+            setParticipantRole("")
+          }}
+          className="flex-shrink-0 rounded-[6px] px-2 py-[4px] text-[11px] text-accent hover:bg-accent-soft/40"
+        >
+          + Add
+        </button>
+      </div>
+
+      <textarea
+        value={agendaText}
+        onChange={(e) => setAgendaText(e.target.value)}
+        placeholder="Agenda — one item per line"
+        rows={2}
+        className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+      />
+
+      <p className="text-[10px] font-medium text-mute">Decisions</p>
+      {decisionTitles.length > 0 ? (
+        <p className="text-[10.5px] text-ink-soft">{decisionTitles.join(" · ")}</p>
+      ) : null}
+      <div className="flex gap-1">
+        <input
+          value={decisionTitle}
+          onChange={(e) => setDecisionTitle(e.target.value)}
+          placeholder="Decision"
+          className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+        />
+        <button
+          onClick={() => {
+            if (!decisionTitle.trim()) return
+            setDecisionTitles((prev) => [...prev, decisionTitle])
+            setDecisionTitle("")
+          }}
+          className="flex-shrink-0 rounded-[6px] px-2 py-[4px] text-[11px] text-accent hover:bg-accent-soft/40"
+        >
+          + Add
+        </button>
+      </div>
+
+      <p className="text-[10px] font-medium text-mute">Action items</p>
+      {actionItems.length > 0 ? (
+        <p className="text-[10.5px] text-ink-soft">
+          {actionItems.map((a) => `${a.description} (${a.responsible || "unassigned"})`).join(" · ")}
+        </p>
+      ) : null}
+      <div className="flex gap-1">
+        <input
+          value={actionDescription}
+          onChange={(e) => setActionDescription(e.target.value)}
+          placeholder="Action"
+          className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+        />
+        <input
+          value={actionResponsible}
+          onChange={(e) => setActionResponsible(e.target.value)}
+          placeholder="Responsible"
+          className="min-w-0 flex-1 rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11px]"
+        />
+        <button
+          onClick={() => {
+            if (!actionDescription.trim()) return
+            setActionItems((prev) => [...prev, { description: actionDescription, responsible: actionResponsible }])
+            setActionDescription("")
+            setActionResponsible("")
+          }}
+          className="flex-shrink-0 rounded-[6px] px-2 py-[4px] text-[11px] text-accent hover:bg-accent-soft/40"
+        >
+          + Add
+        </button>
+      </div>
+
+      <div className="mt-1 flex gap-1.5">
+        <button
+          disabled={busy || !title.trim()}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await addMeeting(project.id, document.id, {
+                title,
+                date: date || null,
+                location,
+                participants,
+                agenda: agendaText.split("\n").map((s) => s.trim()).filter(Boolean),
+                decisions: decisionTitles.map((t) => ({ title: t })),
+                action_items: actionItems.map((a) => ({ description: a.description, responsible: a.responsible })),
+              })
+              onDone()
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white disabled:opacity-40"
+        >
+          {busy ? "Saving…" : "Save meeting"}
+        </button>
+        <button onClick={onDone} className="rounded-[6px] px-2 py-[4px] text-[11px] text-mute hover:bg-black/[.04]">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function VersionsSection({

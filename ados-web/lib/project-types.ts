@@ -46,6 +46,10 @@ export interface ProjectDocument {
   project_refs: string[]
   metadata: Record<string, unknown>
   content_items: ContentItem[]
+  presentation_options: PresentationOption[]
+  decisions: Decision[]
+  action_items: ActionItem[]
+  meetings: Meeting[]
   latest_plan: Record<string, unknown> | null
   latest_evaluation: Record<string, unknown> | null
   created_at: string
@@ -64,6 +68,54 @@ export interface ProjectVersion {
   content_items: ContentItem[]
   plan: Record<string, unknown> | null
   created_at: string
+}
+
+// Mirrors brand/project/model.py's PresentationOption/Decision/ActionItem/
+// Participant/Meeting exactly (ADOS-M2.2.1 P3/P4). Decision and ActionItem
+// are the same shape whether they sit flat on a Document (Client
+// Presentation) or nested in a Meeting (Internal Documentation) — no
+// per-context variant.
+export type OptionStatus = "proposed" | "recommended" | "rejected" | "selected"
+
+export interface PresentationOption {
+  id: string
+  title: string
+  description: string
+  status: OptionStatus
+}
+
+export interface Decision {
+  id: string
+  title: string
+  description: string
+  selected_option_id: string | null
+  date: string | null
+}
+
+export type ActionStatus = "open" | "in_progress" | "done"
+
+export interface ActionItem {
+  id: string
+  description: string
+  responsible: string
+  deadline: string | null
+  status: ActionStatus
+}
+
+export interface Participant {
+  name: string
+  role: string
+}
+
+export interface Meeting {
+  id: string
+  title: string
+  date: string | null
+  location: string
+  participants: Participant[]
+  agenda: string[]
+  decisions: Decision[]
+  action_items: ActionItem[]
 }
 
 // Mirrors brand/project/model.py's Export/ExportStatus/ExportValidationState
