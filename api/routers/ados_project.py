@@ -865,6 +865,7 @@ def compose_document(project_id: str, document_id: str) -> dict[str, Any]:
     try:
         plan = compose(content, direction, brand)
     except CompositionError as exc:
+        logger.warning("composition infeasible for document %s: %s", doc.id, exc)
         raise HTTPException(status_code=422, detail={"error": "composition_infeasible", "detail": str(exc)}) from exc
 
     evaluation = evaluate(plan, direction, brand.resolve_tokens())
