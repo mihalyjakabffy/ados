@@ -8,6 +8,7 @@ import type {
 } from "./brand-types"
 import type { ComposeResult, ContentModel, PagePlan } from "./pageplan-types"
 import type { CommandIntent, IntentResponse } from "./intent-types"
+import type { IterateResponse } from "./iterate-types"
 
 // The Brand System lives on the real REVELATION API (api/main.py), not on
 // ados-service — a different backend from the Library/System pages, on
@@ -110,6 +111,26 @@ export async function executeIntent(
   },
 ): Promise<IntentResponse> {
   return postJson(`/api/v2/brands/${encodeURIComponent(brandId)}/intent`, body)
+}
+
+// ---------------------------------------------------------------------------
+// Iterate — POST /brands/{id}/iterate (M1.4: review finding -> recommended
+// command -> scoped compose -> review again)
+// ---------------------------------------------------------------------------
+
+export async function executeIteration(
+  brandId: string,
+  body: {
+    content_model: ContentModel
+    base_direction_id?: string
+    base_direction?: Record<string, unknown>
+    base_plan: PagePlan
+    finding_code: string
+    target_page: number
+    previous_plan_hash?: string
+  },
+): Promise<IterateResponse> {
+  return postJson(`/api/v2/brands/${encodeURIComponent(brandId)}/iterate`, body)
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {

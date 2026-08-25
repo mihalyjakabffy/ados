@@ -627,6 +627,131 @@ def test_intent_with_base_plan_is_deterministic_over_http(client):
 
 
 # ---------------------------------------------------------------------------
+# Iterate — one review-driven closed-loop iteration (M1.4) at the HTTP
+# boundary. Same posture as Intent/Compose above: brand.creative.iterate's
+# own contract (finding -> recommendation, page isolation, determinism,
+# clean failure) is tests_brand/test_iterate.py's job. These tests are
+# about the route — that base_plan is required and round-trips its own
+# 'plan_hash' key, that the server re-reviews base_plan itself rather than
+# trusting a client-supplied finding, and that the error taxonomy reaches
+# the caller as a 422 with previous_plan_hash intact.
+# ---------------------------------------------------------------------------
+
+
+def _iterate_payload(finding_code: str, target_page: int, direction_id: str = "editorial-quiet", **extra):
+    from brand.examples.malthouse import malthouse_content
+
+    base = _malthouse_payload(direction_id)
+    payload = {
+        "content_model": base["content_model"],
+        "base_direction_id": direction_id,
+        "finding_code": finding_code,
+        "target_page": target_page,
+    }
+    payload.update(extra)
+    return payload
+
+
+def test_iterate_recomposes_only_the_finding_s_page(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan, previous_plan_hash=plan["plan_hash"])
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+    data = r.json()
+
+    assert data["recommendation"]["finding_code"] == "FILL_RATIO_LOW"
+    assert data["recommendation"]["target_page"] == 4
+    assert data["after_metric"] > data["before_metric"]
+    assert data["diff"]["changed_pages"] == [4]
+
+    new_plan = data["plan"]
+    for i, page in enumerate(plan["pages"]):
+        if i == 4:
+            assert new_plan["pages"][i] != page
+        else:
+            assert new_plan["pages"][i] == page, f"page {i} must be byte-identical over HTTP too"
+
+
+def test_iterate_is_deterministic_over_http(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan)
+    first = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body).json()
+    second = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body).json()
+    assert first["plan"] == second["plan"]
+    assert first["diff"] == second["diff"]
+    assert first["after_metric"] == second["after_metric"]
+
+
+def test_iterate_base_plan_round_trips_its_own_plan_hash_key(client):
+    """Same round-trip pitfall /intent's base_plan has: PagePlan.to_dict()
+    adds a derived 'plan_hash' key the frozen schema does not declare."""
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    assert "plan_hash" in plan
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 200, r.json()
+
+
+def test_iterate_with_an_unknown_finding_code_is_422(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("NOT_A_REAL_CODE", 4, base_plan=plan, previous_plan_hash=plan["plan_hash"])
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail["error"] == "finding_not_found"
+    assert detail["previous_plan_hash"] == plan["plan_hash"]
+
+
+def test_iterate_with_the_wrong_target_page_is_422(client):
+    """The finding exists (on page 4) but not on the page named — the
+    server looks the finding up itself, it does not trust the pairing."""
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 0, base_plan=plan)
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "finding_not_found"
+
+
+def test_iterate_with_a_malformed_base_plan_is_422(client):
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan={"not": "a page plan"})
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_base_plan"
+
+
+def test_iterate_requires_exactly_one_base_direction_field(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    plan = base["plan"]
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=plan)
+    body["base_direction"] = {"id": "x"}  # both base_direction_id and base_direction now set
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_base_direction"
+
+
+def test_iterate_with_an_unknown_brand_is_404(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=base["plan"])
+    r = client.post("/api/v2/brands/00000000-0000-0000-0000-000000000000/iterate", json=body)
+    assert r.status_code == 404
+
+
+def test_iterate_with_invalid_content_model_is_422(client):
+    base = client.post(f"/api/v2/brands/{BRAND_ID}/compose", json=_malthouse_payload()).json()
+    body = _iterate_payload("FILL_RATIO_LOW", 4, base_plan=base["plan"])
+    body["content_model"] = {"not": "valid"}
+    r = client.post(f"/api/v2/brands/{BRAND_ID}/iterate", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"] == "invalid_content_model"
+
+
+# ---------------------------------------------------------------------------
 # Proposals — the approval gate at the HTTP boundary
 # ---------------------------------------------------------------------------
 

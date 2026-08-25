@@ -62,7 +62,20 @@ _ORDER = {Severity.BLOCK: 0, Severity.ERROR: 1, Severity.WARN: 2, Severity.INFO:
 
 @dataclass(frozen=True)
 class Finding:
-    """One thing wrong with a brand."""
+    """One thing wrong with a brand — or, in ``brand.creative.evaluate``, with
+    one page of a composed document.
+
+    ``code``, ``metric``, ``actual``, ``threshold`` and ``page_index`` are
+    optional and unset (``""`` / ``None``) on most findings: a finding is a
+    prose sentence a person reads first, and most of what this validator
+    checks (a missing font, a personality axis count, a hierarchy that
+    repeats a level) has no single number to name. They exist so that the
+    *few* findings a deterministic command can actually act on — today,
+    ``brand.creative.evaluate``'s fill-ratio checks — can be matched back to
+    a page and a metric without parsing ``message``. Setting them does not
+    change what the finding *means*; ``message`` stays the authoritative,
+    human-readable statement of the problem.
+    """
 
     severity: Severity
     category: Category
@@ -70,6 +83,11 @@ class Finding:
     message: str
     suggestion: str = ""
     rule: str = ""
+    code: str = ""
+    metric: str = ""
+    actual: float | None = None
+    threshold: float | None = None
+    page_index: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +98,11 @@ class Finding:
             "message": self.message,
             "suggestion": self.suggestion,
             "rule": self.rule,
+            "code": self.code,
+            "metric": self.metric,
+            "actual": self.actual,
+            "threshold": self.threshold,
+            "page_index": self.page_index,
         }
 
 

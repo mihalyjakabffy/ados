@@ -113,6 +113,8 @@ def evaluate(
                 f"fill ratio {page.fill_ratio:.2f} above the {high:.2f} "
                 f"ceiling — the page has no room left to read in",
                 "Move a block to the next page.", "H13 / ADOS-3.7.010",
+                code="FILL_RATIO_HIGH", metric="fill_ratio",
+                actual=page.fill_ratio, threshold=high, page_index=page.index,
             ))
 
     checked.append("H12 local ink coverage")
@@ -192,6 +194,8 @@ def evaluate(
                 "any document is underfull by arithmetic. Worth a look if it "
                 "is not the last page.",
                 "ADOS-3.7.010 (advisory here)",
+                code="FILL_RATIO_LOW", metric="fill_ratio",
+                actual=page.fill_ratio, threshold=low, page_index=page.index,
             ))
 
     checked.append("density against the direction's target")

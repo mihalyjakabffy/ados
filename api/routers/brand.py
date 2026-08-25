@@ -17,6 +17,8 @@ Prefix: /api/v2   Tags: ["brand"]
     GET  /brands/{id}/templates           which documents this brand can render
     POST /brands/{id}/render/{template}   render one, HTML or PDF
     POST /brands/{id}/compose             ContentModel + direction → PagePlan
+    POST /brands/{id}/intent              CommandIntent → PagePlan (M1.2, scoped since M1.3)
+    POST /brands/{id}/iterate             review finding → recommended command → PagePlan (M1.4)
     POST /brand-proposals                 brief → BrandAgent proposal (no write)
     GET  /brand-schema                    the JSON Schema
 
@@ -174,6 +176,30 @@ class IntentRequest(BaseModel):
         "byte-identical, instead of the whole-document recomposition M1.2 "
         "always did. Omit it to keep exactly that M1.2 behaviour.",
     )
+
+
+class IterateRequest(BaseModel):
+    """Input to ``brand.creative.iterate`` — one review-driven iteration.
+
+    Unlike ``IntentRequest``, ``base_plan`` is required: an iteration only
+    exists in response to something a review of an actual PagePlan found,
+    named by ``finding_code`` + ``target_page`` rather than sent as a whole
+    finding payload the client could otherwise fabricate. The server
+    re-reviews ``base_plan`` itself and looks up the matching
+    ``brand.validation.brand_validator.Finding`` — the client points at a
+    finding, it does not assert one.
+    """
+
+    content_model: dict[str, Any]
+    base_direction_id: Optional[str] = Field(default=None, max_length=40)
+    base_direction: Optional[dict[str, Any]] = None
+    base_plan: dict[str, Any] = Field(
+        description="A previous call's 'plan' payload (PagePlan.to_dict())."
+    )
+    finding_code: str = Field(min_length=1, max_length=60)
+    target_page: int = Field(ge=0)
+    previous_plan_hash: str = Field(default="", max_length=64)
+    page_format_name: str = Field(default="A4", max_length=20)
 
 
 # ---------------------------------------------------------------------------
@@ -694,6 +720,213 @@ def execute_intent(
                 if base_plan_obj is not None
                 else "brand.creative.intent.apply_intent + brand.creative.composer.compose"
             ),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Iterate — one review-driven closed-loop iteration (M1.4)
+#
+# PagePlan -> evaluate() -> Finding -> brand.creative.iterate.recommend()
+#          -> CommandIntent -> validate_intent() -> apply_intent()
+#          -> compose_scoped() -> PagePlan' -> evaluate()
+#
+# This handler holds no layout, review or recommendation logic of its own —
+# see brand/creative/iterate.py's module docstring. It re-reviews base_plan
+# itself rather than trusting a client-supplied finding, and every step
+# past that is the same brand.creative.intent + brand.creative.scope
+# pipeline POST /intent already uses; there is no second mutation engine.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/brands/{brand_id}/iterate")
+def execute_iteration(
+    brand_id: str,
+    body: IterateRequest,
+    version: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
+    """Apply one deterministic, review-recommended CommandIntent and recompose.
+
+    ``finding_code`` + ``target_page`` name a finding from reviewing
+    ``base_plan`` — the server re-runs that review itself and looks up the
+    matching finding, rather than accepting one the client asserts. On any
+    failure — an unknown finding, one with no command mapping, a domain
+    validation error, an unsupported or infeasible scope, or a command that
+    executed but did not move the finding's own metric in the promised
+    direction — nothing is composed and no plan is returned; the caller
+    keeps whatever PagePlan it already had, with ``previous_plan_hash``
+    echoed back so it knows unambiguously which plan is still current.
+    """
+    import datetime as _dt
+
+    from pydantic import ValidationError
+
+    from brand.content.model import ContentModel
+    from brand.creative.composer import CompositionError
+    from brand.creative.direction import CreativeDirection
+    from brand.creative.directions import get_direction
+    from brand.creative.evaluate import evaluate
+    from brand.creative.intent import IntentValidationError
+    from brand.creative.iterate import (
+        IterationNoImprovementError,
+        NoRecommendationError,
+        iterate,
+    )
+    from brand.creative.plan import PagePlan
+    from brand.creative.scope import ScopeInfeasibleError, UnsupportedScopeError
+
+    brand = _load(brand_id, version)
+
+    try:
+        content = ContentModel.model_validate(body.content_model)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_model", "errors": exc.errors()},
+        ) from exc
+
+    # Same round-trip pitfall as /intent's base_plan: PagePlan.to_dict()
+    # adds a derived 'plan_hash' key the frozen, extra="forbid" schema does
+    # not itself declare.
+    plan_payload = dict(body.base_plan)
+    plan_payload.pop("plan_hash", None)
+    try:
+        base_plan = PagePlan.model_validate(plan_payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_base_plan", "errors": exc.errors()},
+        ) from exc
+
+    if bool(body.base_direction_id) == bool(body.base_direction):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_base_direction",
+                "detail": "exactly one of base_direction_id or base_direction is required",
+            },
+        )
+
+    try:
+        if body.base_direction_id:
+            base_direction = get_direction(body.base_direction_id)
+        else:
+            base_direction = CreativeDirection.model_validate(body.base_direction)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown_direction", "detail": str(exc)},
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_base_direction", "errors": exc.errors()},
+        ) from exc
+
+    tokens = brand.resolve_tokens()
+    before_evaluation = evaluate(base_plan, base_direction, tokens)
+    finding = next(
+        (
+            f
+            for f in before_evaluation.report.findings
+            if f.code == body.finding_code and f.page_index == body.target_page
+        ),
+        None,
+    )
+    if finding is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "finding_not_found",
+                "detail": (
+                    f"no finding {body.finding_code!r} on page {body.target_page} "
+                    f"in the current review of base_plan"
+                ),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        )
+
+    try:
+        result = iterate(
+            base_plan, finding, content, base_direction, brand,
+            tokens=tokens, page_format_name=body.page_format_name,
+        )
+    except NoRecommendationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "no_recommendation",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+    except IntentValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "intent_validation_failed",
+                "errors": exc.errors,
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+    except UnsupportedScopeError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "unsupported_scope",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+    except ScopeInfeasibleError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "scope_infeasible",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+    except CompositionError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "composition_infeasible",
+                "detail": str(exc),
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+    except IterationNoImprovementError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "no_improvement",
+                "detail": str(exc),
+                "before_metric": exc.before,
+                "after_metric": exc.after,
+                "previous_plan_hash": body.previous_plan_hash,
+            },
+        ) from exc
+
+    return {
+        "finding": result.finding,
+        "recommendation": result.recommendation.model_dump(mode="json"),
+        "intent": result.intent.model_dump(mode="json"),
+        "resolution": result.resolution.model_dump(mode="json"),
+        "resolved_scope": result.resolved_scope.model_dump(mode="json"),
+        "diff": result.diff.model_dump(mode="json"),
+        "metric": result.metric,
+        "before_metric": result.before_metric,
+        "after_metric": result.after_metric,
+        "plan": result.plan.to_dict(),
+        "before_evaluation": result.before_evaluation,
+        "after_evaluation": result.after_evaluation,
+        "meta": {
+            "requested_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "brand_id": str(brand.brand_id),
+            "brand_version": brand.version,
+            "previous_plan_hash": body.previous_plan_hash,
+            "composer": "brand.creative.iterate.iterate",
         },
     }
 

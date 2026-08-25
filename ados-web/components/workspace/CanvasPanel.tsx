@@ -10,7 +10,7 @@ import type { Page } from "@/lib/pageplan-types"
 // page_width_mm/page_height_mm. Nothing is computed that the backend
 // did not already state.
 export function CanvasPanel() {
-  const { plan, planStatus, planError, selection, select, lastIntentSummary } = useAdosState()
+  const { plan, planStatus, planError, selection, select, lastIntentSummary, lastIterationSummary } = useAdosState()
 
   if (planStatus === "idle" && !plan) {
     return (
@@ -52,14 +52,18 @@ export function CanvasPanel() {
   const selectedIndex = selection.kind === "page" || selection.kind === "contentBlock" ? selection.pageIndex : 0
   const page = pagePlan.pages[selectedIndex] ?? pagePlan.pages[0]
 
-  // Which pages the last command actually touched — read straight off the
-  // diff brand.creative.scope returned, not re-derived by comparing plans
-  // here. Only applies to the diff that produced the plan on screen; a
-  // fresh compose (or a plan from before scoping existed) shows none.
+  // Which pages the last command — or the last review-driven iteration
+  // (M1.4) — actually touched, read straight off the diff
+  // brand.creative.scope returned, not re-derived by comparing plans here.
+  // Only one of the two summaries can match the plan on screen at a time
+  // (ados-state.tsx clears the other whenever one runs), so checking both
+  // is safe rather than ambiguous.
   const changedPages =
     lastIntentSummary?.diff && lastIntentSummary.newPlanHash === pagePlan.plan_hash
       ? new Set(lastIntentSummary.diff.changed_pages)
-      : null
+      : lastIterationSummary?.diff && lastIterationSummary.newPlanHash === pagePlan.plan_hash
+        ? new Set(lastIterationSummary.diff.changed_pages)
+        : null
 
   return (
     <div className="flex h-full flex-col bg-paper">

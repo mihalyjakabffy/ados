@@ -81,6 +81,15 @@ export interface EvaluationFinding {
   message: string
   suggestion: string
   rule: string
+  // M1.4 — set only on findings a deterministic command can act on (today:
+  // the fill-ratio checks in brand.creative.evaluate). Most findings leave
+  // these at "" / null; that is not missing data, it means "not machine
+  // -actionable yet", same as brand.validation.brand_validator.Finding.
+  code: string
+  metric: string
+  actual: number | null
+  threshold: number | null
+  page_index: number | null
 }
 
 export interface Evaluation {

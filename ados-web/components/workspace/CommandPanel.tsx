@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { DIRECTIONS, useAdosState, type DirectionId } from "@/lib/ados-state"
 import { useContentExample } from "@/lib/brand-api"
-import type { ContentModel } from "@/lib/pageplan-types"
+import type { ContentModel, EvaluationFinding, Page } from "@/lib/pageplan-types"
 import type { IntentTarget, IntentType } from "@/lib/intent-types"
 
 // WHAT I WANT TO CHANGE. Not a chat clone: no bubbles, no assistant
@@ -22,6 +22,7 @@ export function CommandPanel() {
       <p className="mb-3 text-[10.5px] font-semibold uppercase tracking-[.07em] text-mute">Command</p>
 
       <IntentFeedback state={state} />
+      <IterationFeedback state={state} />
 
       {selection.kind === "page" ? (
         <PageContext state={state} />
@@ -116,6 +117,53 @@ function ScopeSummary({
   )
 }
 
+// ADOS-M1.4: WHY / WHAT / WHERE / RESULT for the one iteration that just
+// ran. resolvedScope/diff are read straight off the response, same
+// discipline as ScopeSummary above — never recomputed here.
+function IterationFeedback({ state }: { state: ReturnType<typeof useAdosState> }) {
+  const { iterationStatus, iterationError, lastIterationSummary } = state
+
+  if (iterationStatus === "running") {
+    return <p className="mb-4 text-[12px] text-ink-soft">Applying recommended fix…</p>
+  }
+
+  if (iterationStatus === "error" && iterationError) {
+    const noImprovement = iterationError.includes("no_improvement")
+    return (
+      <div className="mb-4 rounded-[8px] border border-crit/30 bg-crit-bg px-2.5 py-2 text-[11.5px] text-crit">
+        <p className="font-medium">
+          {noImprovement ? "Recommendation did not help — nothing applied" : "Iteration rejected"}
+        </p>
+        <p className="mt-0.5">{iterationError}</p>
+        <p className="mt-1 text-[10.5px] opacity-80">The previous PagePlan is still shown.</p>
+      </div>
+    )
+  }
+
+  if (lastIterationSummary) {
+    const { finding, recommendation, beforeMetric, afterMetric, resolvedScope, diff } = lastIterationSummary
+    return (
+      <div className="mb-4 rounded-[8px] border border-ok/30 bg-ok-bg px-2.5 py-2 text-[11.5px] text-ok">
+        <p className="font-medium">Recommendation applied: {recommendationLabel(recommendation.command_type)}</p>
+        <p className="mt-0.5 text-ink-soft">
+          {finding.metric} {beforeMetric.toFixed(2)} → {afterMetric.toFixed(2)}
+        </p>
+        <ScopeSummary resolvedScope={resolvedScope} diff={diff} />
+      </div>
+    )
+  }
+
+  return null
+}
+
+// Descriptive only — execution always goes through POST /brands/{id}/iterate,
+// which is the one place the finding->command mapping actually lives
+// (brand.creative.iterate._RECOMMENDATIONS). A code with no friendly label
+// here still works; it just shows its raw command name.
+function recommendationLabel(commandType: string): string {
+  return LABELS[commandType as IntentType] ?? commandType
+}
+
 const LABELS: Record<IntentType, string> = {
   reduce_text_density: "Reduce text density",
   increase_text_density: "Increase text density",
@@ -204,6 +252,8 @@ function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
         <Row k="Objective score" v={page.objective.toFixed(0)} />
       </div>
 
+      <PageFindings state={state} page={page} content={content} />
+
       <div className="mt-4">
         <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">
           Strength — {strength.toFixed(1)}
@@ -257,6 +307,69 @@ function PageContext({ state }: { state: ReturnType<typeof useAdosState> }) {
       </p>
     </div>
   )
+}
+
+// ADOS-M1.4: WHY (the finding) / WHAT (the recommended command, described)
+// / WHERE (this page) / ACTION (Execute), for every review finding on the
+// selected page. Findings without a code are shown but not actionable —
+// most of what a review checks (pacing, measure, rejected candidates) has
+// no deterministic fix, and this section says so rather than hiding them.
+function PageFindings({
+  state,
+  page,
+  content,
+}: {
+  state: ReturnType<typeof useAdosState>
+  page: Page
+  content: ContentModel | undefined
+}) {
+  const findings = (state.plan?.evaluation.findings ?? []).filter(
+    (f: EvaluationFinding) => f.page_index === page.index,
+  )
+  if (findings.length === 0) return null
+
+  const busy = state.iterationStatus === "running"
+
+  return (
+    <div className="mt-4 rounded-[8px] border border-line-strong bg-paper-raised p-2.5">
+      <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[.05em] text-mute">
+        Review — this page
+      </p>
+      <div className="space-y-2.5">
+        {findings.map((f: EvaluationFinding, i: number) => (
+          <div key={i} className="text-[11.5px]">
+            <p>
+              <span className={f.severity === "ERROR" || f.severity === "BLOCK" ? "font-semibold text-crit" : "font-semibold text-warn"}>
+                {f.severity}
+              </span>{" "}
+              <span className="text-ink-soft">{f.message}</span>
+            </p>
+            {f.code ? (
+              <button
+                onClick={() => content && state.runIteration(content, f)}
+                disabled={busy || !content}
+                className="mt-1 w-full rounded-[6px] border border-line-strong bg-paper px-2 py-[5px] text-left text-[11px] text-ink-soft hover:bg-black/[.03] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Try recommended fix: {recommendationLabel(FINDING_COMMAND_HINT[f.code] ?? "?")}
+              </button>
+            ) : (
+              <p className="mt-0.5 text-[10.5px] text-mute">No deterministic fix for this finding yet.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Display-only hint of what POST /iterate will likely recommend, kept in
+// sync by hand with brand.creative.iterate._RECOMMENDATIONS — the mapping
+// itself is never duplicated here, only its label. If the backend ever
+// disagrees (a new finding code, a changed mapping), the request still
+// goes through the real endpoint and either succeeds or reports
+// no_recommendation honestly; this hint only affects button text.
+const FINDING_COMMAND_HINT: Record<string, IntentType> = {
+  FILL_RATIO_LOW: "change_page_direction",
 }
 
 function BlockContext({ state }: { state: ReturnType<typeof useAdosState> }) {

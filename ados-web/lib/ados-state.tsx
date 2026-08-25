@@ -16,8 +16,8 @@
 // even by accident, blank the Canvas.
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
-import { ComposeApiError, composeDocument, executeIntent } from "./brand-api"
-import type { ComposeResult, ContentModel } from "./pageplan-types"
+import { ComposeApiError, composeDocument, executeIntent, executeIteration } from "./brand-api"
+import type { ComposeResult, ContentModel, EvaluationFinding } from "./pageplan-types"
 import type {
   CommandIntent,
   CompositionScope,
@@ -26,6 +26,7 @@ import type {
   IntentType,
   PagePlanDiff,
 } from "./intent-types"
+import type { Recommendation } from "./iterate-types"
 
 export const DIRECTIONS = ["editorial-quiet", "technical-dense", "image-led"] as const
 export type DirectionId = (typeof DIRECTIONS)[number]
@@ -48,6 +49,23 @@ export interface LastIntentSummary {
   diff: PagePlanDiff | null
 }
 
+// M1.4 — one review-driven iteration's before/why/what/where/after, kept
+// apart from LastIntentSummary rather than merged into it: an iteration is
+// never something the user composed by hand (there is no free choice of
+// parameters), it is the system's own recommendation, executed. Keeping
+// them separate lets the Command panel show the right causal chain for
+// whichever one actually just ran, instead of one shape trying to mean both.
+export interface LastIterationSummary {
+  finding: EvaluationFinding
+  recommendation: Recommendation
+  beforeMetric: number
+  afterMetric: number
+  previousPlanHash: string
+  newPlanHash: string
+  resolvedScope: CompositionScope
+  diff: PagePlanDiff
+}
+
 interface AdosStateValue {
   activeProjectId: string | null
   activeProjectLabel: string | null
@@ -66,6 +84,10 @@ interface AdosStateValue {
   intentError: string | null
   lastIntentSummary: LastIntentSummary | null
 
+  iterationStatus: "idle" | "running" | "error"
+  iterationError: string | null
+  lastIterationSummary: LastIterationSummary | null
+
   selection: Selection
 
   selectProject: (id: string, label: string) => void
@@ -81,6 +103,10 @@ interface AdosStateValue {
     target: IntentTarget,
     parameters?: Record<string, unknown>,
   ) => Promise<void>
+  /** ADOS-M1.4: execute the deterministic recommendation for one review
+   *  finding. The command itself is decided server-side
+   *  (brand.creative.iterate); this only names which finding to act on. */
+  runIteration: (content: ContentModel, finding: EvaluationFinding) => Promise<void>
 }
 
 const Ctx = createContext<AdosStateValue | null>(null)
@@ -100,6 +126,10 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
   const [intentStatus, setIntentStatus] = useState<AdosStateValue["intentStatus"]>("idle")
   const [intentError, setIntentError] = useState<string | null>(null)
   const [lastIntentSummary, setLastIntentSummary] = useState<LastIntentSummary | null>(null)
+
+  const [iterationStatus, setIterationStatus] = useState<AdosStateValue["iterationStatus"]>("idle")
+  const [iterationError, setIterationError] = useState<string | null>(null)
+  const [lastIterationSummary, setLastIterationSummary] = useState<LastIterationSummary | null>(null)
 
   const [selection, setSelection] = useState<Selection>({ kind: "none" })
 
@@ -136,6 +166,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
         setPlan(result)
         setActiveDirection(null)
         setLastIntentSummary(null)
+        setLastIterationSummary(null)
         setPlanStatus("loaded")
         setSelection({ kind: "page", pageIndex: 0 })
       } catch (err) {
@@ -186,6 +217,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
           resolvedScope: result.resolved_scope,
           diff: result.diff,
         })
+        setLastIterationSummary(null) // only one "what just happened" banner at a time
         setIntentStatus("idle")
         // Jump to the page the diff says actually changed, so a scoped
         // command is visibly proven rather than left for the reader to
@@ -199,6 +231,53 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         setIntentStatus("error")
         setIntentError(
+          err instanceof ComposeApiError ? `${err.code}: ${JSON.stringify(err.detail)}` : String(err),
+        )
+      }
+    },
+    [activeBrandId, activeDirection, activeDirectionId, plan],
+  )
+
+  const runIteration = useCallback(
+    async (content: ContentModel, finding: EvaluationFinding) => {
+      if (!activeBrandId || !plan || finding.page_index === null) return
+      setIterationStatus("running")
+      setIterationError(null)
+      const previousHash = plan.plan.plan_hash
+      try {
+        const result = await executeIteration(activeBrandId, {
+          content_model: content,
+          ...(activeDirection
+            ? { base_direction: activeDirection }
+            : { base_direction_id: activeDirectionId }),
+          base_plan: plan.plan,
+          finding_code: finding.code,
+          target_page: finding.page_index,
+          previous_plan_hash: previousHash,
+        })
+        setPreviousPlan(plan)
+        setPlan({ plan: result.plan, evaluation: result.after_evaluation, meta: result.meta })
+        // activeDirection is deliberately left untouched: the recommended
+        // command is page-scoped (brand.creative.scope), so only that one
+        // page now differs from the document's base direction — carrying
+        // it forward as the chain's new base would wrongly spread a
+        // single-page choice onto every future document-wide command.
+        setLastIterationSummary({
+          finding: result.finding,
+          recommendation: result.recommendation,
+          beforeMetric: result.before_metric,
+          afterMetric: result.after_metric,
+          previousPlanHash: previousHash,
+          newPlanHash: result.plan.plan_hash,
+          resolvedScope: result.resolved_scope,
+          diff: result.diff,
+        })
+        setLastIntentSummary(null) // only one "what just happened" banner at a time
+        setIterationStatus("idle")
+        setSelection({ kind: "page", pageIndex: finding.page_index as number })
+      } catch (err) {
+        setIterationStatus("error")
+        setIterationError(
           err instanceof ComposeApiError ? `${err.code}: ${JSON.stringify(err.detail)}` : String(err),
         )
       }
@@ -220,6 +299,9 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       intentStatus,
       intentError,
       lastIntentSummary,
+      iterationStatus,
+      iterationError,
+      lastIterationSummary,
       selection,
       selectProject,
       selectBrand,
@@ -228,6 +310,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       clearSelection,
       runCompose,
       runIntent,
+      runIteration,
     }),
     [
       activeProjectId,
@@ -242,6 +325,9 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       intentStatus,
       intentError,
       lastIntentSummary,
+      iterationStatus,
+      iterationError,
+      lastIterationSummary,
       selection,
       selectProject,
       selectBrand,
@@ -250,6 +336,7 @@ export function AdosStateProvider({ children }: { children: ReactNode }) {
       clearSelection,
       runCompose,
       runIntent,
+      runIteration,
     ],
   )
 
