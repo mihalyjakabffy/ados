@@ -1,0 +1,112 @@
+{
+  "dataset_version": "3.2.0",
+  "description": "ADOS-M3.2 §28/§42 evaluation dataset. Each case names real sources (project metadata, raw document text, uploaded assets, user corrections) and what a correct resolution must and must not produce: exact facts, forbidden (hallucinated) fact keys, expected claims, expected conflicts, expected missing-information gaps, expected deduplication (one fact/entity, multiple sources), and expected entity resolution.",
+  "cases": [
+    {
+      "id": "scenario_a_basic_project",
+      "note": "ADOS-M3.2 §42 Scenario A.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m²."}
+      ],
+      "expected_facts": {"program": "residential", "location": "Budapest", "apartments": 84, "gross_floor_area": 13100},
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_b_missing_information",
+      "note": "ADOS-M3.2 §42 Scenario B -- a real gap must be represented, never guessed into a fact.",
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments."}
+      ],
+      "document_type_id": "project-report",
+      "expected_facts": {"apartments": 84},
+      "forbidden_fact_keys": ["construction_cost", "client", "location"],
+      "expect_missing_information": true,
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_c_conflicting_sources",
+      "note": "ADOS-M3.2 §42 Scenario C -- two sources disagree; neither is silently chosen.",
+      "raw_documents": [
+        {"source_id": "brief.pdf", "text": "GFA of 12,400 m²."},
+        {"source_id": "deck.pdf", "text": "GFA of 13,100 m²."}
+      ],
+      "expected_conflicting_keys": ["gross_floor_area"],
+      "forbidden_fact_keys": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_c_agreeing_sources_dedupe",
+      "note": "ADOS-M3.2 §15 -- the same information from two sources merges into one fact, not two.",
+      "raw_documents": [
+        {"source_id": "brief.pdf", "text": "84 apartments."},
+        {"source_id": "deck.pdf", "text": "84 apartments."}
+      ],
+      "expected_facts": {"apartments": 84},
+      "expected_dedup": {"apartments": 2},
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_d_fact_vs_claim",
+      "note": "ADOS-M3.2 §42 Scenario D -- an objective fact and an interpretive claim must stay distinct.",
+      "raw_documents": [
+        {"source_id": "brief", "text": "The project contains 84 apartments. The project creates a strong connection to the landscape."}
+      ],
+      "expected_facts": {"apartments": 84},
+      "expected_claim_substrings": ["connection to the landscape"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_e_unsupported_inference",
+      "note": "ADOS-M3.2 §42 Scenario E -- a plausible-sounding project must not gain unsupported facts.",
+      "raw_documents": [
+        {"source_id": "brief", "text": "Residential development in Budapest."}
+      ],
+      "expected_facts": {"location": "Budapest"},
+      "forbidden_fact_keys": ["client", "structure", "architect", "completion_year", "budget"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_f_image_asset",
+      "note": "ADOS-M3.2 §42 Scenario F -- an asset is discoverable with real metadata only, nothing fabricated from visual appearance.",
+      "assets": [
+        {"filename": "north-elevation.png", "content_type": "image/png"}
+      ],
+      "expected_asset_count": 1,
+      "forbidden_fact_keys": ["structure", "material", "completion_year"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "scenario_g_user_correction",
+      "note": "ADOS-M3.2 §42 Scenario G -- a correction supersedes, it never overwrites.",
+      "project_data": {"gross_floor_area": 12400},
+      "user_corrections": [
+        {"key": "gross_floor_area", "value": 13100}
+      ],
+      "expected_facts": {"gross_floor_area": 13100},
+      "expected_superseded_keys": ["gross_floor_area"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "entity_resolution_identical_names_merge",
+      "note": "ADOS-M3.2 §16 -- exact-match entity resolution merges evidence, not identity.",
+      "raw_documents": [
+        {"source_id": "a", "text": "The project is located in Budapest."},
+        {"source_id": "b", "text": "Also based in Budapest."}
+      ],
+      "expected_entity_merge": {"Budapest": 2},
+      "expect_validation_ok": true
+    },
+    {
+      "id": "entity_resolution_different_names_not_merged",
+      "note": "ADOS-M3.2 §16 -- ambiguity must remain representable; different names never auto-merge.",
+      "raw_documents": [
+        {"source_id": "a", "text": "Located in Budapest."},
+        {"source_id": "b", "text": "Located in Vienna."}
+      ],
+      "expected_entity_names": ["Budapest", "Vienna"],
+      "expect_validation_ok": true
+    }
+  ]
+}
