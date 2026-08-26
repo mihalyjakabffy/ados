@@ -1,0 +1,118 @@
+[
+  {
+    "id": "case_a_confident_direction_no_current_state",
+    "design_intent": {
+      "project_id": "eval-a", "composition_strategy": "text_led", "density": "medium"
+    },
+    "current_state": null,
+    "expect_command_types": ["change_page_direction"]
+  },
+  {
+    "id": "case_b_already_matching_no_commands",
+    "design_intent": {
+      "project_id": "eval-b", "composition_strategy": "image_led", "density": "medium"
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "image-led", "text_density": 0.55, "image_ratio": 0.72, "page_count": 2
+    },
+    "expect_command_types": []
+  },
+  {
+    "id": "case_c_density_increase_needed",
+    "design_intent": {
+      "project_id": "eval-c", "composition_strategy": "text_led", "density": "very_high"
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "editorial-quiet", "text_density": 0.20, "image_ratio": 0.50, "page_count": 2
+    },
+    "expect_command_types": ["increase_text_density"]
+  },
+  {
+    "id": "case_d_density_decrease_needed",
+    "design_intent": {
+      "project_id": "eval-d", "composition_strategy": "text_led", "density": "minimal"
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "editorial-quiet", "text_density": 0.90, "image_ratio": 0.50, "page_count": 2
+    },
+    "expect_command_types": ["reduce_text_density"]
+  },
+  {
+    "id": "case_e_ambiguous_composition_strategy_no_hallucination",
+    "design_intent": {
+      "project_id": "eval-e", "composition_strategy": "balanced", "density": "medium"
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "technical-dense", "text_density": 0.55, "image_ratio": 0.45, "page_count": 2
+    },
+    "expect_command_types": [],
+    "expect_skip_reason": "ambiguous_mapping"
+  },
+  {
+    "id": "case_f_stale_design_state_blocks_everything",
+    "design_intent": {
+      "project_id": "eval-f", "composition_strategy": "image_led", "density": "high", "design_state_version": 1
+    },
+    "current_state": {
+      "version_number": 9, "direction_id": "editorial-quiet", "text_density": 0.30, "image_ratio": 0.30, "page_count": 2
+    },
+    "expect_command_types": [],
+    "expect_skip_reason": "stale_design_state"
+  },
+  {
+    "id": "case_g_image_emphasis_from_section_signal",
+    "design_intent": {
+      "project_id": "eval-g", "composition_strategy": "text_led", "density": "medium",
+      "section_designs": [
+        {"section_id": "s1", "visual_role": ["hero"], "visual_priority": "dominant", "composition_mode": "image_led",
+         "text_density": "medium", "image_density": "very_high", "whitespace": "moderate", "contrast": "high",
+         "typography_hierarchy": "restrained"},
+        {"section_id": "s2", "visual_role": ["gallery"], "visual_priority": "secondary", "composition_mode": "image_led",
+         "text_density": "medium", "image_density": "very_high", "whitespace": "moderate", "contrast": "medium",
+         "typography_hierarchy": "restrained"},
+        {"section_id": "s3", "visual_role": ["detail"], "visual_priority": "supporting", "composition_mode": "balanced",
+         "text_density": "medium", "image_density": "low", "whitespace": "moderate", "contrast": "low",
+         "typography_hierarchy": "restrained"}
+      ]
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "editorial-quiet", "text_density": 0.55, "image_ratio": 0.10, "page_count": 2
+    },
+    "expect_command_types": ["increase_image_emphasis"]
+  },
+  {
+    "id": "case_h_brand_conflict_recorded_not_auto_fixed",
+    "design_intent": {
+      "project_id": "eval-h", "composition_strategy": "balanced", "density": "medium",
+      "design_issues": [{"type": "brand_conflict", "description": "expressive type on a quiet brand"}]
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "editorial-quiet", "text_density": 0.55, "image_ratio": 0.50, "page_count": 2
+    },
+    "expect_command_types": [],
+    "expect_skip_reason": "no_safe_command_exists"
+  },
+  {
+    "id": "case_i_composite_three_simultaneous_levers_all_pass_validate_intent",
+    "design_intent": {
+      "project_id": "eval-i", "composition_strategy": "diagram_led", "density": "very_high",
+      "section_designs": [
+        {"section_id": "s1", "visual_role": ["technical"], "visual_priority": "dominant", "composition_mode": "diagram_led",
+         "text_density": "high", "image_density": "high", "whitespace": "compact", "contrast": "high",
+         "typography_hierarchy": "technical"}
+      ]
+    },
+    "current_state": {
+      "version_number": 1, "direction_id": "editorial-quiet", "text_density": 0.30, "image_ratio": 0.20, "page_count": 2
+    },
+    "expect_command_types": ["change_page_direction", "increase_text_density", "increase_image_emphasis"]
+  },
+  {
+    "id": "case_j_no_design_state_at_all_direction_only",
+    "design_intent": {
+      "project_id": "eval-j", "composition_strategy": "diagram_led", "density": "high"
+    },
+    "current_state": null,
+    "expect_command_types": ["change_page_direction"]
+  }
+]
