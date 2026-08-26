@@ -48,6 +48,9 @@ export interface ProjectDocument {
   project_refs: string[]
   metadata: Record<string, unknown>
   content_items: ContentItem[]
+  // ADOS-M2.5 §6 -- ids into the project's shared content_items pool this
+  // document additionally includes, alongside its own content_items above.
+  content_selection: string[]
   presentation_options: PresentationOption[]
   decisions: Decision[]
   action_items: ActionItem[]
@@ -203,6 +206,11 @@ export interface Project {
   description: string
   brand_id: string | null
   brand_version: string | null
+  // ADOS-M2.5 §4/§6 -- freeform project-level fields (client, location, ...)
+  // independent of any one document, and the shared content pool documents
+  // can opt into via ProjectDocument.content_selection.
+  project_data: Record<string, unknown>
+  content_items: ContentItem[]
   documents: ProjectDocument[]
   assets: ProjectAsset[]
   versions: ProjectVersion[]

@@ -10,6 +10,7 @@ import {
   addMeeting,
   addPresentationOption,
   addProjectRef,
+  addSharedContentItem,
   assetFileUrl,
   exportDocument,
   exportFileUrl,
@@ -20,7 +21,9 @@ import {
   removeMeeting,
   removePresentationOption,
   removeProjectRef,
+  removeSharedContentItem,
   saveVersion,
+  setContentSelection,
   updateSection,
   uploadAsset,
   useProjects,
@@ -85,6 +88,7 @@ export function DocumentContextPanel({
       {document.document_type_id === "internal-documentation" ? (
         <InternalDocumentationSection project={project} document={document} onChanged={onDocumentChanged} />
       ) : null}
+      <SharedContentSection project={project} document={document} onChanged={onDocumentChanged} />
       <ContentSection project={project} document={document} onChanged={onDocumentChanged} />
       <AssetsSection project={project} />
       <VersionsSection project={project} document={document} onChanged={onDocumentChanged} />
@@ -158,6 +162,209 @@ function ContentItemRow({
       >
         Remove
       </button>
+    </div>
+  )
+}
+
+// SHARED CONTENT (ADOS-M2.5 §6) — the project-level pool a document's own
+// content lives alongside. Checking an item here toggles it into this
+// document's content_selection; the same item can be checked into any
+// number of other documents in this project at once, which is the whole
+// point ("same content, multiple projections" — ADOS-M2.5 Mission).
+function SharedContentSection({
+  project,
+  document,
+  onChanged,
+}: {
+  project: Project
+  document: ProjectDocument
+  onChanged: () => void
+}) {
+  const [adding, setAdding] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const selected = new Set(document.content_selection)
+
+  async function toggle(itemId: string) {
+    setBusyId(itemId)
+    try {
+      const nextIds = selected.has(itemId)
+        ? document.content_selection.filter((id) => id !== itemId)
+        : [...document.content_selection, itemId]
+      await setContentSelection(project.id, document.id, nextIds)
+      onChanged()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div className="mb-5">
+      <div className="mb-1 flex items-center justify-between px-2">
+        <p className="text-[9.5px] font-semibold uppercase tracking-[.1em] text-mute">Shared Content</p>
+        <button
+          onClick={() => setAdding((v) => !v)}
+          className="text-[10.5px] font-medium text-accent hover:underline"
+        >
+          + Add
+        </button>
+      </div>
+
+      {adding ? (
+        <AddSharedContentForm
+          project={project}
+          onDone={() => {
+            setAdding(false)
+            onChanged()
+          }}
+        />
+      ) : null}
+
+      {project.content_items.length === 0 ? (
+        <p className="px-2 py-1 text-[11.5px] text-mute">
+          No shared content yet — items added here can be reused across every document in this project.
+        </p>
+      ) : (
+        <div className="space-y-0.5">
+          {project.content_items.map((item) => (
+            <div
+              key={item.id}
+              className="group flex items-start justify-between gap-1 rounded-[7px] px-2 py-[5px] hover:bg-black/[.03]"
+            >
+              <label className="flex min-w-0 items-start gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.id)}
+                  disabled={busyId === item.id}
+                  onChange={() => toggle(item.id)}
+                  className="mt-[3px] flex-shrink-0"
+                />
+                <div className="min-w-0">
+                  <span className="text-[10px] font-semibold uppercase tracking-[.04em] text-mute">
+                    {KIND_LABEL[item.kind]}
+                  </span>
+                  <p className="truncate text-[12px] text-ink-soft">
+                    {item.kind === "text" ? item.text : item.label || item.text || "(untitled)"}
+                    {item.kind === "metric" ? ` — ${item.value}${item.unit ? ` ${item.unit}` : ""}` : ""}
+                    {item.kind === "fact" ? ` — ${item.value}` : ""}
+                  </p>
+                </div>
+              </label>
+              <button
+                onClick={async () => {
+                  await removeSharedContentItem(project.id, item.id)
+                  onChanged()
+                }}
+                className="mt-0.5 flex-shrink-0 text-[10.5px] text-mute opacity-0 group-hover:opacity-100 hover:text-crit"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddSharedContentForm({ project, onDone }: { project: Project; onDone: () => void }) {
+  const [kind, setKind] = useState<ContentItemKind>("text")
+  const [text, setText] = useState("")
+  const [label, setLabel] = useState("")
+  const [value, setValue] = useState("")
+  const [unit, setUnit] = useState("")
+  const [provenance, setProvenance] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit() {
+    setBusy(true)
+    setErr(null)
+    try {
+      await addSharedContentItem(project.id, {
+        kind,
+        text: kind === "text" ? text : "",
+        label: kind === "fact" || kind === "metric" ? label : "",
+        value: kind === "fact" || kind === "metric" ? value : null,
+        unit: kind === "metric" ? unit : "",
+        provenance: kind === "metric" ? provenance : "",
+      })
+      onDone()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not add this content — check the required fields.")
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mb-2 flex flex-col gap-1.5 rounded-[8px] border border-line bg-paper-raised p-2">
+      <select
+        value={kind}
+        onChange={(e) => setKind(e.target.value as ContentItemKind)}
+        className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+      >
+        <option value="text">Text</option>
+        <option value="fact">Fact</option>
+        <option value="metric">Metric</option>
+      </select>
+
+      {kind === "text" ? (
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Narrative text"
+          rows={2}
+          className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+        />
+      ) : null}
+
+      {kind === "fact" || kind === "metric" ? (
+        <>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Label"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Value"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+        </>
+      ) : null}
+
+      {kind === "metric" ? (
+        <>
+          <input
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            placeholder="Unit (e.g. m²)"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+          <input
+            value={provenance}
+            onChange={(e) => setProvenance(e.target.value)}
+            placeholder="Provenance — where this number is from (required)"
+            className="rounded-[6px] border border-line-strong px-1.5 py-[4px] text-[11.5px]"
+          />
+        </>
+      ) : null}
+
+      {err ? <p className="text-[10.5px] text-crit">{err}</p> : null}
+
+      <div className="flex gap-1.5">
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="rounded-[6px] bg-accent px-2 py-[4px] text-[11px] font-medium text-white disabled:opacity-40"
+        >
+          Add
+        </button>
+        <button onClick={onDone} className="rounded-[6px] px-2 py-[4px] text-[11px] text-mute hover:bg-black/[.04]">
+          Cancel
+        </button>
+      </div>
     </div>
   )
 }
@@ -609,7 +816,7 @@ function ExportSection({
   document: ProjectDocument
   onChanged: () => void
 }) {
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<"pdf" | "html" | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [findings, setFindings] = useState<RequirementFinding[]>([])
 
@@ -620,17 +827,17 @@ function ExportSection({
   const blocking = findings.filter((f) => f.severity === "ERROR" || f.severity === "BLOCK")
   const warnings = findings.filter((f) => f.severity === "WARN")
 
-  async function runExport() {
-    setBusy(true)
+  async function runExport(format: "pdf" | "html") {
+    setBusy(format)
     setErr(null)
     try {
-      const result = await exportDocument(project.id, document.id)
+      const result = await exportDocument(project.id, document.id, undefined, format)
       setFindings(result.findings)
       onChanged()
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Export failed unexpectedly — the server did not respond as expected.")
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -641,19 +848,32 @@ function ExportSection({
         {latest ? (
           <p className="text-[11px] text-ink-soft">
             Last export: v{latest.version_number} · {latest.page_count} page{latest.page_count === 1 ? "" : "s"} ·{" "}
-            {EXPORT_STATUS_LABEL[latest.status]}
+            {latest.format === "html" ? "Website" : "PDF"} · {EXPORT_STATUS_LABEL[latest.status]}
           </p>
         ) : (
           <p className="text-[11px] text-mute">Not exported yet.</p>
         )}
 
-        <button
-          onClick={runExport}
-          disabled={busy}
-          className="mt-1.5 w-full rounded-[7px] bg-accent px-3 py-[7px] text-[12px] font-medium text-white disabled:opacity-40"
-        >
-          {busy ? "Exporting…" : "Export PDF"}
-        </button>
+        {/* Two output formats of the same document -- ADOS-M2.5's "Website"
+            projection is the same render_page_plan output the PDF pipeline
+            already prints from, written out directly instead of through
+            Chromium (see api/routers/ados_project.py's export_document). */}
+        <div className="mt-1.5 flex gap-1.5">
+          <button
+            onClick={() => runExport("pdf")}
+            disabled={busy !== null}
+            className="flex-1 rounded-[7px] bg-accent px-3 py-[7px] text-[12px] font-medium text-white disabled:opacity-40"
+          >
+            {busy === "pdf" ? "Exporting…" : "Export PDF"}
+          </button>
+          <button
+            onClick={() => runExport("html")}
+            disabled={busy !== null}
+            className="flex-1 rounded-[7px] border border-line bg-paper px-3 py-[7px] text-[12px] font-medium text-ink disabled:opacity-40"
+          >
+            {busy === "html" ? "Exporting…" : "Export Website"}
+          </button>
+        </div>
 
         {err ? <p className="mt-1.5 text-[11px] text-crit">{err}</p> : null}
 
@@ -696,7 +916,7 @@ function ExportSection({
               rel="noreferrer"
               className="mt-2 inline-block text-[11px] font-medium text-accent hover:underline"
             >
-              Open PDF — {latest.filename}
+              {latest.format === "html" ? "Open Website" : "Open PDF"} — {latest.filename}
             </a>
           </>
         ) : null}

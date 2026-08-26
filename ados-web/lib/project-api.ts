@@ -207,6 +207,54 @@ export async function removeContentItem(
 }
 
 // ---------------------------------------------------------------------------
+// Shared project-level content (ADOS-M2.5 §6) — a Project's own content_items
+// pool, plus which of those a given Document currently includes. Reuses
+// AddContentItem's exact body shape; nothing new client-side.
+// ---------------------------------------------------------------------------
+
+export async function addSharedContentItem(
+  projectId: string,
+  body: {
+    kind: ContentItemKind
+    label?: string
+    text?: string
+    value?: number | string | null
+    unit?: string
+    provenance?: string
+    asset_id?: string | null
+    caption?: string
+    aspect?: string
+  },
+): Promise<Project> {
+  const project = await send<Project>("POST", `${BASE}/${encodeURIComponent(projectId)}/content`, body)
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return project
+}
+
+export async function removeSharedContentItem(projectId: string, itemId: string): Promise<Project> {
+  const project = await send<Project>(
+    "DELETE",
+    `${BASE}/${encodeURIComponent(projectId)}/content/${encodeURIComponent(itemId)}`,
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return project
+}
+
+export async function setContentSelection(
+  projectId: string,
+  documentId: string,
+  contentItemIds: string[],
+): Promise<ProjectDocument> {
+  const doc = await send<ProjectDocument>(
+    "PUT",
+    `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/content-selection`,
+    { content_item_ids: contentItemIds },
+  )
+  await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
+  return doc
+}
+
+// ---------------------------------------------------------------------------
 // Compose — the one call that reaches the real Composer directly
 // ---------------------------------------------------------------------------
 
@@ -368,11 +416,12 @@ export async function exportDocument(
   projectId: string,
   documentId: string,
   versionNumber?: number,
+  format?: "pdf" | "html",
 ): Promise<ExportResult> {
   const result = await send<ExportResult>(
     "POST",
     `${BASE}/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/export`,
-    { version_number: versionNumber ?? null },
+    { version_number: versionNumber ?? null, format: format ?? "pdf" },
   )
   await mutate(`${BASE}/${encodeURIComponent(projectId)}`)
   return result
