@@ -130,6 +130,20 @@ def resolve_version(
     return project, version
 
 
+def find_version(project: "Project", document: "Document", version_number: int) -> "ProjectVersion":
+    """A read-only version lookup — unlike ``resolve_version``, never
+    builds one from live state when ``version_number`` doesn't exist.
+    For a caller (``brand/design_state/build.py``) that is only reading
+    "what did version N look like", auto-saving a version as a side
+    effect of a read would be a surprising, undocumented write."""
+    version = next((v for v in project.versions if v.number == version_number), None)
+    if version is None:
+        raise VersionNotFoundError(version_number, project.id)
+    if version.document_id != document.id:
+        raise VersionDocumentMismatchError(version_number, document.id)
+    return version
+
+
 def plan_from_version(version: "ProjectVersion") -> "PagePlan":
     """Reconstruct the real ``PagePlan`` a Version snapshot names.
     ``PagePlan.to_dict()`` (what a Version actually stores) adds
