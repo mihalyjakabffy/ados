@@ -1083,24 +1083,13 @@ def delete_asset(project_id: str, asset_id: str) -> None:
 
 @router.post("/{project_id}/versions", status_code=201)
 def save_version(project_id: str, body: SaveVersionRequest) -> dict[str, Any]:
-    from brand.project.model import ProjectVersion
+    from brand.project.versioning import build_version
 
     project = _load(project_id)
     idx = _document_index(project, body.document_id)
     doc = project.documents[idx]
 
-    plan = body.plan if body.plan is not None else doc.latest_plan
-    version = ProjectVersion(
-        number=project.next_version_number,
-        label=body.label,
-        document_id=doc.id,
-        document_name=doc.name,
-        direction_id=doc.direction_id,
-        document_type_id=doc.document_type_id,
-        sections=doc.sections,
-        content_items=doc.content_items,
-        plan=plan,
-    )
+    version = build_version(doc, project, label=body.label, plan=body.plan)
     # A version also updates the document's own cached plan, so reopening
     # the project later shows what was actually saved, not a stale compose.
     if body.plan is not None:
@@ -1137,6 +1126,11 @@ def restore_version(project_id: str, version_number: int) -> dict[str, Any]:
     docs = list(project.documents)
     docs[idx] = _touch_doc(docs[idx].model_copy(update={
         "content_items": version.content_items,
+        # version.content_items is already the fully-resolved own+shared
+        # union (brand.project.versioning.resolve_full_content at save
+        # time) -- clearing the selection avoids double-applying a
+        # (possibly since-changed) shared pool on top of it.
+        "content_selection": (),
         "direction_id": version.direction_id,
         "document_type_id": version.document_type_id,
         "sections": version.sections,
@@ -1157,79 +1151,45 @@ def restore_version(project_id: str, version_number: int) -> dict[str, Any]:
 
 
 def _resolve_export_version(project, doc, version_number: Optional[int]):
-    """The Version this export is tied to: the caller's own, or a freshly
-    saved one from the document's current state. Either way a real,
-    already-saved ``ProjectVersion`` — "export the current state" and
-    "export version N" become the same operation once a version exists.
-
-    Returns ``(project, version)`` — ``project`` reflects the newly
-    appended version when one had to be saved; the caller still owns
-    persisting it (alongside the Export record, in one save)."""
-    if version_number is not None:
-        version = next((v for v in project.versions if v.number == version_number), None)
-        if version is None:
-            raise HTTPException(
-                status_code=404, detail=f"no version {version_number} in project {project.id!r}",
-            )
-        if version.document_id != doc.id:
-            raise HTTPException(
-                status_code=422, detail={"error": "version_belongs_to_different_document"},
-            )
-        return project, version
-
-    if doc.latest_plan is None:
-        raise HTTPException(
-            status_code=422, detail={"error": "no_content", "detail": "compose before exporting"},
-        )
-    from brand.project.model import ProjectVersion
-
-    version = ProjectVersion(
-        number=project.next_version_number,
-        document_id=doc.id,
-        document_name=doc.name,
-        direction_id=doc.direction_id,
-        document_type_id=doc.document_type_id,
-        sections=doc.sections,
-        content_items=doc.content_items,
-        plan=doc.latest_plan,
+    """Router-layer wrapper over ``brand.project.versioning.resolve_version``
+    — the real logic (and the "export the current state = export version
+    N once one exists" invariant it establishes) now lives there so
+    ``brand/design_state/build.py`` can resolve a version-scoped read the
+    same way, without a second implementation of it. This wrapper's only
+    job is translating the domain exceptions into the HTTP responses this
+    endpoint has always returned."""
+    from brand.project.versioning import (
+        NoComposedPlanError, VersionDocumentMismatchError, VersionNotFoundError, resolve_version,
     )
-    project = project.model_copy(update={"versions": project.versions + (version,)})
-    return project, version
+
+    try:
+        return resolve_version(project, doc, version_number)
+    except VersionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except VersionDocumentMismatchError as exc:
+        raise HTTPException(status_code=422, detail={"error": "version_belongs_to_different_document"}) from exc
+    except NoComposedPlanError as exc:
+        raise HTTPException(status_code=422, detail={"error": "no_content", "detail": "compose before exporting"}) from exc
 
 
 def _plan_from_version(version):
-    """Reconstruct the real ``PagePlan`` a Version snapshot names.
+    from brand.project.versioning import VersionHasNoPlanError, plan_from_version
 
-    ``PagePlan.to_dict()`` (what a Version actually stores) adds
-    ``plan_hash`` as a derived, non-field key — ``PagePlan`` itself is
-    ``extra="forbid"``, so that key has to come back off before
-    ``model_validate`` or every export of a saved version would fail."""
-    from brand.creative.plan import PagePlan
-
-    if version.plan is None:
-        raise HTTPException(status_code=422, detail={"error": "version_has_no_plan"})
-    data = dict(version.plan)
-    data.pop("plan_hash", None)
-    return PagePlan.model_validate(data)
+    try:
+        return plan_from_version(version)
+    except VersionHasNoPlanError as exc:
+        raise HTTPException(status_code=422, detail={"error": "version_has_no_plan"}) from exc
 
 
 def _export_snapshot_document(doc, version):
-    """A Document-shaped snapshot of exactly what Version N held: its own
-    content/structure/type/plan, plus the *current* document's metadata
-    and project references (a ``ProjectVersion`` does not carry those —
-    they are the document's brief and portfolio wiring, not its composed
-    content). Findings are then recomputed fresh against this snapshot
-    rather than trusted from whenever the version was saved, which is
-    safe because both ``evaluate()`` and ``check_requirements()`` are
+    """Findings are then recomputed fresh against this snapshot rather
+    than trusted from whenever the version was saved, which is safe
+    because both ``evaluate()`` and ``check_requirements()`` are
     deterministic — recomputing is not "composing against different
     state," it is re-checking the same, frozen state."""
-    return doc.model_copy(update={
-        "content_items": version.content_items,
-        "sections": version.sections,
-        "document_type_id": version.document_type_id,
-        "direction_id": version.direction_id,
-        "latest_plan": version.plan,
-    })
+    from brand.project.versioning import snapshot_document_at_version
+
+    return snapshot_document_at_version(doc, version)
 
 
 def _asset_data_uri_resolver(project):
