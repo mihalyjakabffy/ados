@@ -53,12 +53,15 @@ def _project_with_brand(client) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def test_list_document_types_returns_all_nine(client):
+def test_list_document_types_returns_all_registered_types(client):
+    """11 total: the original ADOS-M2.2 nine plus ADOS-M2.5's Investor Deck
+    and Tender Document projections (see tests_brand/test_nine_document_types.py)."""
     r = client.get("/api/v2/ados-projects/document-types")
     assert r.status_code == 200
     ids = {t["id"] for t in r.json()["document_types"]}
-    assert len(ids) == 9
+    assert len(ids) == 11
     assert "project-report" in ids and "portfolio" in ids
+    assert "investor-deck" in ids and "tender-document" in ids
 
 
 def test_get_one_document_type_includes_its_requirements(client):

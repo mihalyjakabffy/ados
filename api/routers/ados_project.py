@@ -216,6 +216,11 @@ class ExportRequest(BaseModel):
     #: first. A given number must name a real, already-saved Version — an
     #: export never targets a state that was never actually reviewed.
     version_number: Optional[int] = None
+    #: "pdf" (Chromium print) or "html" (ADOS-M2.5's Website projection --
+    #: the exact same render_page_plan output, written out directly
+    #: instead of printed). Never a second renderer: html_to_pdf is simply
+    #: skipped for this format, not replaced by one.
+    format: str = Field(default="pdf", pattern=r"^(pdf|html)$")
 
 
 class AddPresentationOptionRequest(BaseModel):
@@ -1268,7 +1273,8 @@ def export_document(project_id: str, document_id: str, body: ExportRequest) -> d
     )
 
     export_id = _uuid.uuid4().hex[:12]
-    filename = f"{doc.name}-v{version.number}.pdf".replace("/", "-")
+    extension = "html" if body.format == "html" else "pdf"
+    filename = f"{doc.name}-v{version.number}.{extension}".replace("/", "-")
 
     def _save(export) -> dict[str, Any]:
         nonlocal project
@@ -1279,7 +1285,7 @@ def export_document(project_id: str, document_id: str, body: ExportRequest) -> d
     if blocking:
         export = Export(
             id=export_id, document_id=doc.id, version_number=version.number,
-            filename=filename, page_count=plan.page_count,
+            format=body.format, filename=filename, page_count=plan.page_count,
             validation_state=validation_state, status=ExportStatus.BLOCKED,
         )
         return _save(export)
@@ -1289,8 +1295,22 @@ def export_document(project_id: str, document_id: str, body: ExportRequest) -> d
 
     export_dir = _repo().export_storage_dir(project.id)
     export_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = export_dir / f"{export_id}.pdf"
 
+    if body.format == "html":
+        # The Website projection: the same render_page_plan HTML every PDF
+        # export already prints from, written out directly. No second
+        # renderer, no Chromium dependency for this format at all.
+        html_out_path = export_dir / f"{export_id}.html"
+        html_out_path.write_text(rendered.content, encoding="utf-8")
+        export = Export(
+            id=export_id, document_id=doc.id, version_number=version.number,
+            format="html", filename=filename, page_count=plan.page_count,
+            validation_state=validation_state, status=ExportStatus.COMPLETED,
+            path=f"{export_id}.html",
+        )
+        return _save(export)
+
+    pdf_path = export_dir / f"{export_id}.pdf"
     with tempfile.TemporaryDirectory() as tmp:
         html_path = Path(tmp) / "document.html"
         html_path.write_text(rendered.content, encoding="utf-8")
@@ -1300,7 +1320,7 @@ def export_document(project_id: str, document_id: str, body: ExportRequest) -> d
         logger.error("export %s failed for document %s: %s", export_id, doc.id, result.reason)
         export = Export(
             id=export_id, document_id=doc.id, version_number=version.number,
-            filename=filename, page_count=plan.page_count,
+            format="pdf", filename=filename, page_count=plan.page_count,
             validation_state=validation_state, status=ExportStatus.FAILED,
             error=result.reason or "PDF rendering failed",
         )
@@ -1308,7 +1328,7 @@ def export_document(project_id: str, document_id: str, body: ExportRequest) -> d
 
     export = Export(
         id=export_id, document_id=doc.id, version_number=version.number,
-        filename=filename, page_count=plan.page_count,
+        format="pdf", filename=filename, page_count=plan.page_count,
         validation_state=validation_state, status=ExportStatus.COMPLETED,
         path=f"{export_id}.pdf",
     )
@@ -1340,4 +1360,5 @@ def download_export(project_id: str, export_id: str):
     path = _repo().export_storage_dir(project.id) / export.path
     if not path.exists():
         raise HTTPException(status_code=404, detail="export file missing from storage")
-    return FileResponse(path, media_type="application/pdf", filename=export.filename)
+    media_type = "text/html" if export.format == "html" else "application/pdf"
+    return FileResponse(path, media_type=media_type, filename=export.filename)

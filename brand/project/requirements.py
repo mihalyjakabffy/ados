@@ -490,6 +490,43 @@ REQUIREMENTS: dict[str, list[Requirement]] = {
             params={"section_kind": "decisions"},
         ),
     ],
+    # ADOS-M2.5 — the two new projections' own requirements, using the
+    # exact same generic checkers as every other type. No new checker was
+    # needed to add either type, which is the point.
+    "investor-deck": [
+        Requirement(
+            id="INV-001", document_type_id="investor-deck", severity=Severity.ERROR,
+            check="required_section_present",
+            message="Investor deck must state the opportunity.",
+            params={"section_kind": "opportunity"},
+        ),
+        Requirement(
+            id="INV-002", document_type_id="investor-deck", severity=Severity.ERROR,
+            check="required_section_present",
+            message="Investor deck must end with a clear ask.",
+            params={"section_kind": "ask"},
+        ),
+    ],
+    "tender-document": [
+        Requirement(
+            id="TND-001", document_type_id="tender-document", severity=Severity.ERROR,
+            check="required_section_present",
+            message="Tender document must state the scope of works.",
+            params={"section_kind": "scope-of-works"},
+        ),
+        Requirement(
+            id="TND-002", document_type_id="tender-document", severity=Severity.ERROR,
+            check="required_section_present",
+            message="Tender document must contain a pricing schedule.",
+            params={"section_kind": "pricing-schedule"},
+        ),
+        Requirement(
+            id="TND-003", document_type_id="tender-document", severity=Severity.ERROR,
+            check="required_metadata_present",
+            message="Tender document must state the site location and client.",
+            params={"keys": ["location", "client"]},
+        ),
+    ],
 }
 
 for _reqs in REQUIREMENTS.values():

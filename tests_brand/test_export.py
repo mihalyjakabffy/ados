@@ -341,3 +341,86 @@ def test_export_version_belonging_to_a_different_document_is_rejected(client):
     )
     assert r.status_code == 422
     assert r.json()["detail"]["error"] == "version_belongs_to_different_document"
+
+
+# ---------------------------------------------------------------------------
+# ADOS-M2.5 -- Website projection: "html" is an export format, not a second
+# renderer. No @requires_browser: this path never touches Chromium at all.
+# ---------------------------------------------------------------------------
+
+
+def test_html_export_produces_real_html_with_no_browser_dependency(client):
+    p = _project_with_brand(client)
+    doc = _composed_document(client, p)
+
+    r = client.post(f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "html"})
+    assert r.status_code == 201, r.text
+    export = r.json()["export"]
+    assert export["status"] == "completed"
+    assert export["format"] == "html"
+    assert export["path"].endswith(".html")
+    assert export["filename"].endswith(".html")
+
+    downloaded = client.get(f"/api/v2/ados-projects/{p['id']}/exports/{export['id']}/file")
+    assert downloaded.status_code == 200
+    assert downloaded.headers["content-type"] == "text/html; charset=utf-8"
+    assert "<html" in downloaded.text.lower()
+
+
+def test_html_export_is_the_same_render_page_plan_output_the_pdf_pipeline_uses(client):
+    """The Website projection reuses render_page_plan's own HTML -- it must
+    contain the same document content, proving there is no second renderer."""
+    p = _project_with_brand(client)
+    doc = _composed_document(client, p, text="A distinctive sentence unique to this export test.")
+
+    export = client.post(
+        f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "html"},
+    ).json()["export"]
+    downloaded = client.get(f"/api/v2/ados-projects/{p['id']}/exports/{export['id']}/file")
+    assert "A distinctive sentence unique to this export test." in downloaded.text
+
+
+def test_blocked_html_export_produces_no_file(client):
+    """Format choice never bypasses validation gating -- a blocking finding
+    blocks the html projection exactly as it blocks the pdf one."""
+    p = _project_with_brand(client)
+    doc = _composed_document(client, p, document_type_id="design-report")
+
+    r = client.post(f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "html"})
+    assert r.status_code == 201, r.text
+    export = r.json()["export"]
+    assert export["status"] == "blocked"
+    assert export["format"] == "html"
+    assert export["path"] == ""
+
+    download = client.get(f"/api/v2/ados-projects/{p['id']}/exports/{export['id']}/file")
+    assert download.status_code == 409
+
+
+@requires_browser
+def test_pdf_and_html_exports_of_the_same_document_are_independent_versions(client):
+    p = _project_with_brand(client)
+    doc = _composed_document(client, p)
+
+    html_export = client.post(
+        f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "html"},
+    ).json()["export"]
+    pdf_export = client.post(
+        f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "pdf"},
+    ).json()["export"]
+
+    assert html_export["format"] == "html"
+    assert pdf_export["format"] == "pdf"
+    assert html_export["id"] != pdf_export["id"]
+
+    exports = client.get(f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/exports").json()["exports"]
+    assert {e["format"] for e in exports} == {"html", "pdf"}
+
+
+def test_invalid_export_format_is_rejected(client):
+    p = _project_with_brand(client)
+    doc = _composed_document(client, p)
+    r = client.post(
+        f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/export", json={"format": "docx"},
+    )
+    assert r.status_code == 422

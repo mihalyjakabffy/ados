@@ -32,6 +32,19 @@ one flat, ordered ``ContentModel``, exactly as M2.1 built it. Sections
 exist so a required-section check has something to point at, and so the
 Structure panel can show the skeleton the master prompt describes — they
 do not add a second layout system.
+
+**ADOS-M2.5 reframing: this registry is the Projection layer.** A
+:class:`DocumentType` was already, in every way that matters, "what
+content to select, what structure to request, what visual strategy to
+use" — ``brand/design_state/model.DocumentState`` reads it directly for
+exactly that. Nothing here changed shape for M2.5; two genuinely new
+projections were added (Investor Deck, Tender Document) to prove the
+registry actually accepts a document type nobody had written down
+before, and the Website *output* is a rendering-format choice
+(``brand.export`` — see ``api/routers/ados_project.py``'s
+``export_document``), not a fourteenth entry here, since it is the same
+composed ``PagePlan`` read out as HTML instead of PDF, not a second
+layout strategy.
 """
 
 from __future__ import annotations
@@ -331,12 +344,71 @@ _INTERNAL_DOCUMENTATION = DocumentType(
     composition_profile="technical-dense",
 )
 
+# ---------------------------------------------------------------------------
+# ADOS-M2.5 — two projections the registry did not have before, proving it
+# genuinely accepts "a future document type not known today" as data, no
+# code change to the Composer, the Requirements Engine's checker set, or
+# the frontend wizard.
+# ---------------------------------------------------------------------------
+
+_INVESTOR_DECK = DocumentType(
+    id="investor-deck",
+    name="Investor Deck",
+    description="A pitch to investors — the opportunity, the market, the team and the ask.",
+    audience="Investors, a funding panel",
+    purpose="Persuade an investor the opportunity and the team are worth backing.",
+    typical_use="Funding rounds, board presentations, partner pitches.",
+    expected_output="A concise, image-led deck that ends in a clear ask.",
+    default_structure=(
+        "cover", "opportunity", "market", "solution", "traction",
+        "business-model", "team", "financials", "ask",
+    ),
+    required_sections=("cover", "opportunity", "ask"),
+    optional_sections=("market", "solution", "traction", "business-model", "team", "financials"),
+    section_labels={"business-model": "Business Model"},
+    default_page_range=(8, 16),
+    asset_expectations=("market charts", "product screenshots", "team photos"),
+    composition_profile="image-led",
+)
+
+_TENDER_DOCUMENT = DocumentType(
+    id="tender-document",
+    name="Tender Document",
+    description=(
+        "A construction tender package — scope, specification, pricing structure and "
+        "instructions to tenderers."
+    ),
+    audience="Contractors, tendering bodies",
+    purpose="Give every tenderer what they need to submit a comparable, compliant bid.",
+    typical_use="Construction procurement, contractor selection.",
+    expected_output="A schedule-led document whose scope and pricing structure are unambiguous.",
+    default_structure=(
+        "cover", "instructions-to-tenderers", "scope-of-works", "specification",
+        "drawings-schedule", "pricing-schedule", "conditions-of-contract", "programme",
+        "declarations",
+    ),
+    required_sections=("instructions-to-tenderers", "scope-of-works", "pricing-schedule", "declarations"),
+    optional_sections=("specification", "drawings-schedule", "conditions-of-contract", "programme"),
+    section_labels={
+        "instructions-to-tenderers": "Instructions to Tenderers",
+        "scope-of-works": "Scope of Works",
+        "drawings-schedule": "Drawings Schedule",
+        "pricing-schedule": "Pricing Schedule",
+        "conditions-of-contract": "Conditions of Contract",
+    },
+    default_page_range=(6, 40),
+    asset_expectations=("drawings", "specification documents", "pricing schedules"),
+    metadata_requirements=("location", "client"),
+    composition_profile="technical-dense",
+)
+
 DOCUMENT_TYPES: dict[str, DocumentType] = {
     t.id: t
     for t in (
         _PROJECT_REPORT, _DESIGN_REPORT, _COMPETITION_DOCUMENT,
         _PROJECT_PRESENTATION, _CASE_STUDY, _PORTFOLIO, _CLIENT_PRESENTATION,
         _PLANNING_SUBMISSION, _INTERNAL_DOCUMENTATION,
+        _INVESTOR_DECK, _TENDER_DOCUMENT,
     )
 }
 

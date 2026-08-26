@@ -23,13 +23,17 @@ from brand.project.requirements import check_requirements
 
 
 def test_all_nine_required_workflows_are_registered():
+    """The original ADOS-M2.2 nine, plus ADOS-M2.5's two new projections
+    (Investor Deck, Tender Document) -- added as pure data (see
+    tests_brand/test_nine_document_types.py), so the original nine must
+    still all be present rather than the registry equalling exactly them."""
     expected = {
         "project-report", "design-report", "competition-document",
         "project-presentation", "case-study", "portfolio",
         "client-presentation", "planning-submission", "internal-documentation",
     }
-    assert set(DOCUMENT_TYPES) == expected
-    assert len(list_document_types()) == 9
+    assert expected <= set(DOCUMENT_TYPES)
+    assert len(list_document_types()) == 11
 
 
 @pytest.mark.parametrize("type_id", list(DOCUMENT_TYPES))

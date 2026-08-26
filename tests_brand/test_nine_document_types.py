@@ -57,7 +57,17 @@ def client(tmp_path, monkeypatch):
 
 
 def test_all_nine_document_types_are_registered():
-    assert len(DOCUMENT_TYPES) == 9
+    """The original ADOS-M2.2 nine, plus ADOS-M2.5's two new projections
+    (Investor Deck, Tender Document) -- added as pure data, with zero
+    change to this test's own parametrization below, which is the whole
+    point of a projection registry."""
+    original_nine = {
+        "project-report", "design-report", "competition-document", "project-presentation",
+        "case-study", "portfolio", "client-presentation", "planning-submission",
+        "internal-documentation",
+    }
+    assert original_nine <= set(DOCUMENT_TYPES)
+    assert len(DOCUMENT_TYPES) == 11
 
 
 @pytest.mark.parametrize("type_id", sorted(DOCUMENT_TYPES))
