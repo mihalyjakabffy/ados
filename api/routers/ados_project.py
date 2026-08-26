@@ -106,47 +106,26 @@ def _touch_doc(doc) -> Any:
     return doc.model_copy(update={"updated_at": _dt.datetime.now(_dt.timezone.utc)})
 
 
+def _resolve_ref_project(ref_id: str):
+    """``brand.project.content_resolution``'s injected project lookup —
+    this repo's own accessor, so a referenced project resolves against
+    whichever storage root this deployment (or this test) actually uses."""
+    from brand.project.store import ProjectNotFound
+
+    try:
+        return _repo().get(ref_id)
+    except ProjectNotFound:
+        return None
+
+
 def _document_content_model(doc, project):
-    """The ContentModel to compose ``doc`` against — its own content, and
-    (only for a document whose type supports multiple projects, e.g.
-    Portfolio) each referenced project's own content appended as a
-    chapter.
+    """Thin call-through — the real merge logic (own content, the
+    project's shared pool, portfolio references) now lives in
+    ``brand.project.content_resolution`` so ``brand/design_state/build.py``
+    can reuse it without duplicating it (ADOS-M2.5)."""
+    from brand.project.content_resolution import resolve_document_content
 
-    A referenced project's blocks are never copied into ``doc`` itself —
-    they are fetched fresh from the real project store on every call, so
-    editing Project B's content changes what the portfolio composes next
-    time, without this document holding a stale duplicate (ADOS-M2.2 §10).
-    """
-    from brand.project.model import ContentItem, ContentItemKind, Document as _Document
-
-    content = doc.content_model(project.name)
-    if not doc.project_refs:
-        return content
-
-    counters: dict[str, int] = {}
-    blocks = list(content.blocks)
-    for block in blocks:
-        stem = block.id.split("-")[0]
-        counters[stem] = max(counters.get(stem, 0), int(block.id.split("-")[1]))
-
-    for ref_id in doc.project_refs:
-        try:
-            ref_project = _repo().get(ref_id)
-        except Exception:                                      # noqa: BLE001
-            continue                                            # surfaced by PORT-003-style checks, not a 500
-        items = tuple(item for d in ref_project.documents for item in d.content_items)
-        if not items:
-            items = (ContentItem(
-                kind=ContentItemKind.TEXT,
-                text=ref_project.description or f"{ref_project.name}.",
-            ),)
-        chapter = _Document(project_id=ref_project.id, name=ref_project.name, content_items=items)
-        for block in chapter.content_model(ref_project.name).blocks:
-            stem = block.id.split("-")[0]
-            counters[stem] = counters.get(stem, 0) + 1
-            blocks.append(block.model_copy(update={"id": f"{stem}-{counters[stem]:02d}"}))
-
-    return content.model_copy(update={"blocks": tuple(blocks)})
+    return resolve_document_content(doc, project, resolve_project=_resolve_ref_project)
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +141,10 @@ class CreateProjectRequest(BaseModel):
 class UpdateProjectRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=2000)
+    #: Merged into the existing project_data, not replacing it -- the same
+    #: PATCH-merges-a-bag posture UpdateDocumentRequest.metadata already
+    #: has, for the same reason (ADOS-M2.5 §4).
+    project_data: Optional[dict[str, Any]] = None
 
 
 class AttachBrandRequest(BaseModel):
@@ -340,6 +323,8 @@ def get_project(project_id: str) -> dict[str, Any]:
 def update_project(project_id: str, body: UpdateProjectRequest) -> dict[str, Any]:
     project = _load(project_id)
     updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if "project_data" in updates:
+        updates["project_data"] = {**project.project_data, **updates["project_data"]}
     project = _touch(project.model_copy(update=updates))
     _repo().save(project)
     return project.model_dump(mode="json")
@@ -523,7 +508,11 @@ def update_section(
     if body.order is not None:
         updates["order"] = body.order
     if body.content_item_ids is not None:
-        known_ids = {item.id for item in doc.content_items}
+        # A document's own items, plus whichever shared items it has
+        # actually selected (ADOS-M2.5 §6) -- a selected shared item is
+        # sectionable exactly like a private one; one not yet selected is
+        # not, so this cannot be used to smuggle an unselected item in.
+        known_ids = {item.id for item in doc.content_items} | set(doc.content_selection)
         unknown = [i for i in body.content_item_ids if i not in known_ids]
         if unknown:
             raise HTTPException(
@@ -675,6 +664,113 @@ def _validate_document_content(doc, project_name: str) -> None:
             status_code=422,
             detail={"error": "invalid_content", "errors": exc.errors(include_url=False, include_context=False)},
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Shared project-level content (ADOS-M2.5 §6) — the pool a Document's own
+# ``content_selection`` draws from. This is a second place a ContentItem
+# is stored (the project, rather than a document), never a second content
+# *model* — every endpoint below reuses ContentItem/AddContentItemRequest
+# unchanged.
+# ---------------------------------------------------------------------------
+
+
+class SetContentSelectionRequest(BaseModel):
+    #: The complete set of shared item ids this document includes —
+    #: replaces the prior selection outright, the same "PUT the whole
+    #: list" shape ``update_section``'s ``content_item_ids`` already uses,
+    #: rather than incremental add/remove calls for what is, in practice,
+    #: usually edited as one list in the UI.
+    content_item_ids: list[str] = Field(default_factory=list)
+
+
+@router.post("/{project_id}/content", status_code=201)
+def add_shared_content_item(project_id: str, body: AddContentItemRequest) -> dict[str, Any]:
+    from pydantic import ValidationError
+
+    from brand.project.model import ContentItem
+    from brand.project.model import Document as _Document
+
+    project = _load(project_id)
+    try:
+        item = ContentItem.model_validate(body.model_dump())
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_item", "errors": exc.errors(include_url=False, include_context=False)},
+        ) from exc
+
+    # A shared item belongs to no one document, so there is no
+    # doc.content_model() to fail loudly through as add_content_item's
+    # own document-scoped path does -- validate it the same way, against
+    # a throwaway single-item Document, so a metric with no provenance
+    # (a per-ContentBlock rule, not a per-ContentItem one) is refused here
+    # too, not accepted into the pool and only discovered on first compose.
+    try:
+        _Document(project_id=project.id, name="_", content_items=(item,)).content_model(project.name)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content_item", "errors": exc.errors(include_url=False, include_context=False)},
+        ) from exc
+
+    project = _touch(project.model_copy(update={"content_items": project.content_items + (item,)}))
+    _repo().save(project)
+    return project.model_dump(mode="json")
+
+
+@router.get("/{project_id}/content")
+def list_shared_content_items(project_id: str) -> dict[str, Any]:
+    project = _load(project_id)
+    return {"content_items": [i.model_dump(mode="json") for i in project.content_items]}
+
+
+@router.delete("/{project_id}/content/{item_id}")
+def remove_shared_content_item(project_id: str, item_id: str) -> dict[str, Any]:
+    """Removing a shared item does not chase down and clean up every
+    document's own ``content_selection`` — a dangling selected id is
+    exactly the "reference to something that no longer exists" state
+    ``resolve_document_content`` already treats as fail-soft (skip, don't
+    500), the same posture Portfolio's stale ``project_refs`` already
+    has. Nothing here quietly rewrites a document that did not change."""
+    project = _load(project_id)
+    remaining = tuple(i for i in project.content_items if i.id != item_id)
+    if len(remaining) == len(project.content_items):
+        raise HTTPException(status_code=404, detail=f"no shared content item {item_id!r} in this project")
+    project = _touch(project.model_copy(update={"content_items": remaining}))
+    _repo().save(project)
+    return project.model_dump(mode="json")
+
+
+@router.put("/{project_id}/documents/{document_id}/content-selection")
+def set_content_selection(project_id: str, document_id: str, body: SetContentSelectionRequest) -> dict[str, Any]:
+    from brand.project.content_resolution import resolve_document_content
+    from pydantic import ValidationError
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+
+    known_ids = {i.id for i in project.content_items}
+    unknown = [i for i in body.content_item_ids if i not in known_ids]
+    if unknown:
+        raise HTTPException(status_code=422, detail={"error": "unknown_shared_content_item", "ids": unknown})
+
+    doc = doc.model_copy(update={"content_selection": tuple(body.content_item_ids)})
+    try:
+        resolve_document_content(doc, project, resolve_project=_resolve_ref_project)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_content", "errors": exc.errors(include_url=False, include_context=False)},
+        ) from exc
+
+    doc = _touch_doc(doc)
+    docs = list(project.documents)
+    docs[idx] = doc
+    project = _touch(project.model_copy(update={"documents": tuple(docs)}))
+    _repo().save(project)
+    return doc.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------

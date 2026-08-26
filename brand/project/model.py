@@ -318,6 +318,16 @@ class Document(BaseModel):
     action_items) actually populate or check them
     (``brand/project/requirements.py``'s CLI-*/INT-* rules). None of them
     feed composition — the Composer still only ever sees ``content_items``.
+
+    ``content_selection`` is ADOS-M2.5's promotion of content out of any
+    one document: ids into the *parent Project's* own ``content_items``
+    pool (``Project.content_items``) that this document/projection also
+    includes, alongside (never instead of) its own private
+    ``content_items``. A document created before M2.5, or one that never
+    opts in, has an empty ``content_selection`` and behaves exactly as
+    every M2.1–M2.2.1 document already does — this field is purely
+    additive. See ``brand/project/content_resolution.py`` for the one
+    place both pools are actually merged into a ``ContentModel``.
     """
 
     model_config = _Frozen
@@ -331,6 +341,7 @@ class Document(BaseModel):
     project_refs: tuple[str, ...] = ()
     metadata: dict[str, Any] = Field(default_factory=dict)
     content_items: tuple[ContentItem, ...] = ()
+    content_selection: tuple[str, ...] = ()
     presentation_options: tuple[PresentationOption, ...] = ()
     decisions: tuple[Decision, ...] = ()
     action_items: tuple[ActionItem, ...] = ()
@@ -501,15 +512,36 @@ class Export(BaseModel):
 
 
 class Project(BaseModel):
+    """ADOS-M2.5 reframes this as the thing a ``DesignState`` is built
+    from, not a container that merely happens to hold Documents: real
+    project facts (``project_data``) and real content (``content_items``)
+    now live here, independent of any one Document/projection, so more
+    than one output can honestly share them (see
+    ``brand/design_state/model.py``)."""
+
     model_config = _Frozen
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
+    #: A generic bag — client, location, typology, status, milestones,
+    #: whatever a real project needs to record — mirroring
+    #: ``Document.metadata``'s own posture exactly (ADOS-M2.5 §4: "do not
+    #: over-model fields without a current use case"). The important
+    #: property this field buys is not its shape but its scope: a fact
+    #: recorded here is a project fact, not accidentally scoped to
+    #: whichever Document happened to ask for it first.
+    project_data: dict[str, Any] = Field(default_factory=dict)
     brand_id: Optional[str] = None
     #: None = track the brand's latest usable version — the same meaning
     #: brand.store.brand_repo.FileBrandRepository.get already gives None.
     brand_version: Optional[str] = None
+    #: The shared content pool (ADOS-M2.5 §6) — the same ``ContentItem``
+    #: model every Document already uses for its own private content,
+    #: reused rather than duplicated. A Document opts into an item here
+    #: via its own ``content_selection``; nothing here is composed on its
+    #: own or tied to any one projection.
+    content_items: tuple[ContentItem, ...] = ()
     documents: tuple[Document, ...] = ()
     assets: tuple[Asset, ...] = ()
     versions: tuple[ProjectVersion, ...] = ()
@@ -535,6 +567,12 @@ class Project(BaseModel):
             if a.id == asset_id:
                 return a
         raise KeyError(f"no asset {asset_id!r} in project {self.id!r}")
+
+    def content_item(self, item_id: str) -> ContentItem:
+        for item in self.content_items:
+            if item.id == item_id:
+                return item
+        raise KeyError(f"no shared content item {item_id!r} in project {self.id!r}")
 
     @property
     def next_version_number(self) -> int:
