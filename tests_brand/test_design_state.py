@@ -264,3 +264,56 @@ def test_version_scoped_design_state_unknown_version_raises(client, tmp_path):
     project, document, _ = _composed_project_and_doc(client, tmp_root)
     with pytest.raises(VersionNotFoundError):
         build_design_state(project, document, _seeded_brand(project), version_number=99)
+
+
+# ---------------------------------------------------------------------------
+# API -- GET .../design-state (ADOS-M2.5 §21)
+# ---------------------------------------------------------------------------
+
+
+def test_get_design_state_endpoint_returns_a_real_design_state(client, tmp_path):
+    project, document, _ = _composed_project_and_doc(client, str(tmp_path / "ados-projects"))
+
+    r = client.get(f"/api/v2/ados-projects/{project.id}/documents/{document.id}/design-state")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["schema_version"] == "2.5"
+    assert body["project"]["id"] == project.id
+    assert body["project"]["project_data"] == {"client": "Acme"}
+    assert body["document"]["id"] == document.id
+    assert len(body["pages"]) > 0
+
+
+def test_get_design_state_endpoint_accepts_a_version_query_param(client, tmp_path):
+    project, document, _ = _composed_project_and_doc(client, str(tmp_path / "ados-projects"))
+    client.post(f"/api/v2/ados-projects/{project.id}/versions", json={"document_id": document.id})
+
+    r = client.get(
+        f"/api/v2/ados-projects/{project.id}/documents/{document.id}/design-state", params={"version": 1},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["version"]["number"] == 1
+
+
+def test_get_design_state_endpoint_unknown_version_404s(client, tmp_path):
+    project, document, _ = _composed_project_and_doc(client, str(tmp_path / "ados-projects"))
+
+    r = client.get(
+        f"/api/v2/ados-projects/{project.id}/documents/{document.id}/design-state", params={"version": 99},
+    )
+    assert r.status_code == 404
+
+
+def test_get_design_state_endpoint_works_without_a_brand_attached(client, tmp_path):
+    p = client.post("/api/v2/ados-projects", json={"name": "P"}).json()
+    doc = client.post(f"/api/v2/ados-projects/{p['id']}/documents", json={"name": "D"}).json()
+
+    r = client.get(f"/api/v2/ados-projects/{p['id']}/documents/{doc['id']}/design-state")
+    assert r.status_code == 200, r.text
+    assert r.json()["brand"]["id"] is None
+
+
+def test_get_design_state_endpoint_unknown_document_404s(client, tmp_path):
+    p = client.post("/api/v2/ados-projects", json={"name": "P"}).json()
+    r = client.get(f"/api/v2/ados-projects/{p['id']}/documents/does-not-exist/design-state")
+    assert r.status_code == 404

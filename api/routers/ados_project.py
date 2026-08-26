@@ -779,6 +779,43 @@ def set_content_selection(project_id: str, document_id: str, body: SetContentSel
 
 
 # ---------------------------------------------------------------------------
+# DesignState (ADOS-M2.5 §21) — a read model, not a second store. There is
+# no design-state id to create: it is assembled fresh, on every request,
+# from the same Project/Document/Brand/Version objects every endpoint above
+# already reads and writes. ``version`` reads a specific saved Version's
+# frozen state the same read-only way ``GET .../versions`` lists them,
+# never an auto-save.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{project_id}/documents/{document_id}/design-state")
+def get_design_state(project_id: str, document_id: str, version: Optional[int] = None) -> dict[str, Any]:
+    from brand.design_state.build import build_design_state
+    from brand.project.versioning import VersionNotFoundError
+    from brand.store.brand_repo import BrandNotFound
+
+    project = _load(project_id)
+    idx = _document_index(project, document_id)
+    doc = project.documents[idx]
+
+    brand = None
+    if project.brand_id:
+        try:
+            brand = _brand_repo().get(project.brand_id, project.brand_version)
+        except BrandNotFound:
+            brand = None
+
+    try:
+        state = build_design_state(
+            project, doc, brand, version_number=version, resolve_project=_resolve_ref_project,
+        )
+    except VersionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return state.to_dict()
+
+
+# ---------------------------------------------------------------------------
 # Structured decisions & actions (ADOS-M2.2.1 P3/P4) — Client Presentation's
 # options/decisions/action_items, and Internal Documentation's meetings.
 # create+delete only, mirroring content items' own add/remove shape; no
