@@ -1,0 +1,145 @@
+{
+  "dataset_version": "3.4.0",
+  "description": "ADOS-M3.4 §50/§51 evaluation dataset. Each case names real sources, a SemanticIntent, a document type, a real Brand (by example-brand key), and a real CreativeDirection id, and states what a correct DesignIntent must and must not do: which composition strategy it should realise, that every reference resolves, that brand tokens are real, and that nothing geometric or invented appears.",
+  "cases": [
+    {
+      "id": "case_a_editorial_portfolio",
+      "note": "ADOS-M3.4 §50 Case A -- image-led, strong hierarchy, generous whitespace.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m². The project creates a strong connection to the landscape."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client", "purpose": "introduce_project"}},
+      "document_type_id": "portfolio",
+      "brand": "nord",
+      "direction_id": "image-led",
+      "expected_composition_strategy": "image_led",
+      "expected_whitespace_strategy": "generous",
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_b_technical_report",
+      "note": "ADOS-M3.4 §50 Case B -- information-led, higher density, evidence emphasis.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m²."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "architect"}},
+      "document_type_id": "design-report",
+      "brand": "om",
+      "direction_id": "technical-dense",
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_c_client_presentation",
+      "note": "ADOS-M3.4 §50 Case C -- clear hierarchy, project identity, value emphasis.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m². The project creates a strong connection to the landscape."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "client-presentation",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_d_competition_presentation",
+      "note": "ADOS-M3.4 §50 Case D -- concept dominance, narrative progression.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m². The project creates a strong connection to the landscape."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "competition_jury"}},
+      "document_type_id": "competition-document",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "expected_dominant_role": "concept",
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_e_minimal_brand_preserved",
+      "note": "ADOS-M3.4 §50 Case E -- a restrained brand's visual_language never grows an unclaimed trait.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "portfolio",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "expect_visual_language_subset_of_brand": true,
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_f_image_rich_project",
+      "note": "ADOS-M3.4 §50 Case F -- many valid assets, hero/supporting distinction.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m². The project creates a strong connection to the landscape."}
+      ],
+      "assets": ["exterior.png", "site-plan.png", "interior.png", "detail.png"],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "portfolio",
+      "brand": "nord",
+      "direction_id": "image-led",
+      "expect_asset_hierarchy": true,
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_g_asset_poor_project",
+      "note": "ADOS-M3.4 §50 Case G -- no assets; no invented asset ids.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m²."}
+      ],
+      "assets": [],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "portfolio",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "expect_no_assets_referenced": true,
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_h_brand_conflict_never_silently_overridden",
+      "note": "ADOS-M3.4 §50 Case H -- a restrained brand's constraint is never silently overridden.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "portfolio",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "expect_visual_language_subset_of_brand": true,
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_i_missing_information_acknowledged",
+      "note": "ADOS-M3.4 §50 Case I -- missing content is acknowledged, never invented.",
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "project-report",
+      "brand": "nord",
+      "direction_id": "editorial-quiet",
+      "expect_missing_content_acknowledged": true,
+      "forbidden_fact_keys": ["client", "location", "architect", "structure", "completion_year", "budget"]
+    },
+    {
+      "id": "case_j_same_narrative_different_brand",
+      "note": "ADOS-M3.4 §50 Case J -- different brand, same narrative foundation.",
+      "project_data": {"program": "residential", "location": "Budapest"},
+      "raw_documents": [
+        {"source_id": "brief", "text": "84 apartments. GFA of 13,100 m². The project creates a strong connection to the landscape."}
+      ],
+      "semantic_intent": {"explicit": {"audience": "prospective_client"}},
+      "document_type_id": "portfolio",
+      "brand": "om",
+      "direction_id": "technical-dense",
+      "forbidden_fact_keys": ["client", "architect", "structure", "completion_year", "budget"]
+    }
+  ]
+}
