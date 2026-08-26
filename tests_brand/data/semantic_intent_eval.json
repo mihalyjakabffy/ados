@@ -1,0 +1,166 @@
+{
+  "dataset_version": "3.1.0",
+  "description": "ADOS-M3.1 §18 evaluation dataset. Each case names a request, the real context (if any) it should be interpreted with, the intent a correct system should produce, fields where more than one answer is acceptable, and values that must never appear (a hallucination, or specificity the request does not support).",
+  "cases": [
+    {
+      "id": "create_portfolio_riverside",
+      "note": "ADOS-M3.1 §14's own worked example.",
+      "input": "Create a portfolio about the Riverside project. Make it feel like our existing studio materials but more premium.",
+      "context": {},
+      "expected_intent": {
+        "action": "create",
+        "target": "document",
+        "document_type": "portfolio",
+        "subject": "Riverside project",
+        "style_reference": "existing studio materials",
+        "quality_direction": "premium"
+      },
+      "acceptable_variants": {},
+      "forbidden_inferences": ["page_count", "font", "grid", "color", "colour", "image_count", "layout"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "transform_for_client_no_context",
+      "note": "ADOS-M3.1 §15's own worked example, no document open.",
+      "input": "Turn this into something I can send to the client.",
+      "context": {},
+      "expected_intent": {
+        "action": "transform",
+        "audience": "client"
+      },
+      "acceptable_variants": {
+        "target": ["ambiguous"]
+      },
+      "forbidden_inferences": ["document_type=presentation", "document_type=report"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "transform_for_client_with_open_document",
+      "note": "Same request, real context this time — ADOS-M3.1 §17's context-sensitivity requirement.",
+      "input": "Turn this into something I can send to the client.",
+      "context": {"has_open_document": true},
+      "expected_intent": {
+        "action": "transform",
+        "audience": "client",
+        "target": "document"
+      },
+      "acceptable_variants": {},
+      "forbidden_inferences": ["document_type=presentation"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "same_branding_more_visual",
+      "note": "ADOS-M3.1 §16's own worked example.",
+      "input": "Use the same branding as the last presentation but make this one much more visual.",
+      "context": {},
+      "expected_intent": {
+        "style_reference": "previous presentation",
+        "brand_reference": "previous presentation",
+        "design_direction": "more visual"
+      },
+      "acceptable_variants": {
+        "action": ["ambiguous"],
+        "style_reference": ["previous presentation", "last presentation"],
+        "brand_reference": ["previous presentation", "last presentation"]
+      },
+      "forbidden_inferences": ["image_ratio", "grid", "numeric layout value"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_modify",
+      "input": "Modify the existing brief to add a new section.",
+      "context": {},
+      "expected_intent": {"action": "modify"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_regenerate",
+      "input": "Regenerate the whole document from scratch.",
+      "context": {},
+      "expected_intent": {"action": "regenerate"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_revise",
+      "input": "Revise the introduction section.",
+      "context": {},
+      "expected_intent": {"action": "revise"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_extend",
+      "input": "Extend the case study with an additional project.",
+      "context": {},
+      "expected_intent": {"action": "extend"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_summarize",
+      "input": "Summarize this report into a one-page brief.",
+      "context": {},
+      "expected_intent": {"action": "summarize"},
+      "acceptable_variants": {},
+      "forbidden_inferences": ["page_count=1"],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "basic_review",
+      "input": "Review the current draft before we send it out.",
+      "context": {},
+      "expected_intent": {"action": "review"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "compare_without_subject",
+      "note": "ADOS-M3.1 §17's own 'invalid requests fail deterministically' case — this request genuinely has nothing to compare against, and a correct system's domain validation must say so, not silently accept it.",
+      "input": "Compare the two design options.",
+      "context": {},
+      "expected_intent": {"action": "compare"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": false
+    },
+    {
+      "id": "document_type_investor_deck",
+      "note": "Document-type resolution against the real registry (ADOS-M2.5's projections), not a hardcoded list.",
+      "input": "Create a new investor deck for our upcoming funding round.",
+      "context": {},
+      "expected_intent": {"action": "create", "target": "document", "document_type": "investor-deck"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "document_type_tender_document",
+      "input": "Create a new tender document for the contractor selection.",
+      "context": {},
+      "expected_intent": {"action": "create", "target": "document", "document_type": "tender-document"},
+      "acceptable_variants": {},
+      "forbidden_inferences": [],
+      "expect_validation_ok": true
+    },
+    {
+      "id": "unintelligible_request",
+      "note": "ADOS-M3.1 §6's core principle, stress-tested: nothing to hold onto, so everything load-bearing must be ambiguous, not invented.",
+      "input": "asdkjaslkdj random gibberish not a real request",
+      "context": {},
+      "expected_intent": {},
+      "acceptable_variants": {
+        "action": ["ambiguous"],
+        "target": ["ambiguous"]
+      },
+      "forbidden_inferences": ["action=create", "action=modify", "target=document"],
+      "expect_validation_ok": true
+    }
+  ]
+}
