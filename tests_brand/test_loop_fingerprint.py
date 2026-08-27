@@ -62,6 +62,49 @@ def test_uncoded_findings_sharing_a_field_but_different_category_or_message_do_n
     assert finding_fingerprint(f1) != finding_fingerprint(f2)
 
 
+def test_design_intent_fingerprint_is_stable_across_independent_planning_runs():
+    """Production-hardening regression: ``plan_narrative()`` mints a
+    fresh random id for every ``NarrativePlan`` section on every call,
+    and ``SectionDesign.section_id`` is a foreign key into that id.
+    Fingerprinting on ``section_id`` (the original implementation) made
+    two structurally-identical DesignIntents "different" purely because
+    they came from two independently-planned NarrativePlans over the
+    exact same real content — a real determinism gap caught by running
+    ``run_iteration`` on identical inputs ten times and diffing the
+    result. The fingerprint must key sections by their real,
+    content-derived ``visual_role`` instead."""
+    from brand.examples.studio_nord import studio_nord
+    from brand.creative.directions import get_direction
+    from brand.llm.loop.orchestrator import InitialInputs, run_iteration
+    from brand.llm.loop.model import IterationPolicy
+    from brand.llm.semantic_intent import SemanticFieldValues, SemanticIntent
+    from brand.project.model import ContentItem, ContentItemKind, Document, Project
+
+    def make():
+        project_id = "fixed-project-id-0000"
+        doc = Document(
+            id="fixed-doc-id-0000", project_id=project_id, name="Case Study", document_type_id="portfolio",
+            direction_id="editorial-quiet",
+            content_items=(ContentItem(kind=ContentItemKind.TEXT, text="A residential development of 84 apartments on the riverside." * 3),),
+        )
+        return Project(id=project_id, name="Riverside", documents=(doc,)), doc
+
+    initial = InitialInputs(semantic_intent=SemanticIntent(explicit=SemanticFieldValues(audience="client")), document_type_id="portfolio")
+    brand = studio_nord()
+
+    fps = []
+    page_plans = []
+    for _ in range(10):
+        project, doc = make()
+        direction = get_direction(doc.direction_id)
+        it, _p, _d = run_iteration(project, doc, brand, direction, lineage=(), initial=initial, policy=IterationPolicy(), dry_run=True)
+        fps.append(it.design_intent_fingerprint)
+        page_plans.append(it.page_plan)
+
+    assert len(set(fps)) == 1, "design_intent_fingerprint must be stable given identical real inputs"
+    assert all(pp == page_plans[0] for pp in page_plans), "the composed PagePlan must be byte-identical given identical real inputs"
+
+
 def test_recommendation_fingerprint_is_deterministic():
     patch = DesignIntentPatch(target="density", value="low")
     assert recommendation_fingerprint("fp1", patch) == recommendation_fingerprint("fp1", patch)

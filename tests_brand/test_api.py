@@ -75,6 +75,23 @@ def test_main_registers_the_router():
     assert 'app.include_router(brand_router.router, prefix="/api/v2"' in source
 
 
+def test_default_cors_origins_include_ados_webs_real_dev_port(monkeypatch):
+    """Production-hardening regression: a fresh checkout with no
+    ALLOWED_ORIGINS env var set used to default to only :3000/:5173 —
+    but ados-web (the actual ADOS frontend, per its own
+    ados-service/README.md-documented ADOS_ALLOWED_ORIGINS default) runs
+    on :3100. Every browser request from a freshly cloned, unconfigured
+    ados-web dev server was silently rejected by CORS (no server log,
+    just a generic "Could not create the project" in the UI) — caught
+    by this milestone's own fresh-state browser journey test."""
+    import api.main as main
+
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+    origins = main._env_origins()
+    assert "http://localhost:3100" in origins
+    assert "http://127.0.0.1:3100" in origins
+
+
 def test_the_router_is_mounted(client):
     """If this fails, api/main.py never registered the router."""
     response = client.get("/api/v2/brands")

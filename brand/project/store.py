@@ -12,6 +12,8 @@ this system lives in ``ProjectVersion``, not in the file on disk.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +23,31 @@ from brand.project.model import Project
 class ProjectNotFound(KeyError):
     def __init__(self, project_id: str) -> None:
         super().__init__(f"no project {project_id!r} in this store")
+
+
+def _atomic_write_text(path: Path, data: str) -> None:
+    """Write-then-rename, never write-in-place (ADOS-M3.6 production
+    hardening). ``Path.write_text`` truncates and writes in place — two
+    concurrent writers to the same path (e.g. two overlapping
+    closed-loop iterations on the same document) can interleave their
+    writes, leaving a torn, unparseable JSON file that fails every
+    future read of this project until someone repairs the file by hand.
+    ``os.replace`` is an atomic rename on the same filesystem (POSIX and
+    Windows both guarantee this): a reader always sees either the
+    complete old file or the complete new one, never a mix."""
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 class FileProjectRepository:
@@ -41,7 +68,7 @@ class FileProjectRepository:
     def save(self, project: Project) -> Project:
         path = self._path(project.id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(project.model_dump_json(indent=2))
+        _atomic_write_text(path, project.model_dump_json(indent=2))
         return project
 
     def get(self, project_id: str) -> Project:

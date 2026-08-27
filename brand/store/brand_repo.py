@@ -18,6 +18,8 @@ and expensive when it is found.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Iterable, Optional, Protocol, runtime_checkable
 
@@ -27,6 +29,27 @@ from brand.versioning.brand_version import (
     VersionError,
     parse_version,
 )
+
+
+def _atomic_write_text(path: Path, data: str) -> None:
+    """Write-then-rename, never write-in-place (ADOS-M3.6 production
+    hardening) — see ``brand.project.store``'s identical helper for the
+    torn-file race this prevents. Duplicated rather than imported: the
+    two stores are otherwise independent siblings under ``brand/``, and
+    this is a 15-line filesystem primitive, not shared domain logic."""
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 @runtime_checkable
@@ -84,7 +107,7 @@ class FileBrandRepository:
                 )
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(brand.to_json())
+        _atomic_write_text(path, brand.to_json())
         self._write_index(brand)
         return brand
 
@@ -100,7 +123,7 @@ class FileBrandRepository:
         versions.add(brand.version)
         entry["versions"] = sorted(versions, key=parse_version)
         index_path.parent.mkdir(parents=True, exist_ok=True)
-        index_path.write_text(json.dumps(index, indent=2, sort_keys=True))
+        _atomic_write_text(index_path, json.dumps(index, indent=2, sort_keys=True))
 
     # -- read -----------------------------------------------------------
     def get(self, brand_id: str, version: Optional[str] = None) -> Brand:

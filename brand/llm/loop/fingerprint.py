@@ -32,7 +32,20 @@ def design_intent_fingerprint(design_intent: "DesignIntent") -> str:
     rhythm — plus every section's own composition-relevant fields. Two
     ``DesignIntent``s that differ only in ``id``/``created_at``/
     ``metadata`` fingerprint identically, which is the point: identity
-    is a design decision, not an object's own bookkeeping."""
+    is a design decision, not an object's own bookkeeping.
+
+    Deliberately keys each section by ``visual_role`` (a real,
+    content-derived tag: ``intro``/``hero``/``process``/... — stable
+    across independent planning runs given the same narrative), never
+    by ``SectionDesign.section_id``: that field is a foreign key into
+    ``NarrativePlan.sections[].id``, and ``plan_narrative()`` mints a
+    fresh random id for every section on every call. A fingerprint keyed
+    on it would call two structurally-identical DesignIntents "different"
+    purely because they came from two independently-planned
+    NarrativePlans — undermining the reproducibility this fingerprint
+    exists for (ADOS-M3.6 §83; caught by this milestone's own production
+    hardening pass, which ran the same real inputs through
+    ``run_iteration`` ten times and diffed the result)."""
     payload = {
         "composition_strategy": design_intent.composition_strategy.value,
         "density": design_intent.density.value,
@@ -43,8 +56,8 @@ def design_intent_fingerprint(design_intent: "DesignIntent") -> str:
         "rhythm": design_intent.rhythm.value,
         "visual_language": sorted(v.value for v in design_intent.visual_language),
         "sections": sorted(
-            (sd.section_id, sd.composition_mode.value, sd.text_density.value, sd.image_density.value,
-             sd.typography_hierarchy.value)
+            (tuple(v.value for v in sd.visual_role), sd.composition_mode.value, sd.text_density.value,
+             sd.image_density.value, sd.typography_hierarchy.value)
             for sd in design_intent.section_designs
         ),
     }

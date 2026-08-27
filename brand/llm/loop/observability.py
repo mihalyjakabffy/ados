@@ -21,6 +21,7 @@ for the layer below this one.
 
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 from typing import Optional
 
@@ -34,9 +35,37 @@ _MAX_LINEAGES = 200
 
 _lineages: "OrderedDict[tuple[str, str], list[Iteration]]" = OrderedDict()
 
+#: One lock per lineage (ADOS-M3.6 production hardening). Every
+#: loop-mutating API endpoint (start/continue/run/approve) does a
+#: check-lineage-state -> run_iteration -> persist sequence that is not
+#: otherwise atomic; two concurrent requests against the same document
+#: could both pass the "no lineage yet" check, both plan/execute/
+#: compose, and both call ``execution.save_new_version`` — producing
+#: duplicate sequence numbers in the lineage and a lost-update race on
+#: the project file. This registry lets the router serialize that
+#: sequence per (project_id, document_id) without serializing unrelated
+#: documents. Single-process only, same limitation this whole in-memory
+#: store already accepts for iteration history — a multi-worker
+#: deployment needs a real distributed lock instead.
+_lineage_locks: "OrderedDict[tuple[str, str], threading.Lock]" = OrderedDict()
+_lineage_locks_guard = threading.Lock()
+
 
 def _key(project_id: str, document_id: str) -> tuple[str, str]:
     return (project_id, document_id)
+
+
+def lineage_lock(project_id: str, document_id: str) -> threading.Lock:
+    key = _key(project_id, document_id)
+    with _lineage_locks_guard:
+        lock = _lineage_locks.get(key)
+        if lock is None:
+            if len(_lineage_locks) >= _MAX_LINEAGES:
+                _lineage_locks.popitem(last=False)
+            lock = threading.Lock()
+            _lineage_locks[key] = lock
+        _lineage_locks.move_to_end(key)
+        return lock
 
 
 def record_iteration(iteration: Iteration) -> None:

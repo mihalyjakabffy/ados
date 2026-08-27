@@ -135,6 +135,49 @@ def test_store_round_trips_a_project_byte_identical(tmp_path):
     assert loaded == project
 
 
+def test_store_save_is_atomic_under_concurrent_writers(tmp_path):
+    """Production-hardening regression: ``save`` used to be a plain
+    ``path.write_text(...)`` — two threads writing the same project id
+    concurrently could interleave their writes and leave a torn,
+    unparseable JSON file (observed live: pydantic raised
+    ``json_invalid: trailing characters`` on every subsequent read,
+    permanently — the project file for that id stayed corrupt until
+    someone repaired it by hand). ``save`` now writes to a temp file and
+    ``os.replace``s it into place, which POSIX guarantees is atomic — a
+    concurrent reader must always see either a complete old file or a
+    complete new one, never a mix, and never raise."""
+    import concurrent.futures
+    import threading
+
+    repo = FileProjectRepository(tmp_path)
+    project = Project(name="A")
+    repo.save(project)
+
+    stop = threading.Event()
+    read_errors: list[Exception] = []
+
+    def hammer_writes():
+        for i in range(200):
+            variant = project.model_copy(update={"name": f"A-{i}"})
+            repo.save(variant)
+        stop.set()
+
+    def hammer_reads():
+        while not stop.is_set():
+            try:
+                repo.get(project.id)
+            except Exception as exc:  # noqa: BLE001 — any exception here is the bug
+                read_errors.append(exc)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+        writers = [ex.submit(hammer_writes) for _ in range(3)]
+        readers = [ex.submit(hammer_reads) for _ in range(3)]
+        for f in writers + readers:
+            f.result()
+
+    assert read_errors == []
+
+
 def test_store_raises_project_not_found_for_a_missing_id(tmp_path):
     repo = FileProjectRepository(tmp_path)
     with pytest.raises(ProjectNotFound):

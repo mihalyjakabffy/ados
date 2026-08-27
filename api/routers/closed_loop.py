@@ -159,54 +159,56 @@ def start_loop(project_id: str, document_id: str, body: StartLoopRequest) -> dic
     """Runs the first iteration of a fresh lineage. 409s if this
     document already has one — use ``/loop/continue`` or ``/loop/run``,
     or start a lineage against a different document."""
-    from brand.llm.loop.observability import get_lineage, record_iteration
+    from brand.llm.loop.observability import get_lineage, lineage_lock, record_iteration
     from brand.llm.loop.orchestrator import run_iteration
 
-    project, document = _load_project_and_document(project_id, document_id)
-    if get_lineage(project_id, document_id):
-        raise HTTPException(status_code=409, detail={"error": "lineage_already_started"})
+    with lineage_lock(project_id, document_id):
+        project, document = _load_project_and_document(project_id, document_id)
+        if get_lineage(project_id, document_id):
+            raise HTTPException(status_code=409, detail={"error": "lineage_already_started"})
 
-    brand = _load_brand(project)
-    direction = _load_direction(document)
-    iteration, new_project, _new_document = run_iteration(
-        project, document, brand, direction,
-        lineage=(), initial=_initial_inputs(body), policy=_policy(body.policy), dry_run=body.dry_run,
-    )
-    if not body.dry_run:
-        record_iteration(iteration)
-        _persist(new_project)
-    return iteration.to_dict()
+        brand = _load_brand(project)
+        direction = _load_direction(document)
+        iteration, new_project, _new_document = run_iteration(
+            project, document, brand, direction,
+            lineage=(), initial=_initial_inputs(body), policy=_policy(body.policy), dry_run=body.dry_run,
+        )
+        if not body.dry_run:
+            record_iteration(iteration)
+            _persist(new_project)
+        return iteration.to_dict()
 
 
 @router.post("/{project_id}/documents/{document_id}/loop/continue")
 def continue_loop(project_id: str, document_id: str, body: ContinueLoopRequest) -> dict[str, Any]:
     """Runs the next iteration in an existing, still-open lineage."""
-    from brand.llm.loop.observability import get_lineage, record_iteration
+    from brand.llm.loop.observability import get_lineage, lineage_lock, record_iteration
     from brand.llm.loop.orchestrator import run_iteration
     from brand.llm.loop.vocabulary import IterationStatus
 
-    project, document = _load_project_and_document(project_id, document_id)
-    lineage = get_lineage(project_id, document_id)
-    if not lineage:
-        raise HTTPException(status_code=404, detail={"error": "no_lineage", "detail": "call /loop/start first"})
-    last = lineage[-1]
-    if last.stop_reason is not None or last.status is IterationStatus.AWAITING_APPROVAL:
-        raise HTTPException(
-            status_code=409,
-            detail={"error": "loop_not_continuable", "status": last.status.value,
-                    "stop_reason": last.stop_reason.value if last.stop_reason else None},
-        )
+    with lineage_lock(project_id, document_id):
+        project, document = _load_project_and_document(project_id, document_id)
+        lineage = get_lineage(project_id, document_id)
+        if not lineage:
+            raise HTTPException(status_code=404, detail={"error": "no_lineage", "detail": "call /loop/start first"})
+        last = lineage[-1]
+        if last.stop_reason is not None or last.status is IterationStatus.AWAITING_APPROVAL:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "loop_not_continuable", "status": last.status.value,
+                        "stop_reason": last.stop_reason.value if last.stop_reason else None},
+            )
 
-    brand = _load_brand(project)
-    direction = _load_direction(document)
-    iteration, new_project, _new_document = run_iteration(
-        project, document, brand, direction,
-        lineage=lineage, policy=_policy(body.policy), dry_run=body.dry_run,
-    )
-    if not body.dry_run:
-        record_iteration(iteration)
-        _persist(new_project)
-    return iteration.to_dict()
+        brand = _load_brand(project)
+        direction = _load_direction(document)
+        iteration, new_project, _new_document = run_iteration(
+            project, document, brand, direction,
+            lineage=lineage, policy=_policy(body.policy), dry_run=body.dry_run,
+        )
+        if not body.dry_run:
+            record_iteration(iteration)
+            _persist(new_project)
+        return iteration.to_dict()
 
 
 @router.post("/{project_id}/documents/{document_id}/loop/run")
@@ -214,61 +216,63 @@ def run_full_loop(project_id: str, document_id: str, body: RunLoopRequest) -> di
     """Starts a fresh lineage and runs it to completion (ADOS-M3.6 §32) —
     the convenience "just do the whole loop" endpoint. 409s if a
     lineage already exists; call ``/loop/continue`` repeatedly instead."""
-    from brand.llm.loop.observability import get_lineage, record_lineage
+    from brand.llm.loop.observability import get_lineage, lineage_lock, record_lineage
     from brand.llm.loop.orchestrator import run_loop
 
-    project, document = _load_project_and_document(project_id, document_id)
-    if get_lineage(project_id, document_id):
-        raise HTTPException(status_code=409, detail={"error": "lineage_already_started"})
+    with lineage_lock(project_id, document_id):
+        project, document = _load_project_and_document(project_id, document_id)
+        if get_lineage(project_id, document_id):
+            raise HTTPException(status_code=409, detail={"error": "lineage_already_started"})
 
-    brand = _load_brand(project)
-    direction = _load_direction(document)
-    iterations, new_project, _new_document = run_loop(
-        project, document, brand, direction, initial=_initial_inputs(body), policy=_policy(body.policy),
-    )
-    record_lineage(iterations)
-    _persist(new_project)
-    last = iterations[-1]
-    return {
-        "iterations": [it.to_dict() for it in iterations],
-        "final_status": last.status.value,
-        "stop_reason": last.stop_reason.value if last.stop_reason else None,
-        "total_llm_calls": sum(it.llm_calls for it in iterations),
-    }
+        brand = _load_brand(project)
+        direction = _load_direction(document)
+        iterations, new_project, _new_document = run_loop(
+            project, document, brand, direction, initial=_initial_inputs(body), policy=_policy(body.policy),
+        )
+        record_lineage(iterations)
+        _persist(new_project)
+        last = iterations[-1]
+        return {
+            "iterations": [it.to_dict() for it in iterations],
+            "final_status": last.status.value,
+            "stop_reason": last.stop_reason.value if last.stop_reason else None,
+            "total_llm_calls": sum(it.llm_calls for it in iterations),
+        }
 
 
 @router.post("/{project_id}/documents/{document_id}/loop/approve")
 def approve_loop(project_id: str, document_id: str, body: ApproveLoopRequest) -> dict[str, Any]:
     """Approves and executes some or all of a pending
     ``AWAITING_APPROVAL`` iteration's commands (ADOS-M3.6 §37/§39)."""
-    from brand.llm.loop.observability import get_lineage, replace_last_iteration
+    from brand.llm.loop.observability import get_lineage, lineage_lock, replace_last_iteration
     from brand.llm.loop.orchestrator import resume_iteration
     from brand.llm.loop.vocabulary import IterationStatus
 
-    project, document = _load_project_and_document(project_id, document_id)
-    lineage = get_lineage(project_id, document_id)
-    if not lineage or lineage[-1].status is not IterationStatus.AWAITING_APPROVAL:
-        raise HTTPException(status_code=409, detail={"error": "nothing_awaiting_approval"})
+    with lineage_lock(project_id, document_id):
+        project, document = _load_project_and_document(project_id, document_id)
+        lineage = get_lineage(project_id, document_id)
+        if not lineage or lineage[-1].status is not IterationStatus.AWAITING_APPROVAL:
+            raise HTTPException(status_code=409, detail={"error": "nothing_awaiting_approval"})
 
-    pending = lineage[-1]
-    pending_ids = {c["id"] for c in pending.command_plan.get("commands", [])}
-    approved = frozenset(body.command_ids) if body.command_ids is not None else frozenset(pending_ids)
-    unknown = approved - pending_ids
-    if unknown:
-        raise HTTPException(status_code=404, detail={"error": "unknown_command_ids", "ids": sorted(unknown)})
+        pending = lineage[-1]
+        pending_ids = {c["id"] for c in pending.command_plan.get("commands", [])}
+        approved = frozenset(body.command_ids) if body.command_ids is not None else frozenset(pending_ids)
+        unknown = approved - pending_ids
+        if unknown:
+            raise HTTPException(status_code=404, detail={"error": "unknown_command_ids", "ids": sorted(unknown)})
 
-    brand = _load_brand(project)
-    direction = _load_direction(document)
-    try:
-        iteration, new_project, _new_document = resume_iteration(
-            project, document, brand, direction, pending=pending, lineage=lineage, approved_command_ids=approved,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        brand = _load_brand(project)
+        direction = _load_direction(document)
+        try:
+            iteration, new_project, _new_document = resume_iteration(
+                project, document, brand, direction, pending=pending, lineage=lineage, approved_command_ids=approved,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    replace_last_iteration(iteration)
-    _persist(new_project)
-    return iteration.to_dict()
+        replace_last_iteration(iteration)
+        _persist(new_project)
+        return iteration.to_dict()
 
 
 @router.post("/{project_id}/documents/{document_id}/loop/stop")
@@ -278,21 +282,22 @@ def stop_loop(project_id: str, document_id: str) -> dict[str, Any]:
     executed and composed."""
     from datetime import datetime, timezone
 
-    from brand.llm.loop.observability import get_lineage, replace_last_iteration
+    from brand.llm.loop.observability import get_lineage, lineage_lock, replace_last_iteration
     from brand.llm.loop.vocabulary import IterationStatus, StopReason
 
-    lineage = get_lineage(project_id, document_id)
-    if not lineage:
-        raise HTTPException(status_code=404, detail={"error": "no_lineage"})
-    last = lineage[-1]
-    if last.stop_reason is not None:
-        return last.to_dict()
-    stopped = last.model_copy(update={
-        "status": IterationStatus.STOPPED, "stop_reason": StopReason.SUCCESS,
-        "completed_at": datetime.now(timezone.utc),
-    })
-    replace_last_iteration(stopped)
-    return stopped.to_dict()
+    with lineage_lock(project_id, document_id):
+        lineage = get_lineage(project_id, document_id)
+        if not lineage:
+            raise HTTPException(status_code=404, detail={"error": "no_lineage"})
+        last = lineage[-1]
+        if last.stop_reason is not None:
+            return last.to_dict()
+        stopped = last.model_copy(update={
+            "status": IterationStatus.STOPPED, "stop_reason": StopReason.SUCCESS,
+            "completed_at": datetime.now(timezone.utc),
+        })
+        replace_last_iteration(stopped)
+        return stopped.to_dict()
 
 
 @router.get("/{project_id}/documents/{document_id}/loop")
