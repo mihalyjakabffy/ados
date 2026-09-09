@@ -41,11 +41,14 @@ mcp = FastMCP(
         "accepted; relay a refusal's real reason rather than retrying blindly. "
         "compose_document does not persist anything by itself — call "
         "save_version to keep a composed result, then export_document to "
-        "render a saved Version. Editing the shared content pool does NOT "
-        "yet recompose documents that selected the changed item (that "
-        "fan-out is ADOS-M4.3, not built yet) — call compose_document again "
-        "on each document that should pick up the change, and say so "
-        "explicitly rather than implying it happened automatically."
+        "render a saved Version. Editing the shared content pool or "
+        "bumping a project's brand version does NOT automatically "
+        "recompose documents that reference it — call "
+        "propagate_content_change or propagate_brand_change explicitly "
+        "afterward (ADOS-M4.3), and tell the user what it reports "
+        "(which documents were recomposed, which were left alone, and "
+        "any new findings) rather than assuming the change already "
+        "reached every document on its own."
     ),
 )
 

@@ -132,11 +132,17 @@ actually wants — "edit this fact, recompose whatever used it" — is
 exactly ADOS-M4.3's job; its own PATCH endpoint is built together with
 `propagate_content_change`, not guessed at in M4.2.
 
+Shipped in M4.3 (§6), also 1:1 wrappers:
+
+| Tool | Wraps | Domain |
+|---|---|---|
+| `propagate_content_change(project_id, item_id)` | `POST .../content/{item_id}/propagate` | recompose every document referencing a shared fact that changed or was removed |
+| `propagate_brand_change(project_id, brand_version)` | `POST .../brand/propagate` | move a project onto a published brand version and recompose everything in it |
+
 Deferred to later phases, unchanged from the original plan:
 
 | Tool | Wraps | Domain | Phase |
 |---|---|---|---|
-| `propagate_content_change` | **new**, §6 | the "update everywhere" mechanism | M4.3 |
 | `propose_brand`, `approve_brand`, `audit_brand` | `BrandAgent.generate_proposal`, `.approve()`, `brand.validation.consistency` | identity, human-gated | M4.5 |
 | `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands` | M3.3–M3.5 endpoints | letting Claude invoke ADOS's *own*, validated generation stages instead of freehanding prose that skips them | M4.4 |
 | `start_loop`, `continue_loop`, `approve_loop`, `stop_loop` | `api/routers/closed_loop.py` | bounded, auditable self-correction, §8 | M4.4 |
@@ -168,49 +174,96 @@ tools should perform the identical check before any write: if the
 write and ask Claude to re-read first — `StopReason.STALE_STATE`, reused,
 not reinvented.
 
-## 6. The gap this milestone must fill: fan-out propagation
+## 6. The gap this milestone had to fill: fan-out propagation (**shipped**)
 
-Today, editing `Project.content_items[i]` does not touch any `Document`.
-The *next* `compose_document()` of a document selecting that item will
-pick up the new value — but nothing recomposes the other documents
-automatically, and nothing tells the user which ones now differ from what
-was last issued. That is the literal gap between what exists and "ha
-valahol valami változik, minden dokumentumban frissítse."
+Before M4.3, editing `Project.content_items[i]` did not touch any
+`Document`. The *next* `compose_document()` of a document selecting that
+item would pick up the new value — but nothing recomposed the other
+documents automatically, and nothing told the user which ones now
+differed from what was last issued. That was the literal gap between
+what existed and "ha valahol valami változik, minden dokumentumban
+frissítse."
 
-**New module — `brand/project/propagation.py`** (small, deterministic, no
-LLM, following `execution.py`'s and `orchestrator.py`'s own posture):
+**`brand/project/propagation.py`** (pure domain logic, no repository I/O,
+no LLM — mirroring `versioning.py`'s own "logic here, I/O in the router"
+split):
 
 ```
-propagate_content_change(project, changed_item_id) -> PropagationResult
+propagate_content_change(project, brand, changed_item_id) -> PropagationResult
     for each Document in project.documents:
         if changed_item_id in document.content_selection
            or changed_item_id in {i.id for i in document.content_items}:
-            recompose (reuse compose_document's own function, unchanged)
-            evaluate() (unchanged)
-            record: document_id, old plan hash, new plan hash, new/resolved findings
-    return PropagationResult(touched, unaffected, findings_by_document)
+            recompose via the shared _recompose_one() step —
+                resolve_document_content() -> compose() -> evaluate()
+                -> check_requirements(), the exact sequence
+                compose_document's own endpoint runs, factored out so
+                both entry points below call it identically
+            record: document_id, recomposed?, reason if not, findings, requirement_findings
+        else:
+            record document_id under `unaffected`
+    return PropagationResult(project=<new Project, ready to persist>, touched, unaffected)
 ```
 
-`propagate_brand_change(project, new_brand_version)` is the same shape for a
-brand `bump()`: every document currently attached to that brand (directly,
-via `Document`/`Project.brand_id`) is recomposed against the new version,
-never in place — brands stay immutable per `brand/README.md` Rule 5, so
-"the palette changed" is always "author a new brand version, then
-propagate", never a silent mutation of an issued version.
+`propagate_brand_change(project, new_brand)` is the same shape for a
+brand `bump()`: moves `project.brand_version` to `new_brand.version` and
+recomposes *every* document in the project (they all share the one
+brand, so there is no `unaffected` set for this entry point) — never an
+in-place edit, since brands stay immutable per published version
+(`brand/README.md` Rule 5). "The palette changed" is always "`bump()` a
+new version elsewhere, get it approved and published, then propagate",
+never a silent mutation of an issued brand.
 
-Both functions call only `compose()`/`evaluate()`/the existing store
-`save()` — the same primitives `execution.py` is already the sole
-authorised caller of (§10 of `m3.6-closed-loop.md`). `propagation.py`
-becomes the second, explicitly-listed authorised caller, verified the same
-AST way.
+**Deliberate, stated deviation from `compose_document`'s own
+precondition**: a single-document compose treats "no content" as a hard
+422 — the caller asked for exactly that document. A fan-out over many
+documents must not abort the whole batch because one of them happens to
+be an empty scaffold (or just lost its only content to the very change
+being propagated); that document is instead reported
+`recomposed=false, reason="no_content"` and the rest proceed. This is the
+one place propagation's behaviour differs from the endpoint it otherwise
+mirrors, and it differs for a stated reason.
 
-**API**: `POST /{project_id}/content/{item_id}/propagate`,
-`POST /brands/{id}/versions/{version}/propagate`. **MCP tool**:
-`propagate_content_change` / `propagate_brand_change`, wrapping those
-endpoints exactly per §3 rule 1.
+Both functions call only `compose()`/`evaluate()` — the same primitives
+`brand/llm/loop/execution.py` is already the sole authorised caller of
+within `brand/llm/loop/` (§10 of `m3.6-closed-loop.md`).
+`brand/project/propagation.py` is the analogous, explicitly-listed
+authorised caller within `brand/project/` — verified the same AST way
+(`tests_brand/test_propagation_boundaries.py`), scoped to that package
+since `api/routers/ados_project.py` itself (outside `brand/`) remains the
+original, first caller for a single document's own `.../compose`.
+Neither propagation function calls a store's `save()` itself — both
+return a new `Project` for the caller (the router, then the MCP tool) to
+persist, so "propagate" never becomes a second place that decides how or
+whether to write to disk.
 
-Whether an edit auto-propagates or requires this explicit second call is a
-real design decision, not a detail — flagged in §9.
+**API** (`api/routers/ados_project.py`): `POST /{project_id}/content/{item_id}/propagate`,
+`POST /{project_id}/brand/propagate` (body: `{"brand_version": "..."}`).
+
+**Correction from this section's original sketch**: the brand endpoint is
+`POST /{project_id}/brand/propagate`, project-scoped under
+`ados-projects`, not `POST /brands/{id}/versions/{version}/propagate`
+under the brand router as first drafted. A brand can be attached to more
+than one project, and the only real index of "which projects use this
+brand" is each project's own `brand_id` — there is no reverse index on
+the brand side to scan. Scoping the operation to one project at a time
+(the same scope `propagate_content_change` already has, and the only
+scope `Project`'s one-JSON-file-per-project store makes cheap) avoids
+inventing that index for a milestone whose own stated goal (§10) is to
+stay "narrow enough to be trustworthy."
+
+**MCP tools** (`ados_mcp/tools/propagation.py`): `propagate_content_change(project_id, item_id)` /
+`propagate_brand_change(project_id, brand_version)`, thin wrappers of
+those two endpoints exactly per §3 rule 1. Neither is called
+automatically by any other tool — `add_shared_content`, `remove_shared_content`
+and `attach_brand` never trigger propagation as a side effect (§9
+decision 1); the connector's own startup instructions
+(`ados_mcp/server.py`) tell the connecting model this explicitly, so it
+relays "N documents now differ" as a distinct step rather than implying
+a write already reached every document.
+
+Whether an edit auto-propagates or requires this explicit second call was
+a real design decision, not a detail — settled in §9 (decision 1,
+explicit).
 
 ## 7. "Creatively, any output from the same input" — where the creativity actually lives
 
@@ -273,7 +326,7 @@ question, not a silent action). The connector's only job here is transport.
 |---|---|---|
 | **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. **Shipped.** | Near zero — no new mutation path exists yet. |
 | **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
-| **M4.3** | `brand/project/propagation.py` + its two endpoints + two tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. New deterministic code, new tests (determinism, no-mutation-without-recompose, fingerprint-stable findings). | Medium — first genuinely new backend logic this milestone adds. |
+| **M4.3** | `brand/project/propagation.py` + its two endpoints (`.../content/{id}/propagate`, `.../brand/propagate`) + two MCP tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. Its own AST boundary suite (`tests_brand/test_propagation_boundaries.py`, mirroring `test_loop_boundaries.py`). **Shipped** — pure-domain tests, API tests, MCP-tool tests, and a live end-to-end run against a real `api/main.py` (shared item → select on one of two documents → propagate → only the referencing document recomposes, the other is reported `unaffected`). | Medium — first genuinely new backend logic this milestone added; mitigated by matching M3.6's own boundary-testing discipline from the first commit. |
 | **M4.4** | Generative tools (`generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools, gated by explicit confirmation for non-`SAFE` autonomy. | Medium — cost/latency-visible, but reuses M3.1–M3.6 unchanged. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`/`audit_brand`), guidelines/export tools. | Low — human-approval gate already exists; this only relays it. |
 | **M4.6** | Remote (HTTP+SSE) transport + bearer-token auth for the claude.ai custom-connector case. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today). |
@@ -288,13 +341,24 @@ ados_mcp/
                      # low-level path every tool call goes through
   resources.py
   tools/
-    projects.py  content.py  documents.py  brand.py  generation.py  loop.py
+    projects.py  content.py  documents.py  propagation.py  brand.py  generation.py  loop.py
+                 #  ^ M4.2      ^ M4.2         ^ M4.3        ^ M4.5    ^ M4.4        ^ M4.4
   auth.py          # bearer-token guard, M4.6 only
 tests_mcp/
   test_boundaries.py        # AST: no module imports brand/ or api/routers/
-                             # directly, and only client.py touches httpx
-  test_resources.py  test_tools_content.py  ...  # one per resources/tools module
+                             # directly, only client.py touches httpx, every
+                             # tools/* module calls get_client()
+  test_client.py  test_resources.py  test_tools_projects.py  test_tools_content.py
+  test_tools_documents.py  test_tools_propagation.py  ...  # one per resources/tools module
 docs/architecture/m4-claude-connector.md   # this document
+brand/project/propagation.py   # M4.3 — lives under brand/, not ados_mcp/;
+                                # see §6 for why the fan-out is domain logic,
+                                # not a connector concern
+tests_brand/
+  test_propagation.py            # pure-domain unit tests
+  test_propagation_boundaries.py # AST: only propagation.py calls compose()/
+                                  # evaluate() within brand/project/
+  test_propagation_api.py        # the two new api/routers/ados_project.py endpoints
 ```
 
 Named `ados_mcp/`, not `mcp/` — the MCP Python SDK is itself the PyPI/import

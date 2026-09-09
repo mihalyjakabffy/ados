@@ -7,11 +7,14 @@ carrier — see docs/architecture/m2.5-design-state.md §5), and which of
 the pool's items a given document selects.
 
 A shared item can be added and removed here but not yet *updated* in
-place — ``api/routers/ados_project.py`` has no PATCH for one shared
-``ContentItem`` today. Editing a shared fact and having every document
-that selects it recompose is exactly what ADOS-M4.3 (propagation) adds;
-the update endpoint that operation needs is built together with it, not
-guessed at here (docs/architecture/m4-claude-connector.md §6, §9).
+place — ``api/routers/ados_project.py`` still has no PATCH for one shared
+``ContentItem``; ADOS-M4.3 added the recompose-everywhere mechanism
+(``ados_mcp.tools.propagation``) without needing one, since it operates
+on "this item id changed or is gone", not on the edit itself. Editing a
+shared fact today is still remove + re-add (a new id — every document's
+``content_selection`` referencing the old one goes stale and must be
+re-selected); a real in-place update endpoint remains a gap, tracked in
+docs/architecture/m4-claude-connector.md §6, §9.
 """
 
 from __future__ import annotations
@@ -102,11 +105,11 @@ async def remove_document_content(project_id: str, document_id: str, item_id: st
 @mcp.tool(
     description=(
         "Add a content item to the project's shared pool — a fact more than "
-        "one document can carry by selecting it (select_content_for_document), "
-        "so editing it in one place is meant to reach every document that "
-        "selected it (ADOS-0.3.020, 'one fact, one place'; the actual "
-        "recompose-everywhere step is ADOS-M4.3, not built yet — see this "
-        "server's own startup instructions). " + _CONTENT_ITEM_DESCRIPTION + " "
+        "one document can carry by selecting it (select_content_for_document). "
+        "After a document selects it, call propagate_content_change with "
+        "this item's id to recompose every document that references it "
+        "(ADOS-0.3.020, 'one fact, one place') — nothing recomposes "
+        "automatically just because the pool changed. " + _CONTENT_ITEM_DESCRIPTION + " "
         "Returns the updated project."
     ),
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False),

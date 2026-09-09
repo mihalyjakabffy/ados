@@ -1,20 +1,20 @@
 # ados_mcp — the ADOS Claude connector
 
-ADOS-M4.1/M4.2. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
+ADOS-M4.1/M4.2/M4.3. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
 
 An MCP server exposing ADOS's own `DesignState`, projects, shared content
 pool, brand identity and the ADOS 1.0 rule registry as resources, plus
-tools to create and edit projects/documents/content and to
-compose/save/export a document, to any MCP client — Claude Code, Claude
-Desktop, or a custom client. It is a new *client* of `api/main.py` and
-`ados-service/main.py`, talking to both over plain HTTP, exactly the
+tools to create and edit projects/documents/content, compose/save/export
+a document, and propagate a changed shared fact or brand version to
+every document that references it, to any MCP client — Claude Code,
+Claude Desktop, or a custom client. It is a new *client* of `api/main.py`
+and `ados-service/main.py`, talking to both over plain HTTP, exactly the
 relationship `ados-web` already has to `api/main.py`. It does not import
 `brand/` or `api/routers/` — every tool is a thin wrapper around one
 already-validated ADOS endpoint, so a malformed or unsafe request is
 refused by ADOS itself, never silently accepted (design doc §3). See the
-phased rollout (§10) for what M4.3 onward still adds — propagation
-("edit this fact, recompose everywhere it's used"), the generative and
-closed-loop tools, and the remote transport.
+phased rollout (§10) for what M4.4 onward still adds — the generative and
+closed-loop tools, brand authoring in chat, and the remote transport.
 
 ## Install
 
@@ -97,14 +97,20 @@ named in the call.
 | `compose_document(project_id, document_id)` | `POST .../documents/{id}/compose` | does not persist — call `save_version` to keep it |
 | `save_version(project_id, document_id, label="", plan?)` | `POST .../versions` | immutable once saved |
 | `export_document(project_id, document_id, version_number?, format="pdf")` | `POST .../documents/{id}/export` | `format` is `pdf` or `html` |
+| `propagate_content_change(project_id, item_id)` | `POST .../content/{id}/propagate` | recomposes every document referencing `item_id`; reports which and which were left alone |
+| `propagate_brand_change(project_id, brand_version)` | `POST .../brand/propagate` | moves the project onto an already-published brand version and recomposes everything in it |
 
-There is no `update_shared_content` yet — `api/routers/ados_project.py`
-has no endpoint for it. That lands in M4.3 together with
-`propagate_content_change`, the actual "edit this fact, recompose every
-document that uses it" mechanism (design doc §6, §9). Until then, editing
-a shared item means remove + re-add (a new id — every document's
-`content_selection` referencing the old one goes stale) or editing a
-document's own private content instead.
+There is still no `update_shared_content` — `api/routers/ados_project.py`
+has no endpoint for editing one shared `ContentItem` in place. Editing a
+shared item today is remove + re-add (a new id — every document's
+`content_selection` referencing the old one goes stale and must be
+re-selected); `propagate_content_change` operates on "this item id
+changed or is gone", so it doesn't need an update endpoint to do its job
+(design doc §6, §9). Neither propagation tool is called automatically by
+any other tool — an edit is instant and scoped to the item; propagating
+it is always a second, explicit call, so relay what it reports ("3
+documents recomposed, 1 left alone") rather than assuming a write already
+reached every document.
 
 ## Environment
 
@@ -117,11 +123,10 @@ document's own private content instead.
 
 stdio-only, single-user, no auth — the same trust boundary as running
 `uvicorn` locally already has; do not expose this server's transport
-over a network. No propagation (editing a shared fact does not recompose
-the documents that selected it — M4.3), no brand authoring (M4.5), no
-generative or closed-loop tools (M4.4), no remote transport (M4.6, needs
-an auth layer ADOS does not have today). See the design doc's §9–§12 for
-the reasoning and the open decisions.
+over a network. No brand authoring in chat (M4.5), no generative or
+closed-loop tools (M4.4), no remote transport (M4.6, needs an auth layer
+ADOS does not have today). See the design doc's §9–§12 for the reasoning
+and the open decisions.
 
 ## Tests
 
@@ -137,6 +142,10 @@ calls `get_client()`, and `ados-service` (the rule registry) stays
 write-free even as `api/main.py` gains write methods. `test_client.py`,
 `test_resources.py` and `test_tools_*.py` exercise every resource and
 tool against a mocked HTTP transport — no live server required, though
-the whole M4.2 write path has also been run end to end against a real
-`api/main.py` (create project → attach brand → add content → compose →
-save version → export) during development.
+the whole M4.2/M4.3 write and propagation path has also been run end to
+end against a real `api/main.py` during development (create project →
+attach brand → two documents → shared content selected on one of them →
+propagate → only the referencing document recomposes, the other is
+reported `unaffected`). See `brand/README.md`'s own testing section and
+`tests_brand/test_propagation*.py` for `propagation.py`'s pure-domain and
+API-level coverage — that logic lives under `brand/`, not here.
