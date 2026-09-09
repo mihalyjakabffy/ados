@@ -1,0 +1,24 @@
+# ados_mcp — the ADOS Claude connector (ADOS-M4.1)
+# Install: pip install -r ados_mcp/requirements.txt
+
+# Pinned below 2.x deliberately: mcp 2.x renamed FastMCP to MCPServer and
+# changed its API (see the package's own migration note). This package is
+# written against the FastMCP surface (mcp.server.fastmcp.FastMCP), which
+# is stable across the 1.x series.
+mcp>=1.0,<2
+
+# The one HTTP client ados_mcp/client.py uses to reach api/main.py and
+# ados-service/main.py. Already a root requirements.txt dependency
+# (brand/'s own LLM providers use it); pinned here too so ados_mcp/ stays
+# independently installable, the same posture ados-service/requirements.txt
+# already takes for its own (smaller) dependency set.
+httpx>=0.28.0
+
+# ados_mcp/server.py's remote transport (ADOS-M4.6, ADOS_MCP_TRANSPORT=
+# http|sse) serves ados_mcp/auth.py's bearer-token-guarded ASGI app
+# directly via uvicorn.run(), the same way api/main.py and
+# ados-service/main.py already run themselves. Already pulled in
+# transitively by `mcp` (which needs it for mcp.run(transport=...)
+# itself) — pinned explicitly here because this module now imports and
+# calls it directly, not only through mcp's own internals.
+uvicorn[standard]>=0.30

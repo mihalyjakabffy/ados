@@ -689,6 +689,15 @@ class SetContentSelectionRequest(BaseModel):
     content_item_ids: list[str] = Field(default_factory=list)
 
 
+class PropagateBrandRequest(BaseModel):
+    #: The already-published version to move this project onto — never
+    #: an in-place brand edit (brand/README.md Rule 5: published versions
+    #: are immutable). The caller bumps the brand elsewhere first
+    #: (``POST /brands/{id}/versions/{version}/approve`` +
+    #: ``.../publish``), then names that version here.
+    brand_version: str = Field(min_length=1, max_length=20)
+
+
 @router.post("/{project_id}/content", status_code=201)
 def add_shared_content_item(project_id: str, body: AddContentItemRequest) -> dict[str, Any]:
     from pydantic import ValidationError
@@ -776,6 +785,90 @@ def set_content_selection(project_id: str, document_id: str, body: SetContentSel
     project = _touch(project.model_copy(update={"documents": tuple(docs)}))
     _repo().save(project)
     return doc.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# Propagation (ADOS-M4.3) — the fan-out this router was missing between
+# "a shared fact changed" and "every document that carries it reflects
+# that" (docs/architecture/m4-claude-connector.md §6). Both endpoints
+# below are the one place in this router that calls
+# ``brand.project.propagation`` -- a thin I/O shell around it, the same
+# split every other endpoint here already keeps between "this router
+# loads/saves" and "brand.project.* decides". Neither endpoint saves a
+# Version: recomposing refreshes each touched document's cached
+# ``latest_plan``/``latest_evaluation`` exactly as ``.../compose``
+# already does, and leaves an explicit ``POST .../versions`` call, per
+# document, to whoever wants an immutable snapshot of the result.
+# ---------------------------------------------------------------------------
+
+
+def _propagation_response(result: Any) -> dict[str, Any]:
+    return {
+        "touched": [
+            {
+                "document_id": r.document_id,
+                "document_name": r.document_name,
+                "recomposed": r.recomposed,
+                "reason": r.reason,
+                "findings": list(r.findings),
+                "requirement_findings": list(r.requirement_findings),
+            }
+            for r in result.touched
+        ],
+        "unaffected": list(result.unaffected),
+    }
+
+
+@router.post("/{project_id}/content/{item_id}/propagate")
+def propagate_content_item(project_id: str, item_id: str) -> dict[str, Any]:
+    """Recompose every document in this project whose own content or
+    ``content_selection`` references ``item_id`` — call this right after
+    editing that shared fact (today: remove + re-add, until a real
+    in-place update endpoint exists) so every consuming document picks
+    up the change instead of silently drifting until its own next
+    ``.../compose`` call. A dangling ``item_id`` (already removed) is not
+    an error here either — a document that still selects it is
+    recomposed and honestly reports ``no_content`` if that was its only
+    content, the same fail-soft posture ``resolve_document_content``
+    already has."""
+    from brand.project.propagation import propagate_content_change
+    from brand.store.brand_repo import BrandNotFound
+
+    project = _load(project_id)
+    if not project.brand_id:
+        raise HTTPException(status_code=422, detail={"error": "no_brand_attached"})
+    try:
+        brand = _brand_repo().get(project.brand_id, project.brand_version)
+    except BrandNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    result = propagate_content_change(project, brand, item_id)
+    _repo().save(result.project)
+    return _propagation_response(result)
+
+
+@router.post("/{project_id}/brand/propagate")
+def propagate_brand(project_id: str, body: PropagateBrandRequest) -> dict[str, Any]:
+    """Move this project onto an already-published version of its own
+    brand and recompose every one of its documents against it. Never an
+    in-place brand edit — bump/approve/publish the new version first
+    (``api/routers/brand.py``), then call this. Every document in the
+    project shares the one brand, so every document is recomposed;
+    there is no ``unaffected`` set for this operation."""
+    from brand.project.propagation import propagate_brand_change
+    from brand.store.brand_repo import BrandNotFound
+
+    project = _load(project_id)
+    if not project.brand_id:
+        raise HTTPException(status_code=422, detail={"error": "no_brand_attached"})
+    try:
+        new_brand = _brand_repo().get(project.brand_id, body.brand_version)
+    except BrandNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    result = propagate_brand_change(project, new_brand)
+    _repo().save(result.project)
+    return {**_propagation_response(result), "brand_version": result.project.brand_version}
 
 
 # ---------------------------------------------------------------------------
