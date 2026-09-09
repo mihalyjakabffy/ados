@@ -119,6 +119,36 @@ def test_get_rules_uses_the_service_backend(monkeypatch: pytest.MonkeyPatch) -> 
     assert result == {"rules": []}
 
 
+def test_get_loop_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"iterations": []})
+
+    _patch_client(monkeypatch, handler)
+
+    result = asyncio.run(resources.get_loop_history("p1", "d1"))
+
+    assert seen["path"] == "/api/v2/ados-projects/p1/documents/d1/loop"
+    assert result == {"iterations": []}
+
+
+def test_get_loop_iteration_trace(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["path"] = request.url.path
+        return httpx.Response(200, json={"iteration_id": "i1", "stage_log": []})
+
+    _patch_client(monkeypatch, handler)
+
+    result = asyncio.run(resources.get_loop_iteration_trace("p1", "d1", "i1"))
+
+    assert seen["path"] == "/api/v2/ados-projects/p1/documents/d1/loop/i1/trace"
+    assert result["iteration_id"] == "i1"
+
+
 def test_resources_are_registered_on_the_shared_server() -> None:
     from ados_mcp.server import mcp
 
@@ -131,3 +161,5 @@ def test_resources_are_registered_on_the_shared_server() -> None:
     assert "ados://projects/{project_id}/content" in templates
     assert "ados://projects/{project_id}/documents/{document_id}/design-state" in templates
     assert "ados://brands/{brand_id}" in templates
+    assert "ados://projects/{project_id}/documents/{document_id}/loop" in templates
+    assert "ados://projects/{project_id}/documents/{document_id}/loop/{iteration_id}/trace" in templates

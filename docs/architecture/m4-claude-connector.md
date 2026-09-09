@@ -139,19 +139,51 @@ Shipped in M4.3 (§6), also 1:1 wrappers:
 | `propagate_content_change(project_id, item_id)` | `POST .../content/{item_id}/propagate` | recompose every document referencing a shared fact that changed or was removed |
 | `propagate_brand_change(project_id, brand_version)` | `POST .../brand/propagate` | move a project onto a published brand version and recompose everything in it |
 
-Deferred to later phases, unchanged from the original plan:
+Shipped in M4.4 (`ados_mcp/tools/generation.py`, `ados_mcp/tools/loop.py`):
 
-| Tool | Wraps | Domain | Phase |
-|---|---|---|---|
-| `propose_brand`, `approve_brand`, `audit_brand` | `BrandAgent.generate_proposal`, `.approve()`, `brand.validation.consistency` | identity, human-gated | M4.5 |
-| `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands` | M3.3–M3.5 endpoints | letting Claude invoke ADOS's *own*, validated generation stages instead of freehanding prose that skips them | M4.4 |
-| `start_loop`, `continue_loop`, `approve_loop`, `stop_loop` | `api/routers/closed_loop.py` | bounded, auditable self-correction, §8 | M4.4 |
+| Tool | Wraps | Domain |
+|---|---|---|
+| `generate_semantic_intent(request, project_id?, document_id?, ...)` | `POST /intent/semantic` | **new**, not in the original table — see correction below |
+| `generate_narrative(project_id, semantic_intent, ...)` | `POST .../narrative/plan` | M3.3 |
+| `generate_design_intent(project_id, semantic_intent, ...)` | `POST .../design/intent` | M3.4 |
+| `generate_commands(project_id, semantic_intent, content_model, ...)` | `POST .../commands/generate` | M3.5 generation |
+| `apply_commands(project_id, command_plan, content_model, ...)` | `POST .../commands/apply` | M3.5 execution — computes, never persists (see below) |
+| `start_loop`, `continue_loop`, `run_loop`, `approve_loop`, `stop_loop` | `api/routers/closed_loop.py` | bounded, auditable self-correction (§8) — `run_loop` is **new**, see below |
 
-Every generative tool (`generate_*`, `start_loop`) states in its result
-whether ADOS's own Claude-backed path ran or the deterministic fallback did
-(`ProviderMetadata` already carries this) — the chat-facing Claude should
-never present a rule-based extraction as if a second LLM call happened, or
-vice versa.
+**Correction from the original draft of this table**: every one of
+`generate_narrative`/`generate_design_intent`/`generate_commands` requires
+a `semantic_intent` payload, and the table gave no tool to produce one.
+`generate_semantic_intent` (wrapping the M3.1 endpoint) is added for the
+same reason `attach_brand` was added in M4.2 — without it the chain has
+no real input. `run_loop` (`POST .../loop/run`, "start a lineage and run
+it to completion in one call") existed in the API all along and is the
+natural companion to `start_loop`/`continue_loop`; omitting it from the
+original table was an oversight, not a decision.
+
+**A second bridge the original table didn't name**: `generate_commands`
+and `apply_commands` both require `content_model` — a
+`brand.content.model.ContentModel` payload, a *different* object from
+anything `ados_mcp.tools.content` produces (`api/routers/command.py`'s
+own docstring: "no bridge between the two exists yet"). The one place to
+get one is `compose_document`'s own response (already an M4.2 tool),
+which already returns a `content_model` field alongside the composed
+plan. The tool descriptions say this explicitly; verified against a real
+`api/main.py` end to end (§10).
+
+**`apply_commands` computes, it does not persist** — confirmed against
+`docs/architecture/m3.5-command-generation.md`: "no `CommandPlan` is
+persisted into any Project/Document store." Its tool description tells
+the connecting model to call `save_version(..., plan=<final_plan>)`
+afterward to keep a result, reusing the M4.2 tool rather than inventing
+a new persistence path for LLM-driven output specifically.
+
+Every `generate_*` tool may call a real LLM on the ADOS server, or its
+deterministic rule-based fallback if no API key is configured there —
+only `generate_semantic_intent`'s response names which one ran
+(`ProviderMetadata`); the downstream stages (`NarrativePlan`,
+`DesignIntent`, `CommandPlan`) carry no such field today. The connector's
+own startup instructions (`ados_mcp/server.py`) tell the connecting model
+this, so it never claims a provider it cannot actually see.
 
 ## 5. `DesignState` is the connector's spine
 
@@ -312,13 +344,20 @@ question, not a silent action). The connector's only job here is transport.
    custom-connector transport is deferred to M4.6, once the tool surface
    has proven itself locally and the auth model it needs (§12) is designed
    on its own, rather than retrofitted under schedule pressure.
-3. **Open**: whether `generate_*` tools default to ADOS's own Claude-backed
-   path or the deterministic fallback. Calling Claude-via-chat, which then
-   calls ADOS, which then calls Claude again, is real latency and real API
-   cost stacked twice. Recommendation, not yet decided: default to the
-   deterministic fallback, and only take the LLM path on an explicit user
-   ask ("write a persuasive version") — revisit once M4.4 is being built
-   and real latency/cost numbers exist.
+3. **Resolved while building M4.4 — this was never a per-call choice.**
+   Every `plan_narrative`/`plan_design_intent`/`plan_commands`/extractor
+   call picks its own provider internally, based on whether
+   `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` is set in the *ADOS API server's*
+   own environment (root `README.md`'s "every LLM-backed generator has a
+   deterministic rule-based fallback... set one to exercise the real LLM
+   path locally") — none of the M3.3–M3.5 request bodies has a
+   provider/`use_llm` field for a caller to set. So there is nothing for
+   `ados_mcp` to default: whether a given ADOS deployment answers from a
+   real LLM or the deterministic fallback is a deployment-time choice
+   (whether that server process has a key configured), not something a
+   tool call can request either way. What the connector *can* do, and
+   does: `generate_semantic_intent`'s response names which one actually
+   ran (§4.2) — relay that honestly rather than guessing.
 
 ## 10. Phased rollout
 
@@ -327,7 +366,7 @@ question, not a silent action). The connector's only job here is transport.
 | **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. **Shipped.** | Near zero — no new mutation path exists yet. |
 | **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
 | **M4.3** | `brand/project/propagation.py` + its two endpoints (`.../content/{id}/propagate`, `.../brand/propagate`) + two MCP tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. Its own AST boundary suite (`tests_brand/test_propagation_boundaries.py`, mirroring `test_loop_boundaries.py`). **Shipped** — pure-domain tests, API tests, MCP-tool tests, and a live end-to-end run against a real `api/main.py` (shared item → select on one of two documents → propagate → only the referencing document recomposes, the other is reported `unaffected`). | Medium — first genuinely new backend logic this milestone added; mitigated by matching M3.6's own boundary-testing discipline from the first commit. |
-| **M4.4** | Generative tools (`generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools, gated by explicit confirmation for non-`SAFE` autonomy. | Medium — cost/latency-visible, but reuses M3.1–M3.6 unchanged. |
+| **M4.4** | Generative tools (`generate_semantic_intent`, `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools (`start_loop`/`continue_loop`/`run_loop`/`approve_loop`/`stop_loop`), gated by the loop's own existing autonomy policy (default `safe`) — no second gate invented. Two new read-only resources (loop history, loop iteration trace) added alongside, since `approve_loop`'s own tool description needs something real to point at. **Shipped** — verified end to end against a real `api/main.py`: the full chain semantic intent → narrative → design intent → compose → commands → apply → save_version, plus a full closed-loop start → history → stop, all in one run. | Medium — cost/latency-visible (real LLM calls on the ADOS side are possible, §9 decision 3), but every tool reuses M3.1–M3.6 unchanged; no new backend logic. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`/`audit_brand`), guidelines/export tools. | Low — human-approval gate already exists; this only relays it. |
 | **M4.6** | Remote (HTTP+SSE) transport + bearer-token auth for the claude.ai custom-connector case. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today). |
 

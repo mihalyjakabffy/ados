@@ -108,3 +108,51 @@ async def get_brand(brand_id: str) -> dict:
 async def get_rules() -> dict:
     """GET /api/rules on ados-service."""
     return await get_client().get_service("/api/rules")
+
+
+# ---------------------------------------------------------------------------
+# Closed-loop lineage (ADOS-M4.4) — read-only inspection of what
+# ados_mcp.tools.loop's tools have produced. Added alongside those tools
+# (not in the original M4.1 resource table) because approve_loop's own
+# tool description tells the connecting model to check these before
+# approving anything — a reference that needs something real to resolve
+# to.
+# ---------------------------------------------------------------------------
+
+
+@mcp.resource(
+    "ados://projects/{project_id}/documents/{document_id}/loop",
+    name="ADOS closed-loop lineage",
+    description=(
+        "The full iteration history for one document's closed-loop lineage "
+        "(started by start_loop/run_loop) — every Iteration in full, in "
+        "order. Empty if no lineage has been started. Read this before "
+        "calling continue_loop or approve_loop so a decision is grounded "
+        "in what the loop actually found, not assumed."
+    ),
+    mime_type="application/json",
+)
+async def get_loop_history(project_id: str, document_id: str) -> dict:
+    """GET /api/v2/ados-projects/{project_id}/documents/{document_id}/loop."""
+    return await get_client().get_api(f"/ados-projects/{project_id}/documents/{document_id}/loop")
+
+
+@mcp.resource(
+    "ados://projects/{project_id}/documents/{document_id}/loop/{iteration_id}/trace",
+    name="ADOS closed-loop iteration trace",
+    description=(
+        "One iteration's condensed decision trace: what stage it reached, "
+        "why it stopped (or didn't), its findings/recommendations/skipped "
+        "recommendations, and its LLM call count — without the full "
+        "embedded DesignIntent/CommandPlan/PagePlan payloads the lineage "
+        "resource carries for the same iteration. Prefer this for "
+        "explaining a loop's outcome to a person; use the lineage "
+        "resource when the full objects are actually needed."
+    ),
+    mime_type="application/json",
+)
+async def get_loop_iteration_trace(project_id: str, document_id: str, iteration_id: str) -> dict:
+    """GET /api/v2/ados-projects/{project_id}/documents/{document_id}/loop/{iteration_id}/trace."""
+    return await get_client().get_api(
+        f"/ados-projects/{project_id}/documents/{document_id}/loop/{iteration_id}/trace"
+    )

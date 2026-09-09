@@ -1,20 +1,22 @@
 # ados_mcp — the ADOS Claude connector
 
-ADOS-M4.1/M4.2/M4.3. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
+ADOS-M4.1–M4.4. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
 
 An MCP server exposing ADOS's own `DesignState`, projects, shared content
-pool, brand identity and the ADOS 1.0 rule registry as resources, plus
-tools to create and edit projects/documents/content, compose/save/export
-a document, and propagate a changed shared fact or brand version to
-every document that references it, to any MCP client — Claude Code,
-Claude Desktop, or a custom client. It is a new *client* of `api/main.py`
-and `ados-service/main.py`, talking to both over plain HTTP, exactly the
-relationship `ados-web` already has to `api/main.py`. It does not import
-`brand/` or `api/routers/` — every tool is a thin wrapper around one
-already-validated ADOS endpoint, so a malformed or unsafe request is
-refused by ADOS itself, never silently accepted (design doc §3). See the
-phased rollout (§10) for what M4.4 onward still adds — the generative and
-closed-loop tools, brand authoring in chat, and the remote transport.
+pool, brand identity, the ADOS 1.0 rule registry, and closed-loop
+lineages as resources, plus tools to create and edit
+projects/documents/content, compose/save/export a document, propagate a
+changed shared fact or brand version to every document that references
+it, run the M3.1–M3.5 generation pipeline (semantic intent → narrative /
+design intent → commands → apply), and drive the M3.6 closed loop, to any
+MCP client — Claude Code, Claude Desktop, or a custom client. It is a new
+*client* of `api/main.py` and `ados-service/main.py`, talking to both
+over plain HTTP, exactly the relationship `ados-web` already has to
+`api/main.py`. It does not import `brand/` or `api/routers/` — every tool
+is a thin wrapper around one already-validated ADOS endpoint, so a
+malformed or unsafe request is refused by ADOS itself, never silently
+accepted (design doc §3). See the phased rollout (§10) for what M4.5
+onward still adds — brand authoring in chat and the remote transport.
 
 ## Install
 
@@ -75,13 +77,15 @@ Add to `claude_desktop_config.json`:
 | `ados://projects/{project_id}/documents/{document_id}/design-state` | `GET .../documents/{document_id}/design-state` | the deterministic single source of truth for one document |
 | `ados://brands/{brand_id}` | `GET /api/v2/brands/{brand_id}` + `.../tokens` | identity + resolved design tokens with provenance |
 | `ados://rules` | `ados-service`'s `GET /api/rules` | the ADOS 1.0 476-rule registry |
+| `ados://projects/{project_id}/documents/{document_id}/loop` | `GET .../loop` | full closed-loop iteration history for one document |
+| `ados://projects/{project_id}/documents/{document_id}/loop/{iteration_id}/trace` | `GET .../loop/{id}/trace` | one iteration's condensed decision trace |
 
 ## Tools
 
-Every tool is a thin wrapper around one endpoint in
-`api/routers/ados_project.py`; none of them contain business logic of
-their own, and none of them recompose anything beyond the one document
-named in the call.
+Every tool is a thin wrapper around one endpoint; none of them contain
+business logic of their own.
+
+### Project, content, document lifecycle (ADOS-M4.2/M4.3)
 
 | Tool | Wraps | Notes |
 |---|---|---|
@@ -112,6 +116,43 @@ it is always a second, explicit call, so relay what it reports ("3
 documents recomposed, 1 left alone") rather than assuming a write already
 reached every document.
 
+### Generation pipeline (ADOS-M4.4, M3.1–M3.5)
+
+| Tool | Wraps | Notes |
+|---|---|---|
+| `generate_semantic_intent(request, project_id?, document_id?, version?, conversation?)` | `POST /intent/semantic` | interprets natural language into the typed input every other `generate_*` tool needs |
+| `generate_narrative(project_id, semantic_intent, document_id?, ...)` | `POST .../narrative/plan` | audience-aware NarrativePlan |
+| `generate_design_intent(project_id, semantic_intent, document_id?, ...)` | `POST .../design/intent` | brand-consistent DesignIntent (plans a NarrativePlan internally too) |
+| `generate_commands(project_id, semantic_intent, content_model, document_id?, ...)` | `POST .../commands/generate` | needs `content_model` from `compose_document`'s response |
+| `apply_commands(project_id, command_plan, content_model, base_direction_id\|base_direction, ...)` | `POST .../commands/apply` | computes a new plan, **does not persist** — pass its `final_plan` to `save_version` to keep it |
+
+Only `generate_semantic_intent`'s response names which provider produced
+it (a real LLM, or the deterministic fallback used when the ADOS server
+has no `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` configured) — the downstream
+stages don't carry that field. Every stage may be a real LLM call with
+real latency and cost; report it as such, never as a free local
+computation (design doc §9 decision 3).
+
+### Closed loop (ADOS-M4.4, M3.6)
+
+| Tool | Wraps | Notes |
+|---|---|---|
+| `start_loop(project_id, document_id, semantic_intent, ..., autonomy="safe", dry_run=False)` | `.../loop/start` | first iteration of a fresh lineage; 409 if one exists |
+| `continue_loop(project_id, document_id, ...)` | `.../loop/continue` | next iteration of an open lineage |
+| `run_loop(project_id, document_id, semantic_intent, ...)` | `.../loop/run` | start + run to completion in one call, always persists |
+| `approve_loop(project_id, document_id, command_ids?)` | `.../loop/approve` | resumes an `AWAITING_APPROVAL` iteration |
+| `stop_loop(project_id, document_id)` | `.../loop/stop` | ends the lineage; a no-op if already terminal |
+
+`autonomy` (`none`/`recommend`/`safe` default/`full`) is the loop's own,
+already-built safety gate (ADOS-M3.6 §37/§38) — `safe` auto-executes only
+`SAFE`-labelled commands and stops everything else at
+`AWAITING_APPROVAL`; nothing here adds a second gate on top of it. Pass
+`full` only when the user has explicitly asked for unattended execution.
+Unlike the generation tools above, every loop tool (except a `dry_run`
+call) **does** persist — read the loop-history resource before calling
+`approve_loop` so the decision is grounded in what the loop actually
+found.
+
 ## Environment
 
 | Variable | Default | Description |
@@ -123,10 +164,9 @@ reached every document.
 
 stdio-only, single-user, no auth — the same trust boundary as running
 `uvicorn` locally already has; do not expose this server's transport
-over a network. No brand authoring in chat (M4.5), no generative or
-closed-loop tools (M4.4), no remote transport (M4.6, needs an auth layer
-ADOS does not have today). See the design doc's §9–§12 for the reasoning
-and the open decisions.
+over a network. No brand authoring in chat (M4.5), no remote transport
+(M4.6, needs an auth layer ADOS does not have today). See the design
+doc's §9–§12 for the reasoning and the open decisions.
 
 ## Tests
 
@@ -142,10 +182,13 @@ calls `get_client()`, and `ados-service` (the rule registry) stays
 write-free even as `api/main.py` gains write methods. `test_client.py`,
 `test_resources.py` and `test_tools_*.py` exercise every resource and
 tool against a mocked HTTP transport — no live server required, though
-the whole M4.2/M4.3 write and propagation path has also been run end to
-end against a real `api/main.py` during development (create project →
-attach brand → two documents → shared content selected on one of them →
-propagate → only the referencing document recomposes, the other is
-reported `unaffected`). See `brand/README.md`'s own testing section and
+every write and generation path has also been run end to end against a
+real `api/main.py` during development: create project → attach brand →
+two documents → shared content selected on one of them → propagate →
+only the referencing document recomposes, the other reported
+`unaffected` (M4.2/M4.3); and semantic intent → narrative → design
+intent → compose → commands → apply → save_version, plus a full
+closed-loop start → history → stop, in one run (M4.4). See
+`brand/README.md`'s own testing section and
 `tests_brand/test_propagation*.py` for `propagation.py`'s pure-domain and
 API-level coverage — that logic lives under `brand/`, not here.
