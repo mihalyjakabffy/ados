@@ -130,6 +130,17 @@ its own:
 | `select_content_for_document` | `PUT .../content-selection` | wiring a document to shared facts |
 | `create_document` (`document_type_id`, `direction_id?`) | `POST .../documents` + `document_types` registry | choosing a projection, §7 |
 | `compose_document`, `save_version`, `export_document` | existing endpoints of the same name | turning content into an issued artefact |
+| `download_export` | `GET .../exports/{export_id}/file` | **added later**, see below — the file itself, base64-encoded |
+
+**A second addition, found by actually walking a create-to-delivery
+workflow through this connector rather than only through per-endpoint
+tests**: `export_document` names an Export record, but nothing in the
+original M4.2 surface could turn that into the file bytes a person
+actually asked for. `download_export` closes that — the same
+already-shipped `GET .../exports/{export_id}/file` endpoint, given an
+MCP door and base64-encoded since a PDF/HTML file is not JSON. Confirmed
+against two real, downloaded, valid files (a 3-page PDF and a Website
+HTML export) in one live run.
 
 **Correction from the original draft of this table**: there is no
 `update_shared_content` tool. `api/routers/ados_project.py` has no PATCH
@@ -401,7 +412,7 @@ question, not a silent action). The connector's only job here is transport.
 | Phase | Scope | Risk |
 |---|---|---|
 | **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. **Shipped.** | Near zero — no new mutation path exists yet. |
-| **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
+| **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`, and — added once a real create-to-delivery run exposed the gap — `download_export`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks; `download_export` separately verified by downloading two real, valid files (a 3-page PDF and a Website HTML export) from one live workflow. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
 | **M4.3** | `brand/project/propagation.py` + its two endpoints (`.../content/{id}/propagate`, `.../brand/propagate`) + two MCP tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. Its own AST boundary suite (`tests_brand/test_propagation_boundaries.py`, mirroring `test_loop_boundaries.py`). **Shipped** — pure-domain tests, API tests, MCP-tool tests, and a live end-to-end run against a real `api/main.py` (shared item → select on one of two documents → propagate → only the referencing document recomposes, the other is reported `unaffected`). | Medium — first genuinely new backend logic this milestone added; mitigated by matching M3.6's own boundary-testing discipline from the first commit. |
 | **M4.4** | Generative tools (`generate_semantic_intent`, `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools (`start_loop`/`continue_loop`/`run_loop`/`approve_loop`/`stop_loop`), gated by the loop's own existing autonomy policy (default `safe`) — no second gate invented. Two new read-only resources (loop history, loop iteration trace) added alongside, since `approve_loop`'s own tool description needs something real to point at. **Shipped** — verified end to end against a real `api/main.py`: the full chain semantic intent → narrative → design intent → compose → commands → apply → save_version, plus a full closed-loop start → history → stop, all in one run. | Medium — cost/latency-visible (real LLM calls on the ADOS side are possible, §9 decision 3), but every tool reuses M3.1–M3.6 unchanged; no new backend logic. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`), plus `audit_brand` behind a new endpoint. **Shipped** — verified end to end against a real `api/main.py`: proposed a brand, approved it by a named human, seeded a real STUDIO OM brand, built its real package, audited it clean (53 files), then confirmed a missing `package_dir` surfaces its structured 404 detail — catching, and fixing, a real bug in `AdosClient._request` (it had special-cased 404 to a bare "not found: {url}", discarding whatever detail the endpoint actually returned; now it keeps "not found" as a stable substring while still surfacing the JSON detail, for every status code). "Guidelines/export tools" from the original phase description are deferred, undesigned (§4.2, §12) — not shipped as part of this phase. | Low — human-approval gate already exists; this only relays it. `audit_brand` is the one new endpoint, narrow and read-only. |
@@ -529,6 +540,20 @@ write and trust.
   (CSS/JSON/YAML token exports) remain CLI-only — no endpoint exists for
   either, and none was designed speculatively for M4.5 (§4.2). A real gap
   if a future phase wants them; not silently pretended-away.
+- **No tool assigns content into a document's named Sections.** A
+  document created with `create_document(document_type_id=...)` gets that
+  type's `default_structure` as empty `Section`s
+  (`api/routers/ados_project.py`'s own `create_document`), but nothing in
+  `ados_mcp` wraps `PATCH .../sections/{section_id}` to put a content id
+  into one. Found live: a `client-presentation`/`case-study` document
+  composed and exported through this connector will show its
+  `required_section_present` requirement finding, even with real,
+  relevant content selected onto the document, because that content was
+  never assigned into a named section slot. `project-presentation` and
+  untyped documents have no such requirement and export cleanly through
+  the tools that exist today (§10, M4.2's live-run note) — this is a real
+  gap for the document types that do require sections, not a defect in
+  what shipped.
 - **No per-project or per-user scoping, at any transport.** Every
   authenticated caller — a local stdio client or a remote bearer-token
   one — gets identical full access to every project and brand this ADOS

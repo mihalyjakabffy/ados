@@ -6,11 +6,23 @@ DocumentType projection, docs/architecture/m4-claude-connector.md §7),
 compose it through the real, unmodified, deterministic Composer
 (``brand.creative.composer.compose``, reached only via the existing
 ``POST .../compose`` endpoint — never imported directly here), save an
-immutable Version, and export a PDF or Website.
+immutable Version, export a PDF or Website, and fetch the rendered file
+itself.
+
+**``download_export`` was added after M4.2 shipped, found missing while
+walking a real create-to-delivery workflow through this connector**:
+``export_document`` names an Export record, but nothing could turn that
+into the actual file bytes a person asked for — the "documentation
+generation workflow" the whole milestone exists for had no last step.
+``GET .../exports/{export_id}/file`` already existed
+(``api/routers/ados_project.py``, unchanged); this only gives it an MCP
+door, base64-encoding the response since a PDF/HTML file is not JSON and
+MCP tool results are.
 """
 
 from __future__ import annotations
 
+import base64
 from typing import Any, Optional
 
 from mcp.types import ToolAnnotations
@@ -106,8 +118,8 @@ async def save_version(
         "is saved first). A blocking finding (ERROR/BLOCK severity) "
         "produces a BLOCKED export with no file, never a silently "
         "incomplete one — check the findings in the response. Returns the "
-        "Export record (id, status, findings); the rendered file itself "
-        "stays in ADOS's own storage, not inlined into this response."
+        "Export record (id, status, findings); call download_export with "
+        "its id to actually retrieve the rendered file."
     ),
     annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False),
 )
@@ -124,3 +136,27 @@ async def export_document(
     return await get_client().post_api(
         f"/ados-projects/{project_id}/documents/{document_id}/export", json=body
     )
+
+
+@mcp.tool(
+    description=(
+        "Fetch the actual rendered file for a COMPLETED export "
+        "(export_document's own response names the export id — a BLOCKED "
+        "or FAILED export has no file to fetch). Returns the file's "
+        "content_type, its size, and its bytes base64-encoded — decode "
+        "the base64 and write it out (or hand it to whatever your MCP "
+        "client uses to return a file to the person) rather than passing "
+        "the base64 text back to them as if it were the document itself."
+    ),
+    annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True),
+)
+async def download_export(project_id: str, export_id: str) -> dict:
+    """GET /api/v2/ados-projects/{project_id}/exports/{export_id}/file."""
+    content, content_type = await get_client().get_api_file(
+        f"/ados-projects/{project_id}/exports/{export_id}/file"
+    )
+    return {
+        "content_type": content_type,
+        "size_bytes": len(content),
+        "base64": base64.b64encode(content).decode("ascii"),
+    }

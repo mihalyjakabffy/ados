@@ -100,12 +100,61 @@ class AdosClient:
     async def delete_api(self, path: str) -> dict:
         return await self._request("DELETE", self._api_base, path, env_var="ADOS_API_BASE_URL")
 
+    async def get_api_file(self, path: str) -> tuple[bytes, str]:
+        """GET a binary file from ``api/main.py`` (e.g.
+        ``.../exports/{export_id}/file``) — separate from :meth:`get_api`
+        because an exported PDF/HTML file is not a JSON response. Returns
+        ``(content, content_type)``; the caller decides what to do with
+        the bytes (``ados_mcp.tools.documents.download_export`` base64-
+        encodes them into a tool result)."""
+        url = f"{self._api_base}{path}"
+        response = await self._send("GET", url, env_var="ADOS_API_BASE_URL")
+        self._raise_for_error(response, url, "GET")
+        return response.content, response.headers.get("content-type", "application/octet-stream")
+
     # -- shared plumbing --------------------------------------------------
 
     _RUN_HINTS = {
         "ADOS_API_BASE_URL": "api/main.py (`uvicorn api.main:app --port 8000`, from the repo root)",
         "ADOS_SERVICE_BASE_URL": "ados-service/main.py (`uvicorn main:app --port 8010`, from ados-service/)",
     }
+
+    async def _send(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Optional[dict[str, Any]] = None,
+        json: Optional[dict[str, Any]] = None,
+        env_var: str,
+    ) -> httpx.Response:
+        run_hint = self._RUN_HINTS[env_var]
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS, transport=self._transport) as client:
+                return await client.request(method, url, params=params, json=json)
+        except httpx.ConnectError as exc:
+            raise AdosConnectionError(
+                f"could not reach {url} — is {run_hint} running? "
+                f"(override the address with {env_var})"
+            ) from exc
+
+    @staticmethod
+    def _raise_for_error(response: httpx.Response, url: str, method: str) -> None:
+        if not response.is_error:
+            return
+        try:
+            detail: Any = response.json()
+        except ValueError:
+            detail = response.text[:500]
+        if response.status_code == 404:
+            # Keeps "not found" in the message (a stable substring
+            # callers/tests can match on) while still surfacing whatever
+            # structured detail the endpoint returned — e.g.
+            # {"error": "package_dir_not_found", "path": ...} — rather
+            # than discarding it the way an earlier version of this
+            # method did.
+            raise AdosConnectionError(f"not found: {url} — {detail}")
+        raise AdosConnectionError(f"{method} {url} returned HTTP {response.status_code}: {detail}")
 
     async def _request(
         self,
@@ -118,29 +167,8 @@ class AdosClient:
         env_var: str,
     ) -> dict:
         url = f"{base}{path}"
-        run_hint = self._RUN_HINTS[env_var]
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS, transport=self._transport) as client:
-                response = await client.request(method, url, params=params, json=json)
-        except httpx.ConnectError as exc:
-            raise AdosConnectionError(
-                f"could not reach {url} — is {run_hint} running? "
-                f"(override the address with {env_var})"
-            ) from exc
-        if response.is_error:
-            try:
-                detail: Any = response.json()
-            except ValueError:
-                detail = response.text[:500]
-            if response.status_code == 404:
-                # Keeps "not found" in the message (a stable substring
-                # callers/tests can match on) while still surfacing
-                # whatever structured detail the endpoint returned —
-                # e.g. {"error": "package_dir_not_found", "path": ...} —
-                # rather than discarding it the way an earlier version
-                # of this method did.
-                raise AdosConnectionError(f"not found: {url} — {detail}")
-            raise AdosConnectionError(f"{method} {url} returned HTTP {response.status_code}: {detail}")
+        response = await self._send(method, url, params=params, json=json, env_var=env_var)
+        self._raise_for_error(response, url, method)
         if not response.content:
             return {}
         return response.json()

@@ -181,3 +181,36 @@ def test_export_document_blocked_still_returns_findings(monkeypatch: pytest.Monk
 
     assert result["export"]["status"] == "blocked"
     assert result["findings"][0]["severity"] == "ERROR"
+
+
+def test_download_export_returns_base64_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    import base64
+
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        return httpx.Response(200, content=b"%PDF-1.4 fake", headers={"content-type": "application/pdf"})
+
+    _patch_client(monkeypatch, handler)
+
+    result = asyncio.run(tools.documents.download_export("p1", "e1"))
+
+    assert seen["method"] == "GET"
+    assert seen["path"] == "/api/v2/ados-projects/p1/exports/e1/file"
+    assert result["content_type"] == "application/pdf"
+    assert result["size_bytes"] == len(b"%PDF-1.4 fake")
+    assert base64.b64decode(result["base64"]) == b"%PDF-1.4 fake"
+
+
+def test_download_export_surfaces_unavailable_export(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ados_mcp.client import AdosConnectionError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json={"detail": {"error": "export_not_available", "status": "blocked"}})
+
+    _patch_client(monkeypatch, handler)
+
+    with pytest.raises(AdosConnectionError, match="export_not_available"):
+        asyncio.run(tools.documents.download_export("p1", "e1"))

@@ -163,7 +163,8 @@ business logic of their own.
 | `select_content_for_document(project_id, document_id, content_item_ids)` | `PUT .../content-selection` | replaces the whole selection |
 | `compose_document(project_id, document_id)` | `POST .../documents/{id}/compose` | does not persist — call `save_version` to keep it |
 | `save_version(project_id, document_id, label="", plan?)` | `POST .../versions` | immutable once saved |
-| `export_document(project_id, document_id, version_number?, format="pdf")` | `POST .../documents/{id}/export` | `format` is `pdf` or `html` |
+| `export_document(project_id, document_id, version_number?, format="pdf")` | `POST .../documents/{id}/export` | `format` is `pdf` or `html`; names an export id, doesn't return the file |
+| `download_export(project_id, export_id)` | `GET .../exports/{id}/file` | the actual file, base64-encoded — decode before handing it to the person |
 | `propagate_content_change(project_id, item_id)` | `POST .../content/{id}/propagate` | recomposes every document referencing `item_id`; reports which and which were left alone |
 | `propagate_brand_change(project_id, brand_version)` | `POST .../brand/propagate` | moves the project onto an already-published brand version and recomposes everything in it |
 

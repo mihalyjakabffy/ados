@@ -165,3 +165,41 @@ def test_write_error_surfaces_the_structured_detail() -> None:
 
     with pytest.raises(AdosConnectionError, match="invalid_content_item"):
         asyncio.run(_client_with(handler).post_api("/ados-projects/p1/content", json={}))
+
+
+# -- get_api_file (export downloads) -------------------------------------
+
+
+def test_get_api_file_returns_bytes_and_content_type() -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        return httpx.Response(200, content=b"%PDF-1.4 fake pdf bytes", headers={"content-type": "application/pdf"})
+
+    content, content_type = asyncio.run(
+        _client_with(handler).get_api_file("/ados-projects/p1/exports/e1/file")
+    )
+
+    assert seen["method"] == "GET"
+    assert seen["url"] == "http://localhost:8000/api/v2/ados-projects/p1/exports/e1/file"
+    assert content == b"%PDF-1.4 fake pdf bytes"
+    assert content_type == "application/pdf"
+
+
+def test_get_api_file_defaults_content_type_when_absent() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"raw")
+
+    _, content_type = asyncio.run(_client_with(handler).get_api_file("/ados-projects/p1/exports/e1/file"))
+
+    assert content_type == "application/octet-stream"
+
+
+def test_get_api_file_not_found_matches_json_error_shape() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": {"error": "export_not_available", "status": "blocked"}})
+
+    with pytest.raises(AdosConnectionError, match="export_not_available"):
+        asyncio.run(_client_with(handler).get_api_file("/ados-projects/p1/exports/e1/file"))
