@@ -15,7 +15,6 @@ import os
 
 # ── Must be first ──────────────────────────────────────────────────────────
 os.environ.setdefault("AGENT_LLM_ENABLED", "false")
-os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pytest  # noqa: E402
 
@@ -46,23 +45,3 @@ def file_repo(tmp_path):
     from brand.store.brand_repo import FileBrandRepository
 
     return FileBrandRepository(tmp_path / "brands")
-
-
-@pytest.fixture()
-def sqlite_session():
-    """An in-memory session with every ORM table created.
-
-    Follows ``construmind/tests``: skip rather than fail when SQLAlchemy is
-    absent, since the domain half of the Brand System does not need it.
-    """
-    sqlalchemy = pytest.importorskip("sqlalchemy")
-    from sqlalchemy.orm import sessionmaker
-
-    import schemas.brand_models  # noqa: F401  registers the tables
-    from schemas.v2_models import Base
-
-    engine = sqlalchemy.create_engine("sqlite://", future=True)
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine, expire_on_commit=False)
-    with Session() as session:
-        yield session

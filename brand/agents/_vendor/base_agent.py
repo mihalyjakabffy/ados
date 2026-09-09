@@ -1,5 +1,11 @@
 """
-services/agents/base_agent.py
+brand/agents/_vendor/base_agent.py
+
+Vendored from the source monorepo's ``services/agents/base_agent.py`` at the
+point ADOS was split into its own repository. ``brand/agents/brand_agent.py``
+is the only ADOS agent that subclasses it; kept here verbatim rather than
+dropped, since the alternative was deleting the 27 tests in
+``tests_brand/test_brand_agent.py`` that exercise it.
 
 BaseAgent — shared LLM client and rule-based fallback.
 

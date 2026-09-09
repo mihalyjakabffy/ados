@@ -181,53 +181,7 @@ def test_file_store_index(file_repo, studio_nord):
     assert rows == [(str(studio_nord.brand_id), "Studio Nord", "1.0.0")]
 
 
-# ---------------------------------------------------------------------------
-# SQL store
-# ---------------------------------------------------------------------------
-
-
-def test_sql_store_round_trip(sqlite_session, studio_nord):
-    from brand.store.brand_repo import SqlBrandRepository
-
-    repo = SqlBrandRepository(sqlite_session)
-    repo.save(studio_nord)
-    sqlite_session.commit()
-    got = repo.get(str(studio_nord.brand_id), "1.0.0")
-    assert got.is_equivalent_to(studio_nord)
-    assert got.identity.personality == studio_nord.identity.personality
-
-
-def test_sql_store_keeps_versions_apart(sqlite_session, studio_nord):
-    from brand.store.brand_repo import SqlBrandRepository
-
-    repo = SqlBrandRepository(sqlite_session)
-    repo.save(studio_nord)
-    repo.save(studio_nord.bump("minor").approved().published())
-    sqlite_session.commit()
-    assert repo.history(str(studio_nord.brand_id)).versions() == ["1.0.0", "1.1.0"]
-
-
-def test_sql_store_blocks_editing_a_published_version(sqlite_session, studio_nord):
-    from brand.store.brand_repo import SqlBrandRepository
-
-    repo = SqlBrandRepository(sqlite_session)
-    repo.save(studio_nord)
-    sqlite_session.commit()
-    altered = studio_nord.model_copy(
-        update={
-            "identity": studio_nord.identity.model_copy(update={"name": "Other"})
-        }
-    ).with_content_hash()
-    with pytest.raises(VersionError):
-        repo.save(altered)
-
-
-def test_both_stores_satisfy_the_protocol(sqlite_session, tmp_path):
-    from brand.store.brand_repo import (
-        BrandRepository,
-        FileBrandRepository,
-        SqlBrandRepository,
-    )
+def test_file_store_satisfies_the_protocol(tmp_path):
+    from brand.store.brand_repo import BrandRepository, FileBrandRepository
 
     assert isinstance(FileBrandRepository(tmp_path), BrandRepository)
-    assert isinstance(SqlBrandRepository(sqlite_session), BrandRepository)

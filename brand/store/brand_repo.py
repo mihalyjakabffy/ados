@@ -3,12 +3,14 @@ brand/store/brand_repo.py
 
 Where brands live.
 
-Two implementations behind one protocol, following the pattern in
-``services/design_state_repo.py``: the database is the production store, and a
-file-backed one exists so the CLI, the tests and a designer on a laptop can
-work without a Postgres.
+A file-backed store behind a protocol, so the CLI, the tests and a designer
+on a laptop can work without a database. (The original design paired this
+with a SQL-backed implementation for production, following the pattern in
+``services/design_state_repo.py``; ADOS's own deployments only ever used the
+file-backed store, so that alternate implementation stayed behind in the
+source monorepo rather than migrating here.)
 
-The invariant both enforce is the one from ``brand/versioning``: a published
+The invariant it enforces is the one from ``brand/versioning``: a published
 version is immutable. ``save`` on an already-published version with different
 content raises rather than overwriting, because the failure it prevents —
 a reprint that silently differs from the issue — is invisible when it happens
@@ -156,98 +158,3 @@ class FileBrandRepository:
 
     def _path(self, brand_id: str, version: str) -> Path:
         return self.root / brand_id / f"{version}.json"
-
-
-# ---------------------------------------------------------------------------
-# Database-backed
-# ---------------------------------------------------------------------------
-
-
-class SqlBrandRepository:
-    """SQLAlchemy-backed store over ``schemas.brand_models.BrandVersionORM``.
-
-    Mirrors ``services/design_state_repo.py``: the repository takes a Session
-    it did not open, does not commit, and returns domain objects rather than
-    ORM rows. The caller owns the transaction.
-    """
-
-    def __init__(self, session) -> None:
-        self.session = session
-
-    def save(self, brand: Brand) -> Brand:
-        from schemas.brand_models import BrandVersionORM
-
-        brand = brand if brand.content_hash else brand.with_content_hash()
-        row = self.session.get(
-            BrandVersionORM, {"brand_id": brand.brand_id, "version": brand.version}
-        )
-        if row is not None:
-            if (
-                row.status == BrandStatus.PUBLISHED.value
-                and row.content_hash != brand.content_hash
-            ):
-                raise VersionError(
-                    f"{brand.identity.name} {brand.version} is published with a "
-                    f"different content hash. Bump instead of editing."
-                )
-            row.update_from_domain(brand)
-        else:
-            self.session.add(BrandVersionORM.from_domain(brand))
-        self.session.flush()
-        return brand
-
-    def get(self, brand_id: str, version: Optional[str] = None) -> Brand:
-        from schemas.brand_models import BrandVersionORM
-
-        if version is not None:
-            row = self.session.get(
-                BrandVersionORM, {"brand_id": _uuid(brand_id), "version": version}
-            )
-            if row is None:
-                raise BrandNotFound(brand_id, version)
-            return row.to_domain()
-        return self.history(brand_id).resolve(None)
-
-    def history(self, brand_id: str) -> BrandVersionHistory:
-        from sqlalchemy import select
-
-        from schemas.brand_models import BrandVersionORM
-
-        rows = (
-            self.session.execute(
-                select(BrandVersionORM).where(
-                    BrandVersionORM.brand_id == _uuid(brand_id)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        if not rows:
-            raise BrandNotFound(brand_id)
-        h = BrandVersionHistory(brand_id=str(brand_id))
-        for row in rows:
-            h.add(row.to_domain())
-        return h
-
-    def list_brands(self) -> list[tuple[str, str, str]]:
-        from sqlalchemy import select
-
-        from schemas.brand_models import BrandVersionORM
-
-        rows = (
-            self.session.execute(select(BrandVersionORM)).scalars().all()
-        )
-        by_id: dict[str, list] = {}
-        for row in rows:
-            by_id.setdefault(str(row.brand_id), []).append(row)
-        out = []
-        for brand_id, versions in sorted(by_id.items()):
-            latest = max(versions, key=lambda r: parse_version(r.version))
-            out.append((brand_id, latest.name, latest.version))
-        return out
-
-
-def _uuid(value):
-    import uuid
-
-    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))

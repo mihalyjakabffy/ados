@@ -131,7 +131,7 @@ FIGURES: tuple[dict, ...] = (
 
 def malthouse_state():
     """The design state the facts are lifted from."""
-    from schemas.v2_models import (
+    from brand.examples._vendor.design_state_v2 import (
         ConstraintItem,
         ConstraintState,
         DesignState,

@@ -3,8 +3,9 @@ brand/agents/brand_agent.py
 
 BrandAgent — turns a natural-language brief into a structured brand proposal.
 
-Subclasses ``services.agents.base_agent.BaseAgent``, so it inherits the
-repository's LLM contract for free: lazy client, prompt-injection
+Subclasses ``brand.agents._vendor.base_agent.BaseAgent`` (vendored from the
+source monorepo's ``services.agents.base_agent`` at the ADOS migration), so it
+inherits the repository's LLM contract for free: lazy client, prompt-injection
 sanitisation, tolerant JSON extraction, and a deterministic rule-based
 fallback whenever the key is absent or the call fails. The pipeline degrades,
 it does not break — which for a brand agent matters more than usual, because
@@ -35,16 +36,11 @@ from __future__ import annotations
 
 import logging
 import re
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
-# The agent base lives in the repository root package `services`.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from services.agents.base_agent import AgentError, BaseAgent  # noqa: E402
+from brand.agents._vendor.base_agent import AgentError, BaseAgent
 
 from brand.models.architectural_language import (  # noqa: E402
     ArchitecturalLanguage,

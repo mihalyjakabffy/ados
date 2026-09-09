@@ -1,0 +1,52 @@
+# Python
+venv/
+.venv/
+.venv-ci/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# File-backed stores (brand/store, brand/project) — real data, not fixtures
+storage/
+
+# Logs
+*.log
+logs/
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated documents
+*.docx
+*.pdf
+
+# ados-web (Next.js)
+ados-web/node_modules/
+ados-web/.next/
+ados-web/playwright-report/
+ados-web/test-results/
+ados-web/.env.local
+ados-web/.env.*.local

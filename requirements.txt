@@ -1,0 +1,55 @@
+# ADOS — Architectural Document Operating System
+# Install: pip install -r requirements.txt
+
+# API Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.12
+
+# LLM providers — both optional at runtime. Every generator/extractor in
+# brand/llm degrades to a deterministic rule-based path when no key is
+# configured (or the package import fails); installed in CI so the real
+# LLM path is exercised where a key is available, not merely typed.
+anthropic>=1.0.0
+google-generativeai>=0.8.0
+
+# Standards packs (declarative YAML rule/limit definitions) —
+# also used by ados-service to read docs/ados/machine/ados-rules.yaml.
+pyyaml>=6.0
+
+# Brand System — JSON Schema validation of agent and API payloads.
+# Optional at runtime (brand/schemas degrades to pydantic-only checks),
+# but without it a bad payload reports one fault instead of all of them.
+jsonschema>=4.20.0
+
+# Brand System — glyph outline extraction for the logo generator
+# (brand/assets/logo.py reads OS/2.sCapHeight and traces glyph paths from
+# the bundled font binaries so the wordmark is built from real outlines,
+# not scaled live text).
+fonttools>=4.53.0
+
+# PDF export (brand/export, docs/templates/pdf/ptspdf.py)
+reportlab>=4.0
+
+# Word template export (docs/templates/word/ptsword.py, build.py) — the
+# branded .dotx builder and its font-obfuscation/verification tooling.
+python-docx>=1.1.0
+
+# Brand System — reads an uploaded image's real pixel dimensions at upload
+# time (api/routers/ados_project.py's upload_asset), so the asset-quality
+# check can compare real width/height rather than guessing from file size.
+Pillow>=10.0
+
+# Brand System — brand.export.exporters.html_to_pdf / rasterise_svg print an
+# HTML page to PDF/PNG through Chromium's own print path. Optional at
+# runtime — both functions degrade to a stated reason when Chromium/
+# Playwright is absent — but CI installs it so the export pipeline is
+# actually exercised, not merely typed.
+playwright>=1.40
+
+# Utilities
+pydantic>=2.10.0
+httpx>=0.28.0
+
+# Testing
+pytest>=8.3.0

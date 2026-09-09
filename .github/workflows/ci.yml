@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (pytest + dependency smoke)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install Chromium (brand.export.exporters PDF pipeline)
+        # brand/export's production document export prints HTML to PDF
+        # through Chromium's own print path — installed here so the export
+        # tests exercise the real pipeline, not a mocked one.
+        run: python -m playwright install --with-deps chromium
+      - name: Dependency smoke imports
+        run: |
+          python - <<'EOF'
+          import reportlab, yaml, jsonschema, fontTools, docx
+          print("reportlab OK | pyyaml OK | jsonschema OK | fonttools OK | python-docx OK")
+          EOF
+      - name: Tests
+        # tests_brand needs no DB, no storage and no API key — its agent
+        # and every LLM-backed generator run the deterministic rule-based
+        # path in CI.
+        run: python -m pytest tests_brand -q
+      - name: ados-service smoke import
+        # A separate, deliberately tiny read-only API (fastapi + pyyaml
+        # only, already installed above) serving ados-web's Package browser
+        # and Rule Registry pages from docs/ados/machine/. Not part of the
+        # pytest suite above; a plain import + app construction is enough
+        # to catch a broken import or syntax error.
+        run: |
+          cd ados-service
+          python -c "import main; assert main.app"
+
+  ados-web:
+    name: ADOS web (type-check + build)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ados-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ados-web/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Type-check
+        run: npm run type-check
+      - name: Build
+        run: npm run build
