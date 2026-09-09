@@ -82,3 +82,66 @@ def test_base_url_is_configurable_via_environment(monkeypatch: pytest.MonkeyPatc
     asyncio.run(_client_with(handler).get_api("/ados-projects"))
 
     assert seen["url"] == "http://example.internal:9999/api/v2/ados-projects"
+
+
+# -- write verbs (ADOS-M4.2) -------------------------------------------
+
+
+def test_post_api_sends_json_body_and_returns_the_response() -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["body"] = request.content
+        return httpx.Response(201, json={"id": "p1"})
+
+    result = asyncio.run(_client_with(handler).post_api("/ados-projects", json={"name": "X"}))
+
+    assert seen["method"] == "POST"
+    assert seen["url"] == "http://localhost:8000/api/v2/ados-projects"
+    assert b'"name":"X"' in seen["body"] or b'"name": "X"' in seen["body"]
+    assert result == {"id": "p1"}
+
+
+def test_patch_put_delete_use_the_expected_verb() -> None:
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        return httpx.Response(200, json={"ok": True})
+
+    client = _client_with(handler)
+    asyncio.run(client.patch_api("/ados-projects/p1", json={"name": "Y"}))
+    asyncio.run(client.put_api("/ados-projects/p1/brand", json={"brand_id": "b1"}))
+    asyncio.run(client.delete_api("/ados-projects/p1/content/c1"))
+
+    assert seen == ["PATCH", "PUT", "DELETE"]
+
+
+def test_empty_response_body_becomes_an_empty_dict() -> None:
+    """DELETE /ados-projects/{id} (not wrapped by any tool yet) replies
+    204 with no body — proves the client doesn't choke on that shape
+    once a future tool does wrap it."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(204)
+
+    result = asyncio.run(_client_with(handler).delete_api("/ados-projects/p1"))
+
+    assert result == {}
+
+
+def test_write_error_surfaces_the_structured_detail() -> None:
+    """ADOS's own routers reply to a rejected write with a real
+    ``{"detail": {"error": ..., ...}}`` body — the exact information a
+    chat session needs to explain the refusal. Proves it survives into
+    the raised error rather than being replaced by a generic message."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422, json={"detail": {"error": "invalid_content_item", "errors": ["value required"]}}
+        )
+
+    with pytest.raises(AdosConnectionError, match="invalid_content_item"):
+        asyncio.run(_client_with(handler).post_api("/ados-projects/p1/content", json={}))

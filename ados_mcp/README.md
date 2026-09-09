@@ -1,16 +1,20 @@
 # ados_mcp — the ADOS Claude connector
 
-ADOS-M4.1. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
+ADOS-M4.1/M4.2. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
 
 An MCP server exposing ADOS's own `DesignState`, projects, shared content
-pool, brand identity and the ADOS 1.0 rule registry as **read-only
-resources** to any MCP client — Claude Code, Claude Desktop, or a custom
-client. It is a new *client* of `api/main.py` and `ados-service/main.py`,
-talking to both over plain HTTP GET, exactly the relationship `ados-web`
-already has to `api/main.py`. It does not import `brand/` or
-`api/routers/`, and it has no tool that changes anything yet — see
-`docs/architecture/m4-claude-connector.md` §3 for why, and the phased
-rollout (§10) for what M4.2 onward adds.
+pool, brand identity and the ADOS 1.0 rule registry as resources, plus
+tools to create and edit projects/documents/content and to
+compose/save/export a document, to any MCP client — Claude Code, Claude
+Desktop, or a custom client. It is a new *client* of `api/main.py` and
+`ados-service/main.py`, talking to both over plain HTTP, exactly the
+relationship `ados-web` already has to `api/main.py`. It does not import
+`brand/` or `api/routers/` — every tool is a thin wrapper around one
+already-validated ADOS endpoint, so a malformed or unsafe request is
+refused by ADOS itself, never silently accepted (design doc §3). See the
+phased rollout (§10) for what M4.3 onward still adds — propagation
+("edit this fact, recompose everywhere it's used"), the generative and
+closed-loop tools, and the remote transport.
 
 ## Install
 
@@ -72,6 +76,36 @@ Add to `claude_desktop_config.json`:
 | `ados://brands/{brand_id}` | `GET /api/v2/brands/{brand_id}` + `.../tokens` | identity + resolved design tokens with provenance |
 | `ados://rules` | `ados-service`'s `GET /api/rules` | the ADOS 1.0 476-rule registry |
 
+## Tools
+
+Every tool is a thin wrapper around one endpoint in
+`api/routers/ados_project.py`; none of them contain business logic of
+their own, and none of them recompose anything beyond the one document
+named in the call.
+
+| Tool | Wraps | Notes |
+|---|---|---|
+| `create_project(name, description="")` | `POST /ados-projects` | |
+| `update_project_data(project_id, name?, description?, project_data?)` | `PATCH /ados-projects/{id}` | `project_data` is merged, not replaced |
+| `attach_brand(project_id, brand_id, brand_version?)` | `PUT /ados-projects/{id}/brand` | required before compose/export will work |
+| `create_document(project_id, name, document_type_id="", direction_id?, metadata?)` | `POST /ados-projects/{id}/documents` | see `document-types` for valid ids |
+| `add_document_content(project_id, document_id, kind, ...)` | `POST .../documents/{id}/content` | `kind` is `text`/`fact`/`metric`/`image` |
+| `remove_document_content(project_id, document_id, item_id)` | `DELETE .../documents/{id}/content/{item_id}` | |
+| `add_shared_content(project_id, kind, ...)` | `POST .../content` | the project-level shared pool |
+| `remove_shared_content(project_id, item_id)` | `DELETE .../content/{item_id}` | |
+| `select_content_for_document(project_id, document_id, content_item_ids)` | `PUT .../content-selection` | replaces the whole selection |
+| `compose_document(project_id, document_id)` | `POST .../documents/{id}/compose` | does not persist — call `save_version` to keep it |
+| `save_version(project_id, document_id, label="", plan?)` | `POST .../versions` | immutable once saved |
+| `export_document(project_id, document_id, version_number?, format="pdf")` | `POST .../documents/{id}/export` | `format` is `pdf` or `html` |
+
+There is no `update_shared_content` yet — `api/routers/ados_project.py`
+has no endpoint for it. That lands in M4.3 together with
+`propagate_content_change`, the actual "edit this fact, recompose every
+document that uses it" mechanism (design doc §6, §9). Until then, editing
+a shared item means remove + re-add (a new id — every document's
+`content_selection` referencing the old one goes stale) or editing a
+document's own private content instead.
+
 ## Environment
 
 | Variable | Default | Description |
@@ -81,12 +115,13 @@ Add to `claude_desktop_config.json`:
 
 ## What this is not (yet)
 
-Read-only, stdio-only, single-user, no auth — the same trust boundary as
-running `uvicorn` locally already has. No tool creates, edits, composes,
-exports, or propagates anything; that starts at M4.2. A remote (HTTP+SSE)
-transport for a claude.ai custom connector is M4.6, and needs an auth
-layer ADOS does not have today. See the design doc's §9–§12 for the
-reasoning and the open decisions.
+stdio-only, single-user, no auth — the same trust boundary as running
+`uvicorn` locally already has; do not expose this server's transport
+over a network. No propagation (editing a shared fact does not recompose
+the documents that selected it — M4.3), no brand authoring (M4.5), no
+generative or closed-loop tools (M4.4), no remote transport (M4.6, needs
+an auth layer ADOS does not have today). See the design doc's §9–§12 for
+the reasoning and the open decisions.
 
 ## Tests
 
@@ -96,7 +131,12 @@ python -m pytest tests_mcp -q
 
 `tests_mcp/test_boundaries.py` is an AST check, the same technique
 `tests_brand/test_loop_boundaries.py` uses for `brand/llm/loop/`: no
-module under `ados_mcp/` may import `brand` or `api` directly, and only
-`ados_mcp/client.py` may construct an `httpx` client. `tests_mcp/test_resources.py`
-exercises every resource function against a mocked HTTP transport — no
-live server required.
+module under `ados_mcp/` may import `brand` or `api` directly, only
+`ados_mcp/client.py` may construct an `httpx` client, every tool module
+calls `get_client()`, and `ados-service` (the rule registry) stays
+write-free even as `api/main.py` gains write methods. `test_client.py`,
+`test_resources.py` and `test_tools_*.py` exercise every resource and
+tool against a mocked HTTP transport — no live server required, though
+the whole M4.2 write path has also been run end to end against a real
+`api/main.py` (create project → attach brand → add content → compose →
+save version → export) during development.

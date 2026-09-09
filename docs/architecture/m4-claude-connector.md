@@ -110,17 +110,36 @@ already separates `GET` (read, side-effect-free) from mutating verbs.
 
 ### 4.2 Tools — write, ship behind explicit confirmation
 
+Shipped in M4.2 (`ados_mcp/tools/`), each a 1:1 wrapper with no logic of
+its own:
+
 | Tool | Wraps | Domain |
 |---|---|---|
 | `create_project`, `update_project_data` | `POST/PATCH .../ados-projects` | project |
-| `add_shared_content`, `update_shared_content`, `remove_shared_content` | `POST/DELETE .../content` | the fact layer |
+| `attach_brand` | `PUT .../ados-projects/{id}/brand` | link an existing, already-approved brand to a project — added beyond the original table below, because without it `compose_document`/`export_document` can never leave `no_brand_attached` for anything MCP created |
+| `add_document_content`, `remove_document_content` | `POST/DELETE .../documents/{id}/content` | a document's own private content — added beyond the original table below, for the same "content CRUD" scope M4.2's phase entry (§10) already named |
+| `add_shared_content`, `remove_shared_content` | `POST/DELETE .../content` | the fact layer |
 | `select_content_for_document` | `PUT .../content-selection` | wiring a document to shared facts |
-| `create_document` (`document_type`, `direction?`) | `POST .../documents` + `document_types` registry | choosing a projection, §7 |
+| `create_document` (`document_type_id`, `direction_id?`) | `POST .../documents` + `document_types` registry | choosing a projection, §7 |
 | `compose_document`, `save_version`, `export_document` | existing endpoints of the same name | turning content into an issued artefact |
-| `propagate_content_change` | **new**, §6 | the "update everywhere" mechanism |
-| `propose_brand`, `approve_brand`, `audit_brand` | `BrandAgent.generate_proposal`, `.approve()`, `brand.validation.consistency` | identity, human-gated |
-| `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands` | M3.3–M3.5 endpoints | letting Claude invoke ADOS's *own*, validated generation stages instead of freehanding prose that skips them |
-| `start_loop`, `continue_loop`, `approve_loop`, `stop_loop` | `api/routers/closed_loop.py` | bounded, auditable self-correction, §8 |
+
+**Correction from the original draft of this table**: there is no
+`update_shared_content` tool. `api/routers/ados_project.py` has no PATCH
+for a single shared `ContentItem` — only add (`POST`) and remove
+(`DELETE`). Inventing an update path here, ahead of the endpoint that
+would back it, would violate §3 rule 1. The real update path a practice
+actually wants — "edit this fact, recompose whatever used it" — is
+exactly ADOS-M4.3's job; its own PATCH endpoint is built together with
+`propagate_content_change`, not guessed at in M4.2.
+
+Deferred to later phases, unchanged from the original plan:
+
+| Tool | Wraps | Domain | Phase |
+|---|---|---|---|
+| `propagate_content_change` | **new**, §6 | the "update everywhere" mechanism | M4.3 |
+| `propose_brand`, `approve_brand`, `audit_brand` | `BrandAgent.generate_proposal`, `.approve()`, `brand.validation.consistency` | identity, human-gated | M4.5 |
+| `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands` | M3.3–M3.5 endpoints | letting Claude invoke ADOS's *own*, validated generation stages instead of freehanding prose that skips them | M4.4 |
+| `start_loop`, `continue_loop`, `approve_loop`, `stop_loop` | `api/routers/closed_loop.py` | bounded, auditable self-correction, §8 | M4.4 |
 
 Every generative tool (`generate_*`, `start_loop`) states in its result
 whether ADOS's own Claude-backed path ran or the deterministic fallback did
@@ -252,8 +271,8 @@ question, not a silent action). The connector's only job here is transport.
 
 | Phase | Scope | Risk |
 |---|---|---|
-| **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. | Near zero — no new mutation path exists yet. |
-| **M4.2** | Write tools that wrap one existing endpoint 1:1 (content CRUD, create/compose/export document). AST boundary test added. | Low — every tool already has REST-level tests; MCP tests assert the wrapper, not the logic. |
+| **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. **Shipped.** | Near zero — no new mutation path exists yet. |
+| **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
 | **M4.3** | `brand/project/propagation.py` + its two endpoints + two tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. New deterministic code, new tests (determinism, no-mutation-without-recompose, fingerprint-stable findings). | Medium — first genuinely new backend logic this milestone adds. |
 | **M4.4** | Generative tools (`generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools, gated by explicit confirmation for non-`SAFE` autonomy. | Medium — cost/latency-visible, but reuses M3.1–M3.6 unchanged. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`/`audit_brand`), guidelines/export tools. | Low — human-approval gate already exists; this only relays it. |

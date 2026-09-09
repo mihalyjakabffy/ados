@@ -1,13 +1,13 @@
 """
 ados_mcp/server.py
 
-ADOS-M4.1 entrypoint (docs/architecture/m4-claude-connector.md) — the MCP
+ADOS-M4 entrypoint (docs/architecture/m4-claude-connector.md) — the MCP
 server a Claude Code / Claude Desktop session adds as a connector. Ships
-stdio-only in M4.1 (§9 decision 2 of the design doc); the remote
-HTTP+SSE transport for a claude.ai custom connector is deferred to M4.6,
-once an auth layer exists — ADOS itself has none today, and exposing this
-server over the network before then would expose every project it can
-read to anyone who can reach the port.
+stdio-only (§9 decision 2 of the design doc); the remote HTTP+SSE
+transport for a claude.ai custom connector is deferred to M4.6, once an
+auth layer exists — ADOS itself has none today, and exposing this server
+over the network before then would expose every project it can read and
+write to anyone who can reach the port.
 
 Run directly:
 
@@ -34,18 +34,29 @@ mcp = FastMCP(
         "turn. ados://rules holds the ADOS 1.0 specification's own rule "
         "registry (ADOS-x.y.zzz ids) — cite a real rule from it rather than "
         "inventing a justification for a formatting or process question. "
-        "This server is read-only (ADOS-M4.1): it has no tool that creates or "
-        "changes anything yet."
+        "Tools exist (ADOS-M4.2) to create and modify projects, documents "
+        "and content, and to compose/save/export a document — every one is a "
+        "thin wrapper around an already-validated ADOS API endpoint, so a "
+        "malformed or unsafe request is refused by ADOS itself, not silently "
+        "accepted; relay a refusal's real reason rather than retrying blindly. "
+        "compose_document does not persist anything by itself — call "
+        "save_version to keep a composed result, then export_document to "
+        "render a saved Version. Editing the shared content pool does NOT "
+        "yet recompose documents that selected the changed item (that "
+        "fan-out is ADOS-M4.3, not built yet) — call compose_document again "
+        "on each document that should pick up the change, and say so "
+        "explicitly rather than implying it happened automatically."
     ),
 )
 
-# Registers every @mcp.resource in ados_mcp.resources against the `mcp`
-# instance above — the only reason this import exists. Placed after `mcp`
-# is defined, since resources.py imports it back
+# Registers every @mcp.resource / @mcp.tool in these modules against the
+# `mcp` instance above — the only reason these imports exist. Placed
+# after `mcp` is defined, since both modules import it back
 # (`from ados_mcp.server import mcp`); Python resolves this fine because
 # the name already exists on this (partially-initialised) module by the
-# time resources.py runs its own import.
+# time each import runs its own.
 from ados_mcp import resources  # noqa: E402,F401
+from ados_mcp import tools  # noqa: E402,F401
 
 
 def main() -> None:

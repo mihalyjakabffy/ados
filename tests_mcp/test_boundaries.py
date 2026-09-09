@@ -67,18 +67,39 @@ def test_only_client_module_constructs_an_httpx_client() -> None:
     assert not offenders, f"httpx client constructed outside ados_mcp/client.py: {offenders}"
 
 
-def test_no_write_verbs_in_client_module() -> None:
-    """ADOS-M4.1 is read-only by design (design doc §10) — ``AdosClient``
-    exposes only GET wrappers. This fails loudly the moment a POST/PUT/
-    PATCH/DELETE helper is added, which should happen deliberately in
-    M4.2, with its own tests and its own AST boundary update — not as a
-    side effect of an unrelated change."""
-    client_source = (_ADOS_MCP_DIR / "client.py").read_text(encoding="utf-8")
-    tree = ast.parse(client_source, filename="client.py")
-    method_names = {
-        node.attr
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Attribute)
-    }
-    banned = {"post", "put", "patch", "delete"} & method_names
-    assert not banned, f"ados_mcp/client.py calls write verb(s) {banned} — M4.1 must stay read-only"
+def test_ados_service_backend_has_no_write_methods() -> None:
+    """ados-service (the ADOS 1.0 rule registry, docs/ados/machine/) is
+    read-only by design — it has no write endpoint to wrap, and never
+    should: it documents the specification, not project state. ADOS-M4.2
+    added post_api/patch_api/put_api/delete_api for api/main.py; this
+    fails the moment a *_service write method is added by analogy,
+    which would need its own design discussion, not a copy-paste of the
+    api write helpers (docs/architecture/m4-claude-connector.md §3)."""
+    from ados_mcp.client import AdosClient
+
+    service_write_methods = {
+        f"{verb}_service" for verb in ("post", "put", "patch", "delete")
+    } & set(dir(AdosClient))
+    assert not service_write_methods, (
+        f"AdosClient defines write method(s) against ados-service: {service_write_methods}"
+    )
+
+
+def test_every_tool_module_calls_get_client_for_its_writes() -> None:
+    """Every write tool must go through ``ados_mcp.client.get_client()`` —
+    the same single-construction-point rule
+    ``test_only_client_module_constructs_an_httpx_client`` enforces at
+    the transport level, checked here at the call-site level: a
+    ``tools/*.py`` module that never calls ``get_client()`` is either
+    dead code or a tool that forgot to reach ADOS at all."""
+    tools_dir = _ADOS_MCP_DIR / "tools"
+    for path in sorted(tools_dir.glob("*.py")):
+        if path.name == "__init__.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        calls = {
+            node.func.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        assert "get_client" in calls, f"{path}: no tool in this module calls get_client()"
