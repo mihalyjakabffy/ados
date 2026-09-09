@@ -221,40 +221,40 @@ iterations`, `max_llm_calls`), auditable (`stage_log`), safe by default
 returns `AWAITING_APPROVAL` for the chat-facing Claude to relay as a
 question, not a silent action). The connector's only job here is transport.
 
-## 9. Open decisions (not settled by this document)
+## 9. Decisions
 
-These need your call before implementation starts, because each is a real
-trade-off this repository's existing rules don't already resolve:
-
-1. **Auto-propagate vs. explicit propagate.** Recomposing every consuming
-   document on every content edit is the most literal reading of "frissítse
-   mindenhol", but it means a typo fix can trigger N re-compositions (and,
-   if `generate_narrative` is in the loop, N LLM calls) before the user
-   finishes a sentence. The alternative — edit is instant, propagation is
-   one explicit follow-up call/confirmation, with the connector always
-   telling Claude "3 documents are now stale" — costs one extra turn but
-   matches `ADOS-0.7.030`'s "nothing silent" gate more literally.
-2. **Deployment target for v1.** Claude Code / Claude Desktop (stdio
-   transport, no auth needed, works today from this repository) vs. a
-   remote claude.ai custom connector (HTTP+SSE, needs a bearer-token
-   auth layer this repository does not have yet — ADOS currently has none).
-   Recommendation: ship stdio first (near-zero new infrastructure, usable
-   immediately in this environment), add the remote transport as M4.6 once
-   the tool surface has proven itself locally.
-3. **Whether `generate_*` tools default to ADOS's own Claude-backed path or
-   the deterministic fallback.** Calling Claude-via-chat, which then calls
-   ADOS, which then calls Claude again, is real latency and real API cost
-   stacked twice. Recommendation: default to the deterministic fallback,
-   and only take the LLM path on an explicit user ask ("write a persuasive
-   version") — but this is a product choice, not an engineering constraint.
+1. **Propagation is explicit, not automatic (decided).** A content edit is
+   instant and scoped to the shared item only. `propagate_content_change`
+   / `propagate_brand_change` are separate tool calls the chat-facing
+   Claude issues as a visible next step — "3 documents reference this fact;
+   recompose them?" — never a silent side effect of the edit itself. This
+   is the literal reading of `ADOS-0.7.030`'s "nothing silent" gate applied
+   to chat: a typo fix does not fire N re-compositions (and, once
+   `generate_narrative` is in the loop, N LLM calls) before the user
+   finishes a sentence. `PropagationResult` (§6) is what the connector
+   hands back so Claude can state exactly what changed, never a bare "done".
+2. **v1 target is Claude Code / Claude Desktop over stdio (decided).** No
+   auth layer is required — the trust boundary is the same one running
+   `uvicorn` locally already has — so M4.1–M4.5 can ship and be used from
+   this repository immediately. The remote, HTTP+SSE claude.ai
+   custom-connector transport is deferred to M4.6, once the tool surface
+   has proven itself locally and the auth model it needs (§12) is designed
+   on its own, rather than retrofitted under schedule pressure.
+3. **Open**: whether `generate_*` tools default to ADOS's own Claude-backed
+   path or the deterministic fallback. Calling Claude-via-chat, which then
+   calls ADOS, which then calls Claude again, is real latency and real API
+   cost stacked twice. Recommendation, not yet decided: default to the
+   deterministic fallback, and only take the LLM path on an explicit user
+   ask ("write a persuasive version") — revisit once M4.4 is being built
+   and real latency/cost numbers exist.
 
 ## 10. Phased rollout
 
 | Phase | Scope | Risk |
 |---|---|---|
-| **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules. Zero write tools. | Near zero — no new mutation path exists yet. |
+| **M4.1** | Resources only (§4.1) — read `DesignState`, Project, Brand, Rules, over **stdio** (Claude Code / Claude Desktop; §9 decision 2). Zero write tools. | Near zero — no new mutation path exists yet. |
 | **M4.2** | Write tools that wrap one existing endpoint 1:1 (content CRUD, create/compose/export document). AST boundary test added. | Low — every tool already has REST-level tests; MCP tests assert the wrapper, not the logic. |
-| **M4.3** | `brand/project/propagation.py` + its two endpoints + two tools. New deterministic code, new tests (determinism, no-mutation-without-recompose, fingerprint-stable findings). | Medium — first genuinely new backend logic this milestone adds. |
+| **M4.3** | `brand/project/propagation.py` + its two endpoints + two tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. New deterministic code, new tests (determinism, no-mutation-without-recompose, fingerprint-stable findings). | Medium — first genuinely new backend logic this milestone adds. |
 | **M4.4** | Generative tools (`generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools, gated by explicit confirmation for non-`SAFE` autonomy. | Medium — cost/latency-visible, but reuses M3.1–M3.6 unchanged. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`/`audit_brand`), guidelines/export tools. | Low — human-approval gate already exists; this only relays it. |
 | **M4.6** | Remote (HTTP+SSE) transport + bearer-token auth for the claude.ai custom-connector case. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today). |
