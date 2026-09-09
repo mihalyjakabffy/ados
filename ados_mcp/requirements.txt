@@ -1,0 +1,15 @@
+# ados_mcp — the ADOS Claude connector (ADOS-M4.1)
+# Install: pip install -r ados_mcp/requirements.txt
+
+# Pinned below 2.x deliberately: mcp 2.x renamed FastMCP to MCPServer and
+# changed its API (see the package's own migration note). This package is
+# written against the FastMCP surface (mcp.server.fastmcp.FastMCP), which
+# is stable across the 1.x series.
+mcp>=1.0,<2
+
+# The one HTTP client ados_mcp/client.py uses to reach api/main.py and
+# ados-service/main.py. Already a root requirements.txt dependency
+# (brand/'s own LLM providers use it); pinned here too so ados_mcp/ stays
+# independently installable, the same posture ados-service/requirements.txt
+# already takes for its own (smaller) dependency set.
+httpx>=0.28.0

@@ -262,27 +262,33 @@ question, not a silent action). The connector's only job here is transport.
 ## 11. Proposed layout
 
 ```
-mcp/
+ados_mcp/
   server.py        # tool/resource registration; stdio + HTTP+SSE entrypoints
-  client.py         # one httpx wrapper around api/v2 — the mcp/ analogue of
-                     # claude_provider.py's get_client(): the one shared,
+  client.py         # one httpx wrapper around api/v2 — the ados_mcp/ analogue
+                     # of claude_provider.py's get_client(): the one shared,
                      # low-level path every tool call goes through
   resources.py
   tools/
     projects.py  content.py  documents.py  brand.py  generation.py  loop.py
   auth.py          # bearer-token guard, M4.6 only
 tests_mcp/
-  test_tool_boundaries.py   # AST: no tools/* module imports brand.creative.*
-                             # or a store's save() directly
-  test_tools_content.py  test_tools_documents.py  ...  # one per tools/* module
+  test_boundaries.py        # AST: no module imports brand/ or api/routers/
+                             # directly, and only client.py touches httpx
+  test_resources.py  test_tools_content.py  ...  # one per resources/tools module
 docs/architecture/m4-claude-connector.md   # this document
 ```
 
-`mcp/` sits beside `api/` and `ados-web/` as a third, independent client of
-`api/main.py` — not inside `brand/`, and not merged into `api/routers/`,
-for the same reason `ados-web`'s dev pages are a frontend concern and not a
-router: the MCP layer's job is translation and transport, and giving it its
-own top-level package is what makes the AST boundary test in §3 possible to
+Named `ados_mcp/`, not `mcp/` — the MCP Python SDK is itself the PyPI/import
+name `mcp`; a same-named top-level package at the repo root would shadow it
+the moment anything under this package writes `import mcp`. This is a
+naming correction only, not an architecture change from §3/§4.
+
+`ados_mcp/` sits beside `api/` and `ados-web/` as a third, independent
+client of `api/main.py` (plus `ados-service/main.py` for the rule registry)
+— not inside `brand/`, and not merged into `api/routers/`, for the same
+reason `ados-web`'s dev pages are a frontend concern and not a router: the
+MCP layer's job is translation and transport, and giving it its own
+top-level package is what makes the AST boundary test in §3 possible to
 write and trust.
 
 ## 12. Known limitations (stated honestly, per this repository's convention)

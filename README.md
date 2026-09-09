@@ -34,6 +34,14 @@ proved to be a genuinely standalone system: nothing in `brand/` or
   ADOS visual-language specification, the architecture notes for each
   milestone, and the PDF/Word document builders + fonts the export pipeline
   renders through.
+- **`ados_mcp/`** — the ADOS Claude connector (ADOS-M4.1): an MCP server
+  exposing `DesignState`, projects, the shared content pool, brand identity
+  and the ADOS 1.0 rule registry as read-only resources to Claude Code /
+  Claude Desktop over stdio. A client of `api/main.py` and
+  `ados-service/main.py`, like `ados-web`, never a second way into `brand/`.
+  See `docs/architecture/m4-claude-connector.md` and `ados_mcp/README.md`.
+- **`tests_mcp/`** — its boundary (AST) and resource tests, mirroring
+  `tests_brand`'s posture at a much smaller scale.
 
 ## Running it
 
@@ -67,10 +75,21 @@ dev pages) and to `ados-service` at `http://localhost:8010` (home page,
 `/rules`) — both defaults are already set in `.env.example`. Both APIs'
 CORS defaults already allow `http://localhost:3100`.
 
+The Claude connector (with `api/main.py` and `ados-service` already running,
+per above):
+
+```bash
+pip install -r ados_mcp/requirements.txt
+claude mcp add ados -- python -m ados_mcp.server   # or run `python -m ados_mcp.server` directly
+```
+
+See `ados_mcp/README.md` for the Claude Desktop config and the resource list.
+
 ## Testing
 
 ```bash
 python -m pytest tests_brand -q
+python -m pytest tests_mcp -q
 ```
 
 The suite needs no database, no storage service and no API key — every

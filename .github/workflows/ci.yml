@@ -42,6 +42,18 @@ jobs:
         run: |
           cd ados-service
           python -c "import main; assert main.app"
+      - name: Install ados_mcp dependencies
+        # ados_mcp/ (ADOS-M4, the Claude connector) is deliberately its own
+        # installable surface, same posture as ados-service/requirements.txt
+        # — its one real dependency (the `mcp` SDK) is not part of the main
+        # API/frontend and shouldn't become one just because CI needs it.
+        run: pip install -r ados_mcp/requirements.txt
+      - name: ados_mcp tests
+        # AST boundary checks (ados_mcp never imports brand/ or api/
+        # directly, stays read-only in M4.1) plus every resource against a
+        # mocked HTTP transport — no live api/main.py or ados-service
+        # process needed.
+        run: python -m pytest tests_mcp -q
 
   ados-web:
     name: ADOS web (type-check + build)
