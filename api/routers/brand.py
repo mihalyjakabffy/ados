@@ -13,6 +13,7 @@ Prefix: /api/v2   Tags: ["brand"]
     POST /brands/{id}/versions/{v}/publish
     GET  /brands/{id}/tokens              resolved design tokens
     GET  /brands/{id}/validate            the validation report
+    POST /brands/{id}/audit               audit a generated package on disk against this brand
     GET  /brands/{id}/preview             the brand preview, as HTML
     GET  /brands/{id}/templates           which documents this brand can render
     POST /brands/{id}/render/{template}   render one, HTML or PDF
@@ -20,6 +21,7 @@ Prefix: /api/v2   Tags: ["brand"]
     POST /brands/{id}/intent              CommandIntent → PagePlan (M1.2, scoped since M1.3)
     POST /brands/{id}/iterate             review finding → recommended command → PagePlan (M1.4)
     POST /brand-proposals                 brief → BrandAgent proposal (no write)
+    POST /brand-proposals/approve         a named human turns a proposal into a stored, approved brand
     GET  /brand-schema                    the JSON Schema
 
 Two things this router does not do, deliberately:
@@ -348,6 +350,40 @@ def get_tokens(
 @router.get("/brands/{brand_id}/validate")
 def validate_brand(brand_id: str, version: Optional[str] = Query(default=None)) -> dict:
     return _load(brand_id, version).check().to_dict()
+
+
+class AuditPackageRequest(BaseModel):
+    #: A server-local directory of already-generated brand artefacts
+    #: (the output of e.g. ``python -m brand.cli package`` / ``export``) —
+    #: the same posture the CLI's own ``audit <package-dir> --brand``
+    #: command already has, and the same trust boundary every endpoint in
+    #: this milestone runs under (docs/architecture/m4-claude-connector.md
+    #: §12: no auth yet, local-equivalent trust only).
+    package_dir: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/brands/{brand_id}/audit")
+def audit_brand_package(
+    brand_id: str, body: AuditPackageRequest, version: Optional[str] = Query(default=None)
+) -> dict:
+    """Audits a *generated package on disk* against this brand
+    (``brand.validation.consistency.audit_package``, unchanged) —
+    a separable, later question from ``GET .../validate``'s "is the
+    brand itself sound": this checks that files already on disk (colour,
+    font, layout custom properties, the asset inventory) actually derive
+    from the brand they claim to come from, catching planted colours,
+    undeclared font families and assets missing an inventory record."""
+    from pathlib import Path
+
+    from brand.validation.consistency import audit_package
+
+    brand = _load(brand_id, version)
+    package_root = Path(body.package_dir)
+    if not package_root.is_dir():
+        raise HTTPException(
+            status_code=404, detail={"error": "package_dir_not_found", "path": body.package_dir},
+        )
+    return audit_package(package_root, brand).to_dict()
 
 
 @router.get("/brands/{brand_id}/preview", response_class=HTMLResponse)

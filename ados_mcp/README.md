@@ -1,6 +1,6 @@
 # ados_mcp — the ADOS Claude connector
 
-ADOS-M4.1–M4.4. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
+ADOS-M4.1–M4.5. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
 
 An MCP server exposing ADOS's own `DesignState`, projects, shared content
 pool, brand identity, the ADOS 1.0 rule registry, and closed-loop
@@ -8,15 +8,16 @@ lineages as resources, plus tools to create and edit
 projects/documents/content, compose/save/export a document, propagate a
 changed shared fact or brand version to every document that references
 it, run the M3.1–M3.5 generation pipeline (semantic intent → narrative /
-design intent → commands → apply), and drive the M3.6 closed loop, to any
-MCP client — Claude Code, Claude Desktop, or a custom client. It is a new
-*client* of `api/main.py` and `ados-service/main.py`, talking to both
-over plain HTTP, exactly the relationship `ados-web` already has to
-`api/main.py`. It does not import `brand/` or `api/routers/` — every tool
-is a thin wrapper around one already-validated ADOS endpoint, so a
-malformed or unsafe request is refused by ADOS itself, never silently
-accepted (design doc §3). See the phased rollout (§10) for what M4.5
-onward still adds — brand authoring in chat and the remote transport.
+design intent → commands → apply), drive the M3.6 closed loop, and
+propose/approve a brand identity in chat, to any MCP client — Claude
+Code, Claude Desktop, or a custom client. It is a new *client* of
+`api/main.py` and `ados-service/main.py`, talking to both over plain
+HTTP, exactly the relationship `ados-web` already has to `api/main.py`.
+It does not import `brand/` or `api/routers/` — every tool is a thin
+wrapper around one already-validated ADOS endpoint, so a malformed or
+unsafe request is refused by ADOS itself, never silently accepted
+(design doc §3). See the phased rollout (§10) for what M4.6 still adds —
+the remote transport.
 
 ## Install
 
@@ -153,6 +154,26 @@ call) **does** persist — read the loop-history resource before calling
 `approve_loop` so the decision is grounded in what the loop actually
 found.
 
+### Brand proposal loop (ADOS-M4.5)
+
+| Tool | Wraps | Notes |
+|---|---|---|
+| `propose_brand(brief, name?)` | `POST /brand-proposals` | a candidate `Brand` from `BrandAgent` — **nothing is saved** |
+| `approve_brand(proposal, approved_by)` | `POST /brand-proposals/approve` | the one write; `approved_by` must be a real person's name, never invented |
+| `audit_brand(brand_id, package_dir, version?)` | `POST /brands/{id}/audit` | audits an already-built package directory (server-local path) against the brand |
+
+`audit_brand` is backed by a new endpoint added alongside it
+(`POST /brands/{brand_id}/audit`, wrapping the already-real
+`brand.validation.consistency.audit_package`) — it is this connector's
+one tool that accepts a filesystem path, a stated, narrow exception to
+the "no tool accepts a file path" rule (design doc §3 rule 2), justified
+there because it only *reads* the named directory and this whole phase
+already runs under the same local trust boundary as running `uvicorn` on
+the same machine. There are still no `guidelines`/`export` tools —
+`brand.guidelines.generator`/`brand.export.exporters` remain CLI-only;
+no endpoint was designed for either without a concrete tool spec to
+build against (design doc §4.2, §12).
+
 ## Environment
 
 | Variable | Default | Description |
@@ -164,9 +185,8 @@ found.
 
 stdio-only, single-user, no auth — the same trust boundary as running
 `uvicorn` locally already has; do not expose this server's transport
-over a network. No brand authoring in chat (M4.5), no remote transport
-(M4.6, needs an auth layer ADOS does not have today). See the design
-doc's §9–§12 for the reasoning and the open decisions.
+over a network. No remote transport (M4.6, needs an auth layer ADOS does
+not have today). See the design doc's §9–§12 for the reasoning.
 
 ## Tests
 
@@ -186,9 +206,14 @@ every write and generation path has also been run end to end against a
 real `api/main.py` during development: create project → attach brand →
 two documents → shared content selected on one of them → propagate →
 only the referencing document recomposes, the other reported
-`unaffected` (M4.2/M4.3); and semantic intent → narrative → design
-intent → compose → commands → apply → save_version, plus a full
-closed-loop start → history → stop, in one run (M4.4). See
-`brand/README.md`'s own testing section and
-`tests_brand/test_propagation*.py` for `propagation.py`'s pure-domain and
-API-level coverage — that logic lives under `brand/`, not here.
+`unaffected` (M4.2/M4.3); semantic intent → narrative → design intent →
+compose → commands → apply → save_version, plus a full closed-loop
+start → history → stop, in one run (M4.4); and propose → approve (by a
+named human) → seed a real STUDIO OM brand → build its real package →
+audit it clean, then confirm a missing `package_dir` surfaces its
+structured detail rather than a bare "not found" (M4.5 — this last check
+caught and fixed a real bug in `AdosClient._request`'s own 404 handling).
+See `brand/README.md`'s own testing section,
+`tests_brand/test_propagation*.py` and `tests_brand/test_brand_audit_api.py`
+for that domain-level and API-level coverage — that logic lives under
+`brand/` and `api/routers/`, not here.

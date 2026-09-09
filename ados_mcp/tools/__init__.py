@@ -13,4 +13,4 @@ shared ``mcp`` instance in ``ados_mcp.server``.
 
 from __future__ import annotations
 
-from ados_mcp.tools import content, documents, generation, loop, projects, propagation  # noqa: F401
+from ados_mcp.tools import brand, content, documents, generation, loop, projects, propagation  # noqa: F401

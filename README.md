@@ -34,16 +34,17 @@ proved to be a genuinely standalone system: nothing in `brand/` or
   ADOS visual-language specification, the architecture notes for each
   milestone, and the PDF/Word document builders + fonts the export pipeline
   renders through.
-- **`ados_mcp/`** — the ADOS Claude connector (ADOS-M4.1–M4.4): an MCP
+- **`ados_mcp/`** — the ADOS Claude connector (ADOS-M4.1–M4.5): an MCP
   server exposing `DesignState`, projects, the shared content pool, brand
   identity, the ADOS 1.0 rule registry and closed-loop lineages as
   resources, plus tools to create/edit projects, documents and content,
   compose/save/export a document, propagate a changed fact or brand
-  version to every document that references it, and run the M3.1–M3.6
-  generation pipeline and closed loop, to Claude Code / Claude Desktop
-  over stdio. A client of `api/main.py` and `ados-service/main.py`, like
-  `ados-web`, never a second way into `brand/`. See
-  `docs/architecture/m4-claude-connector.md` and `ados_mcp/README.md`.
+  version to every document that references it, run the M3.1–M3.6
+  generation pipeline and closed loop, and propose/approve a brand
+  identity in chat, to Claude Code / Claude Desktop over stdio. A client
+  of `api/main.py` and `ados-service/main.py`, like `ados-web`, never a
+  second way into `brand/`. See `docs/architecture/m4-claude-connector.md`
+  and `ados_mcp/README.md`.
 - **`tests_mcp/`** — its boundary (AST) and resource tests, mirroring
   `tests_brand`'s posture at a much smaller scale.
 

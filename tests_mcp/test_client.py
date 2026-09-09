@@ -10,6 +10,7 @@ actually see when a backend is down or returns an error.
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 import pytest
@@ -102,6 +103,25 @@ def test_post_api_sends_json_body_and_returns_the_response() -> None:
     assert seen["url"] == "http://localhost:8000/api/v2/ados-projects"
     assert b'"name":"X"' in seen["body"] or b'"name": "X"' in seen["body"]
     assert result == {"id": "p1"}
+
+
+def test_post_api_sends_query_params_alongside_the_body() -> None:
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["query"] = dict(request.url.params)
+        seen["body"] = json.loads(request.content) if request.content else {}
+        return httpx.Response(201, json={"ok": True})
+
+    result = asyncio.run(
+        _client_with(handler).post_api(
+            "/brand-proposals/approve", json={"brand": {}}, params={"approved_by": "Jane Doe"}
+        )
+    )
+
+    assert seen["query"] == {"approved_by": "Jane Doe"}
+    assert seen["body"] == {"brand": {}}
+    assert result == {"ok": True}
 
 
 def test_patch_put_delete_use_the_expected_verb() -> None:

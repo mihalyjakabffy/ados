@@ -68,7 +68,15 @@ mcp = FastMCP(
         "explicitly asked for unattended execution, and read "
         "ados://projects/{project_id}/documents/{document_id}/loop "
         "before calling approve_loop so the approval is grounded in what "
-        "the loop actually found."
+        "the loop actually found. "
+        "propose_brand (ADOS-M4.5) never saves anything — it is a candidate "
+        "identity for the user to review. approve_brand is the one call "
+        "that writes it, and approved_by MUST be a real person's name the "
+        "user actually gave you — never your own name, never a "
+        "placeholder; an approval you invented defeats the entire point of "
+        "this gate. audit_brand checks an already-built package directory "
+        "on the ADOS server's own filesystem against a brand — a separate "
+        "question from whether the brand itself validates."
     ),
 )
 

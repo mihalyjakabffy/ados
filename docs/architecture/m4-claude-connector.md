@@ -69,7 +69,15 @@ narrow, schema-constrained structured-output call — sits directly behind:
 2. **No tool accepts free-form code, SQL, or a file path.** The tool schema
    surface is a closed, named list, the same discipline `ADOS-7.2.020`
    applies to normative vocabulary and `brand.creative.direction`'s
-   `extra="forbid"` applies to creative parameters.
+   `extra="forbid"` applies to creative parameters. One narrow, stated
+   exception: `audit_brand`'s `package_dir` (§4.2, M4.5) is a server-local
+   filesystem path — accepted only because this whole phase already runs
+   under the same local-trust boundary as running `uvicorn` on the same
+   machine (§12), it only *reads* (never writes) the directory named, and
+   what it returns is bounded to `ConsistencyChecker`'s own findings
+   (colours/fonts/layout values/inventory records it recognises), never
+   arbitrary file content. Any parameter accepting a path must justify
+   itself this explicitly, not slip in by analogy to this one.
 3. **The LLM proposes, deterministic code decides — restated for chat.**
    Nothing Claude says in conversation mutates a document directly. Every
    write tool's arguments are validated by the same Pydantic models and the
@@ -184,6 +192,35 @@ only `generate_semantic_intent`'s response names which one ran
 `DesignIntent`, `CommandPlan`) carry no such field today. The connector's
 own startup instructions (`ados_mcp/server.py`) tell the connecting model
 this, so it never claims a provider it cannot actually see.
+
+Shipped in M4.5 (`ados_mcp/tools/brand.py`):
+
+| Tool | Wraps | Domain |
+|---|---|---|
+| `propose_brand(brief, name?)` | `POST /brand-proposals` | a candidate `Brand` from `BrandAgent` — never saved |
+| `approve_brand(proposal, approved_by)` | `POST /brand-proposals/approve` | the one write, requires a named human (`brand/README.md` Rule 3, §3 rule 4) |
+| `audit_brand(brand_id, package_dir, version?)` | `POST /brands/{id}/audit` | **new endpoint**, see below |
+
+`audit_brand` is backed by a genuinely new endpoint —
+`POST /brands/{brand_id}/audit`, wrapping
+`brand.validation.consistency.audit_package` (already real, tested
+domain code with no HTTP door before now) — added the same way M4.3
+added `propagate_content_change`'s two endpoints: the underlying
+capability already existed and was already load-bearing (`brand/README.md`'s
+own "the consistency check" section, `python -m brand.cli audit`), it
+simply had no HTTP surface yet. `package_dir` names a directory on the
+machine running the ADOS API server — the same local trust boundary this
+whole phase already runs under (§12); this is not a new exposure.
+
+**Correction from the original draft of this table** (§10): "guidelines/export
+tools" appeared in the phase description but was never given a concrete
+shape in this table, and no endpoint exists for either capability today
+— `brand.guidelines.generator`/`brand.export.exporters` (the eighteen-section
+guidelines document; CSS/JSON/YAML token exports) are CLI-only
+(`python -m brand.cli guidelines` / `export`). Designing a new endpoint
+shape for them without a concrete tool spec to build against would be
+exactly the speculative surface §3's non-negotiables warn against.
+Deferred, not shipped — see §12.
 
 ## 5. `DesignState` is the connector's spine
 
@@ -367,7 +404,7 @@ question, not a silent action). The connector's only job here is transport.
 | **M4.2** | Write tools that wrap one existing endpoint 1:1: project (`create_project`, `update_project_data`, `attach_brand`), content CRUD (document-private and shared pool), document lifecycle (`create_document`, `compose_document`, `save_version`, `export_document`). AST boundary tests extended (write verbs confined to `client.py`, every write tool calls `get_client()`, `ados-service` stays write-free). **Shipped** — verified against a real `api/main.py` end to end (create → attach brand → content → compose → save version → export), not only against mocks. | Low — every tool already had REST-level tests; MCP tests assert the wrapper, not the logic. |
 | **M4.3** | `brand/project/propagation.py` + its two endpoints (`.../content/{id}/propagate`, `.../brand/propagate`) + two MCP tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. Its own AST boundary suite (`tests_brand/test_propagation_boundaries.py`, mirroring `test_loop_boundaries.py`). **Shipped** — pure-domain tests, API tests, MCP-tool tests, and a live end-to-end run against a real `api/main.py` (shared item → select on one of two documents → propagate → only the referencing document recomposes, the other is reported `unaffected`). | Medium — first genuinely new backend logic this milestone added; mitigated by matching M3.6's own boundary-testing discipline from the first commit. |
 | **M4.4** | Generative tools (`generate_semantic_intent`, `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools (`start_loop`/`continue_loop`/`run_loop`/`approve_loop`/`stop_loop`), gated by the loop's own existing autonomy policy (default `safe`) — no second gate invented. Two new read-only resources (loop history, loop iteration trace) added alongside, since `approve_loop`'s own tool description needs something real to point at. **Shipped** — verified end to end against a real `api/main.py`: the full chain semantic intent → narrative → design intent → compose → commands → apply → save_version, plus a full closed-loop start → history → stop, all in one run. | Medium — cost/latency-visible (real LLM calls on the ADOS side are possible, §9 decision 3), but every tool reuses M3.1–M3.6 unchanged; no new backend logic. |
-| **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`/`audit_brand`), guidelines/export tools. | Low — human-approval gate already exists; this only relays it. |
+| **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`), plus `audit_brand` behind a new endpoint. **Shipped** — verified end to end against a real `api/main.py`: proposed a brand, approved it by a named human, seeded a real STUDIO OM brand, built its real package, audited it clean (53 files), then confirmed a missing `package_dir` surfaces its structured 404 detail — catching, and fixing, a real bug in `AdosClient._request` (it had special-cased 404 to a bare "not found: {url}", discarding whatever detail the endpoint actually returned; now it keeps "not found" as a stable substring while still surfacing the JSON detail, for every status code). "Guidelines/export tools" from the original phase description are deferred, undesigned (§4.2, §12) — not shipped as part of this phase. | Low — human-approval gate already exists; this only relays it. `audit_brand` is the one new endpoint, narrow and read-only. |
 | **M4.6** | Remote (HTTP+SSE) transport + bearer-token auth for the claude.ai custom-connector case. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today). |
 
 ## 11. Proposed layout
@@ -398,7 +435,16 @@ tests_brand/
   test_propagation_boundaries.py # AST: only propagation.py calls compose()/
                                   # evaluate() within brand/project/
   test_propagation_api.py        # the two new api/routers/ados_project.py endpoints
+  test_brand_audit_api.py        # M4.5 — POST /brands/{id}/audit, against a
+                                  # real, fully-built STUDIO OM package
 ```
+
+`api/routers/brand.py` also gained one new endpoint in M4.5,
+`POST /brands/{brand_id}/audit` — a thin HTTP shell around the
+already-real, already-tested `brand.validation.consistency.audit_package`
+(no new domain module needed this time, unlike M4.3's `propagation.py`,
+since the underlying function already lived in `brand/` and needed no new
+logic, only a door).
 
 Named `ados_mcp/`, not `mcp/` — the MCP Python SDK is itself the PyPI/import
 name `mcp`; a same-named top-level package at the repo root would shadow it
@@ -427,5 +473,18 @@ write and trust.
   structural bridge from content-reference ids to `ContentModel.ContentBlock.id`
   exists yet anywhere in the shipped system (M3.6 §16). M4 does not invent
   one either.
-- **This document does not choose §9's open decisions.** Implementation
-  should not start on M4.3 or M4.6 until they are settled.
+- **No guidelines/export tools.** `brand.guidelines.generator` (the
+  eighteen-section guidelines document) and `brand.export.exporters`
+  (CSS/JSON/YAML token exports) remain CLI-only — no endpoint exists for
+  either, and none was designed speculatively for M4.5 (§4.2). A real gap
+  if a future phase wants them; not silently pretended-away.
+- **`audit_brand`'s `package_dir` is the connector's one file-path
+  parameter** (§3 rule 2's stated exception) — read-only, server-local,
+  and no more exposure than the CLI's own `audit` command already has
+  under the same local trust boundary. Revisit this exception explicitly
+  if M4.6 ever makes the transport remote before per-tool access control
+  exists.
+- **All three of §9's decisions are now settled** (propagation explicit,
+  stdio-first, and decision 3 turned out to be moot — §9 item 3).
+  Nothing in this design remains open; M4.6 is scoped (§9 decision 2,
+  §12) but not started.

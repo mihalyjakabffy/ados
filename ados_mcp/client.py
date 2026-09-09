@@ -84,8 +84,12 @@ class AdosClient:
 
     # -- writes (ADOS-M4.2) — api/main.py only; ados-service has none ---
 
-    async def post_api(self, path: str, *, json: Optional[dict[str, Any]] = None) -> dict:
-        return await self._request("POST", self._api_base, path, json=json, env_var="ADOS_API_BASE_URL")
+    async def post_api(
+        self, path: str, *, json: Optional[dict[str, Any]] = None, params: Optional[dict[str, Any]] = None
+    ) -> dict:
+        return await self._request(
+            "POST", self._api_base, path, json=json, params=params, env_var="ADOS_API_BASE_URL"
+        )
 
     async def patch_api(self, path: str, *, json: Optional[dict[str, Any]] = None) -> dict:
         return await self._request("PATCH", self._api_base, path, json=json, env_var="ADOS_API_BASE_URL")
@@ -123,13 +127,19 @@ class AdosClient:
                 f"could not reach {url} — is {run_hint} running? "
                 f"(override the address with {env_var})"
             ) from exc
-        if response.status_code == 404:
-            raise AdosConnectionError(f"not found: {url}")
         if response.is_error:
             try:
                 detail: Any = response.json()
             except ValueError:
                 detail = response.text[:500]
+            if response.status_code == 404:
+                # Keeps "not found" in the message (a stable substring
+                # callers/tests can match on) while still surfacing
+                # whatever structured detail the endpoint returned —
+                # e.g. {"error": "package_dir_not_found", "path": ...} —
+                # rather than discarding it the way an earlier version
+                # of this method did.
+                raise AdosConnectionError(f"not found: {url} — {detail}")
             raise AdosConnectionError(f"{method} {url} returned HTTP {response.status_code}: {detail}")
         if not response.content:
             return {}
