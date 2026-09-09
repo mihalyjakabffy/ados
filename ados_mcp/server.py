@@ -2,24 +2,42 @@
 ados_mcp/server.py
 
 ADOS-M4 entrypoint (docs/architecture/m4-claude-connector.md) — the MCP
-server a Claude Code / Claude Desktop session adds as a connector. Ships
-stdio-only (§9 decision 2 of the design doc); the remote HTTP+SSE
-transport for a claude.ai custom connector is deferred to M4.6, once an
-auth layer exists — ADOS itself has none today, and exposing this server
-over the network before then would expose every project it can read and
-write to anyone who can reach the port.
+server a Claude Code / Claude Desktop session, or a remote MCP client
+such as claude.ai's custom connectors, adds as a connector.
+
+**Transport defaults to stdio** (§9 decision 2) — the same trust
+boundary as running any other local process. ADOS-M4.6 adds a remote
+mode, selected explicitly via ``ADOS_MCP_TRANSPORT`` (never the
+default), which binds an HTTP server and requires every request to
+carry the bearer token ``ados_mcp.auth`` guards it with
+(``ADOS_MCP_TOKEN`` — generate one with
+``python -m ados_mcp.auth generate``). Streamable HTTP
+(``ADOS_MCP_TRANSPORT=http``) is the current MCP spec's recommended
+remote transport and this module's primary one; SSE
+(``ADOS_MCP_TRANSPORT=sse``) is kept only for a client that has not
+moved off the older transport — the design doc's original "HTTP+SSE"
+phrasing conflated the two; see ados_mcp/README.md's deployment notes
+for the correction and the reasoning.
 
 Run directly:
 
-    python -m ados_mcp.server
+    python -m ados_mcp.server                              # stdio (default)
+    ADOS_MCP_TRANSPORT=http ADOS_MCP_TOKEN=... python -m ados_mcp.server
 
 or point a Claude Code / Claude Desktop MCP config at this module — see
-ados_mcp/README.md for the exact config block.
+ados_mcp/README.md for the exact config block and the remote-deployment
+notes (TLS, host binding, what the bearer token does and does not
+protect).
 """
 
 from __future__ import annotations
 
+import logging
+import os
+
 from mcp.server.fastmcp import FastMCP
+
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     name="ados",
@@ -90,8 +108,68 @@ from ados_mcp import resources  # noqa: E402,F401
 from ados_mcp import tools  # noqa: E402,F401
 
 
+#: ADOS_MCP_TRANSPORT values -> the FastMCP ASGI app factory each one
+#: serves. "http" is the friendly name for what the MCP spec calls
+#: Streamable HTTP — the transport this module treats as primary.
+_REMOTE_APP_FACTORIES = {"http": "streamable_http_app", "sse": "sse_app"}
+
+
+def run_remote(transport: str) -> None:
+    """Serve ``mcp`` over HTTP, behind the bearer-token guard
+    (``ados_mcp.auth.protect``). Never called by ``main()`` unless
+    ``ADOS_MCP_TRANSPORT`` explicitly asks for it — stdio stays the
+    default every other entry point in this module takes."""
+    import uvicorn
+
+    from ados_mcp import auth
+
+    host = os.environ.get("ADOS_MCP_HOST", "127.0.0.1")
+    port = int(os.environ.get("ADOS_MCP_PORT", "8100"))
+
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        # FastMCP auto-enables DNS-rebinding protection scoped to
+        # loopback Host/Origin values the moment it sees a non-default
+        # host at construction time — but `mcp` above was constructed
+        # with no `host=`, so that protection is still loopback-scoped
+        # even though we are about to bind elsewhere. A real remote
+        # client's Host header will never match it, so every request
+        # would be refused regardless of the bearer token being
+        # correct. Disabling it here is a deliberate trade, not an
+        # oversight: the bearer token is this transport's real
+        # boundary, and DNS-rebinding protection specifically defends
+        # a loopback-trusting server against a browser-based attack —
+        # a threat model that doesn't apply once every request already
+        # needs a token no browser page can know. See
+        # ados_mcp/README.md's deployment notes for what this does and
+        # does not defend against, and why TLS in front of this is not
+        # optional.
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        )
+        logger.warning(
+            "binding to %s (not loopback) — make sure TLS terminates in front "
+            "of this process (a reverse proxy or tunnel); never serve plaintext "
+            "%s bearer-token traffic directly to the open internet",
+            host, auth.TOKEN_ENV_VAR,
+        )
+
+    factory_name = _REMOTE_APP_FACTORIES[transport]
+    app = auth.protect(getattr(mcp, factory_name)())
+    uvicorn.run(app, host=host, port=port, log_level="info")
+
+
 def main() -> None:
-    mcp.run(transport="stdio")
+    transport = os.environ.get("ADOS_MCP_TRANSPORT", "stdio")
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    elif transport in _REMOTE_APP_FACTORIES:
+        run_remote(transport)
+    else:
+        raise SystemExit(
+            f"unknown ADOS_MCP_TRANSPORT {transport!r} — expected 'stdio', 'http', or 'sse'"
+        )
 
 
 if __name__ == "__main__":

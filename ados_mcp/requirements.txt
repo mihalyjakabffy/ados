@@ -13,3 +13,12 @@ mcp>=1.0,<2
 # independently installable, the same posture ados-service/requirements.txt
 # already takes for its own (smaller) dependency set.
 httpx>=0.28.0
+
+# ados_mcp/server.py's remote transport (ADOS-M4.6, ADOS_MCP_TRANSPORT=
+# http|sse) serves ados_mcp/auth.py's bearer-token-guarded ASGI app
+# directly via uvicorn.run(), the same way api/main.py and
+# ados-service/main.py already run themselves. Already pulled in
+# transitively by `mcp` (which needs it for mcp.run(transport=...)
+# itself) — pinned explicitly here because this module now imports and
+# calls it directly, not only through mcp's own internals.
+uvicorn[standard]>=0.30

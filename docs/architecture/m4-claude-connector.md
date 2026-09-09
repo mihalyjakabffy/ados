@@ -405,13 +405,15 @@ question, not a silent action). The connector's only job here is transport.
 | **M4.3** | `brand/project/propagation.py` + its two endpoints (`.../content/{id}/propagate`, `.../brand/propagate`) + two MCP tools, called explicitly per §9 decision 1 — never as a side effect of the edit tools in M4.2. Its own AST boundary suite (`tests_brand/test_propagation_boundaries.py`, mirroring `test_loop_boundaries.py`). **Shipped** — pure-domain tests, API tests, MCP-tool tests, and a live end-to-end run against a real `api/main.py` (shared item → select on one of two documents → propagate → only the referencing document recomposes, the other is reported `unaffected`). | Medium — first genuinely new backend logic this milestone added; mitigated by matching M3.6's own boundary-testing discipline from the first commit. |
 | **M4.4** | Generative tools (`generate_semantic_intent`, `generate_narrative`, `generate_design_intent`, `generate_commands`, `apply_commands`) and the closed-loop tools (`start_loop`/`continue_loop`/`run_loop`/`approve_loop`/`stop_loop`), gated by the loop's own existing autonomy policy (default `safe`) — no second gate invented. Two new read-only resources (loop history, loop iteration trace) added alongside, since `approve_loop`'s own tool description needs something real to point at. **Shipped** — verified end to end against a real `api/main.py`: the full chain semantic intent → narrative → design intent → compose → commands → apply → save_version, plus a full closed-loop start → history → stop, all in one run. | Medium — cost/latency-visible (real LLM calls on the ADOS side are possible, §9 decision 3), but every tool reuses M3.1–M3.6 unchanged; no new backend logic. |
 | **M4.5** | Brand proposal loop in chat (`propose_brand`/`approve_brand`), plus `audit_brand` behind a new endpoint. **Shipped** — verified end to end against a real `api/main.py`: proposed a brand, approved it by a named human, seeded a real STUDIO OM brand, built its real package, audited it clean (53 files), then confirmed a missing `package_dir` surfaces its structured 404 detail — catching, and fixing, a real bug in `AdosClient._request` (it had special-cased 404 to a bare "not found: {url}", discarding whatever detail the endpoint actually returned; now it keeps "not found" as a stable substring while still surfacing the JSON detail, for every status code). "Guidelines/export tools" from the original phase description are deferred, undesigned (§4.2, §12) — not shipped as part of this phase. | Low — human-approval gate already exists; this only relays it. `audit_brand` is the one new endpoint, narrow and read-only. |
-| **M4.6** | Remote (HTTP+SSE) transport + bearer-token auth for the claude.ai custom-connector case. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today). |
+| **M4.6** | Remote transport (Streamable HTTP, the current MCP spec's recommended one — the phase table's original "HTTP+SSE" conflated it with the older SSE transport, kept only for compatibility) + a bearer-token guard (`ados_mcp/auth.py`), selected via `ADOS_MCP_TRANSPORT` (default stays `stdio`). Deliberately not OAuth — see §12. **Shipped** — verified end to end with the real transport: a full MCP `initialize` handshake over HTTP, refused with 401 with no token or the wrong one, succeeding (real server capabilities + instructions back) with the correct one. | Highest — the one genuinely new piece of infrastructure (ADOS has no auth today); mitigated by keeping the guard itself small enough to read in one sitting rather than half-implementing OAuth. |
 
 ## 11. Proposed layout
 
 ```
 ados_mcp/
-  server.py        # tool/resource registration; stdio + HTTP+SSE entrypoints
+  server.py        # tool/resource registration; stdio (default) + the
+                     # M4.6 remote entrypoint (run_remote), selected via
+                     # ADOS_MCP_TRANSPORT
   client.py         # one httpx wrapper around api/v2 — the ados_mcp/ analogue
                      # of claude_provider.py's get_client(): the one shared,
                      # low-level path every tool call goes through
@@ -419,13 +421,18 @@ ados_mcp/
   tools/
     projects.py  content.py  documents.py  propagation.py  brand.py  generation.py  loop.py
                  #  ^ M4.2      ^ M4.2         ^ M4.3        ^ M4.5    ^ M4.4        ^ M4.4
-  auth.py          # bearer-token guard, M4.6 only
+  auth.py          # M4.6 — the bearer-token ASGI middleware guarding the
+                     # remote transport; plain Starlette, deliberately not
+                     # the MCP SDK's own OAuth-shaped auth mechanism (§12)
 tests_mcp/
   test_boundaries.py        # AST: no module imports brand/ or api/routers/
                              # directly, only client.py touches httpx, every
                              # tools/* module calls get_client()
   test_client.py  test_resources.py  test_tools_projects.py  test_tools_content.py
   test_tools_documents.py  test_tools_propagation.py  ...  # one per resources/tools module
+  test_auth.py               # the bearer-token middleware against a mocked app
+  test_auth_integration.py   # the same guard wrapping a real (tool-less)
+                              # FastMCP streamable_http_app()
 docs/architecture/m4-claude-connector.md   # this document
 brand/project/propagation.py   # M4.3 — lives under brand/, not ados_mcp/;
                                 # see §6 for why the fan-out is domain logic,
@@ -461,9 +468,53 @@ write and trust.
 
 ## 12. Known limitations (stated honestly, per this repository's convention)
 
-- **No auth exists in ADOS today.** M4.1–M4.5 are safe to run locally
-  (stdio, same trust boundary as running `uvicorn` on a laptop already is)
-  but are not safe to expose over the network until M4.6 lands.
+- **A remote transport now exists (M4.6), guarded by a bearer token, not
+  OAuth.** `ados_mcp/auth.py` wraps `FastMCP.streamable_http_app()`/
+  `.sse_app()` with plain ASGI middleware checking `Authorization: Bearer
+  <token>` against one shared secret (`ADOS_MCP_TOKEN`) — never the MCP
+  SDK's own `TokenVerifier`/`AuthSettings` mechanism, which is shaped for
+  a real OAuth resource-server/authorization-server pair (a mandatory
+  `issuer_url`, discovery metadata, dynamic client registration). ADOS is
+  a single-practice tool with no user directory and no client to
+  register; half-configuring that machinery around one shared secret
+  would either fake OAuth metadata that doesn't back a real authorization
+  flow — actively misleading to a client that tries to follow it — or
+  ship it half-built. A plain, five-line header check that does exactly
+  what it says is the more honest boundary, and is what shipped. The
+  consequence: **there is no interactive "click to authorize" flow** —
+  the token is generated once (`python -m ados_mcp.auth generate`) and
+  configured on both ends out of band. A future MCP client that
+  specifically requires a discoverable OAuth authorization flow to add a
+  remote connector at all is not served by this design; revisit then,
+  not speculatively now.
+- **The DNS-rebinding-protection trade in `run_remote()` is deliberate,
+  not an oversight.** FastMCP auto-scopes that protection to loopback
+  Host/Origin values the moment it is constructed without an explicit
+  non-default `host=`; `ados_mcp.server.mcp` is one process-lifetime
+  singleton constructed before any transport is chosen, so it is always
+  loopback-scoped at that point. Binding to a non-loopback
+  `ADOS_MCP_HOST` therefore disables that specific protection (every real
+  remote request's Host header would otherwise be rejected regardless of
+  a correct token) — an acceptable trade because DNS rebinding defends a
+  *loopback-trusting* server against a browser-based attack, a threat
+  model the bearer token already supersedes once every request needs a
+  secret no browser page can know. `ADOS_MCP_HOST` still defaults to
+  loopback, so this trade is opt-in, not automatic.
+- **`audit_brand`'s `package_dir` is sharper now that remote access
+  exists, and was reconsidered here, not left as a stale "revisit later"
+  note.** Locally (M4.1–M4.5), it added no new capability — whoever ran
+  `ados_mcp` already had filesystem access to the same machine. With a
+  remote, bearer-token-authenticated caller (M4.6), it becomes a bounded
+  filesystem-read oracle on the ADOS API server's own host (bounded to
+  what `ConsistencyChecker` parses — colours, fonts, layout custom
+  properties, the asset inventory — never arbitrary file content). This
+  is judged an accepted consequence of the token already being "a master
+  key, not a scoped credential" (`ados_mcp/README.md`'s own security
+  notes): a holder of that token already has full read/write access to
+  every project and brand this instance can reach, so one more bounded,
+  read-only filesystem capability is consistent with, not beyond, that
+  model. It is not, and should not become, a reason to treat the token
+  as anything less than a full production secret.
 - **Propagation is document-scoped, not cross-project.** A shared fact
   duplicated by hand across two *different* projects (not the shared pool)
   is out of scope — the same boundary `ADOS-0.3.020`'s own carrier-per-fact-
@@ -478,13 +529,12 @@ write and trust.
   (CSS/JSON/YAML token exports) remain CLI-only — no endpoint exists for
   either, and none was designed speculatively for M4.5 (§4.2). A real gap
   if a future phase wants them; not silently pretended-away.
-- **`audit_brand`'s `package_dir` is the connector's one file-path
-  parameter** (§3 rule 2's stated exception) — read-only, server-local,
-  and no more exposure than the CLI's own `audit` command already has
-  under the same local trust boundary. Revisit this exception explicitly
-  if M4.6 ever makes the transport remote before per-tool access control
+- **No per-project or per-user scoping, at any transport.** Every
+  authenticated caller — a local stdio client or a remote bearer-token
+  one — gets identical full access to every project and brand this ADOS
+  instance can reach. A future multi-practice or multi-seat deployment
+  would need real scoping added deliberately; nothing here assumes it
   exists.
-- **All three of §9's decisions are now settled** (propagation explicit,
-  stdio-first, and decision 3 turned out to be moot — §9 item 3).
-  Nothing in this design remains open; M4.6 is scoped (§9 decision 2,
-  §12) but not started.
+- **All of §9's decisions are settled**, including decision 2's own
+  scope: M4.6 shipped the transport and the auth guard it named, in the
+  form reasoned about above. Nothing in this design remains open.

@@ -1,6 +1,6 @@
 # ados_mcp — the ADOS Claude connector
 
-ADOS-M4.1–M4.5. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
+ADOS-M4.1–M4.6. Design: [`docs/architecture/m4-claude-connector.md`](../docs/architecture/m4-claude-connector.md).
 
 An MCP server exposing ADOS's own `DesignState`, projects, shared content
 pool, brand identity, the ADOS 1.0 rule registry, and closed-loop
@@ -16,8 +16,9 @@ HTTP, exactly the relationship `ados-web` already has to `api/main.py`.
 It does not import `brand/` or `api/routers/` — every tool is a thin
 wrapper around one already-validated ADOS endpoint, so a malformed or
 unsafe request is refused by ADOS itself, never silently accepted
-(design doc §3). See the phased rollout (§10) for what M4.6 still adds —
-the remote transport.
+(design doc §3). Ships over stdio by default (Claude Code / Claude
+Desktop); a bearer-token-guarded remote HTTP transport for a claude.ai
+custom connector is also available (ADOS-M4.6) — see below.
 
 ## Install
 
@@ -67,6 +68,67 @@ Add to `claude_desktop_config.json`:
   }
 }
 ```
+
+## Remote transport (ADOS-M4.6)
+
+For a remote MCP client — a claude.ai custom connector, or any MCP
+client that isn't running on the same machine — the connector can serve
+Streamable HTTP (the current MCP spec's recommended remote transport;
+the design doc's original "HTTP+SSE" phrasing conflated it with the
+older SSE transport, kept here only for a client that hasn't moved off
+it) behind a required bearer token. **Never run this without generating
+a token and putting TLS in front of it** — see "Security notes" below.
+
+```bash
+# once: generate a token and put it wherever this server reads
+# ADOS_MCP_TOKEN from (a secrets manager, a local .env, ...)
+python -m ados_mcp.auth generate
+
+# run the remote transport
+ADOS_MCP_TRANSPORT=http ADOS_MCP_TOKEN=<the generated token> \
+  python -m ados_mcp.server
+# -> serves Streamable HTTP on http://127.0.0.1:8100/mcp by default
+```
+
+A client then connects with `Authorization: Bearer <the same token>` on
+every request. In Claude Code / Claude Desktop's own MCP config, a
+remote server is added with a `url` (and, where the client supports it,
+a static bearer token) instead of a `command`; consult your MCP client's
+own current documentation for the exact config shape it expects — this
+changes across clients and versions faster than this file should try to
+track.
+
+### Security notes — read before running this anywhere but your own laptop
+
+- **The token is a master key, not a scoped credential.** Every
+  authenticated request gets full read/write access to every project
+  this ADOS instance can reach — there is no per-project or per-user
+  access control anywhere in this tool surface (design doc §12).
+- **This is a bearer-token guard, not OAuth.** `ados_mcp/auth.py`
+  explains why: ADOS is a single-practice tool, and half-configuring the
+  MCP SDK's OAuth-shaped auth machinery around one shared secret would
+  be worse than a plain, fully-understood header check. If a client
+  specifically requires a real OAuth authorization flow to add a remote
+  connector at all, this server does not provide one today.
+- **TLS is not optional.** This server speaks plain HTTP; a bearer token
+  sent over it in cleartext is a token handed to anyone on the network
+  path. Put a reverse proxy or tunnel that terminates TLS in front of it
+  (nginx, Caddy, Cloudflare Tunnel, Tailscale Funnel, an SSH tunnel for
+  personal use) — never expose `ADOS_MCP_PORT` directly to the open
+  internet.
+- **`ADOS_MCP_HOST` defaults to loopback (`127.0.0.1`)** even in remote
+  mode, so binding anywhere reachable from another machine is an
+  explicit opt-in, not an accident. If you do set it to a non-loopback
+  address, `run_remote()` disables FastMCP's own DNS-rebinding
+  protection (which is scoped to loopback Host/Origin values and would
+  otherwise reject every real remote request) — the bearer token is this
+  transport's actual boundary once that trade is made; see the comment
+  in `ados_mcp/server.py::run_remote` for the full reasoning.
+- **`api/main.py` and `ados-service/main.py` stay local-only, unchanged.**
+  Only run `ados_mcp` itself in remote mode; point `ADOS_API_BASE_URL`/
+  `ADOS_SERVICE_BASE_URL` at their normal loopback addresses. This
+  connector is the one thing meant to be network-facing — nothing else
+  in this repository's HTTP surface has been reviewed for that.
 
 ## Resources
 
@@ -180,13 +242,19 @@ build against (design doc §4.2, §12).
 |---|---|---|
 | `ADOS_API_BASE_URL` | `http://localhost:8000/api/v2` | where `api/main.py` is reachable |
 | `ADOS_SERVICE_BASE_URL` | `http://localhost:8010` | where `ados-service/main.py` is reachable |
+| `ADOS_MCP_TRANSPORT` | `stdio` | `stdio` (default) / `http` (Streamable HTTP) / `sse` (legacy) |
+| `ADOS_MCP_TOKEN` | *(required for `http`/`sse`)* | the bearer token every remote request must carry — `python -m ados_mcp.auth generate` |
+| `ADOS_MCP_HOST` | `127.0.0.1` | remote-transport bind address; non-loopback is an explicit opt-in (see security notes above) |
+| `ADOS_MCP_PORT` | `8100` | remote-transport port |
 
 ## What this is not (yet)
 
-stdio-only, single-user, no auth — the same trust boundary as running
-`uvicorn` locally already has; do not expose this server's transport
-over a network. No remote transport (M4.6, needs an auth layer ADOS does
-not have today). See the design doc's §9–§12 for the reasoning.
+Single-user — the bearer token is a master key with no per-project or
+per-user scoping, and there is no OAuth authorization flow, only a
+resource-server-style token check (see the security notes above). No
+guidelines/export tools (`brand.guidelines.generator`/
+`brand.export.exporters` remain CLI-only). See the design doc's §9–§12
+for the full reasoning and what remains genuinely open.
 
 ## Tests
 
@@ -212,8 +280,15 @@ start → history → stop, in one run (M4.4); and propose → approve (by a
 named human) → seed a real STUDIO OM brand → build its real package →
 audit it clean, then confirm a missing `package_dir` surfaces its
 structured detail rather than a bare "not found" (M4.5 — this last check
-caught and fixed a real bug in `AdosClient._request`'s own 404 handling).
-See `brand/README.md`'s own testing section,
-`tests_brand/test_propagation*.py` and `tests_brand/test_brand_audit_api.py`
-for that domain-level and API-level coverage — that logic lives under
-`brand/` and `api/routers/`, not here.
+caught and fixed a real bug in `AdosClient._request`'s own 404 handling);
+and, over the real remote transport (M4.6), a full MCP `initialize`
+handshake — refused with 401 for no token or the wrong one, and
+succeeding, with the server's real capabilities and instructions in the
+response, for the correct one. `test_auth.py` and
+`test_auth_integration.py` cover `ados_mcp/auth.py` itself: the
+bearer-token middleware against a mocked app and against a real (if
+tool-less) FastMCP `streamable_http_app()`. See `brand/README.md`'s own
+testing section, `tests_brand/test_propagation*.py` and
+`tests_brand/test_brand_audit_api.py` for that domain-level and
+API-level coverage — that logic lives under `brand/` and `api/routers/`,
+not here.
